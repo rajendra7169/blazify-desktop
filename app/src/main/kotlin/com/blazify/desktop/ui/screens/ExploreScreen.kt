@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.PlayerState
+import com.blazify.desktop.Typing
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Track
 import com.blazify.desktop.ui.Artwork
@@ -131,7 +133,9 @@ private fun SearchField(value: String, onChange: (String) -> Unit) {
                 singleLine = true,
                 textStyle = TextStyle(color = Blz.ink, fontSize = 13.sp),
                 cursorBrush = SolidColor(Blaze.Amber),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { Typing.active = it.isFocused },
             )
         }
     }

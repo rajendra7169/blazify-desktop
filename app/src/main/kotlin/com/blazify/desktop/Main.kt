@@ -1,5 +1,7 @@
 package com.blazify.desktop
 
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -25,6 +27,9 @@ fun main() = application {
         onCloseRequest = ::exitApplication,
         state = state,
         title = "Blazify",
+        // Claimed at the window rather than on any one control, so the keys
+        // work wherever you happen to be looking.
+        onKeyEvent = { Shortcuts.handle(it, typing = Typing.active) },
     ) {
         window.minimumSize = java.awt.Dimension(940, 600)
 

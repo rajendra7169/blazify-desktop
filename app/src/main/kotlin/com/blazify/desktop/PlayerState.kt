@@ -59,6 +59,13 @@ object PlayerState {
     /** Where playback actually is, in seconds. What the lyrics follow. */
     val positionSeconds: Double get() = AudioEngine.position
 
+    /** Step forward or back by a few seconds, the way the arrow keys do. */
+    fun nudge(seconds: Double) {
+        val duration = AudioEngine.duration
+        if (duration <= 0) return
+        seekTo((AudioEngine.position + seconds).coerceIn(0.0, duration))
+    }
+
     /** Jump to a moment rather than a proportion. */
     fun seekTo(seconds: Double) {
         val duration = AudioEngine.duration
@@ -188,7 +195,15 @@ object PlayerState {
 
     fun changeVolume(value: Float) {
         volume = value.coerceIn(0f, 1f)
+        if (volume > 0f) beforeMute = volume
         AudioEngine.setVolume(volume.toDouble())
+    }
+
+    /** What to go back to when unmuting. */
+    private var beforeMute = 0.8f
+
+    fun toggleMute() {
+        changeVolume(if (volume > 0f) 0f else beforeMute)
     }
 
     init {
