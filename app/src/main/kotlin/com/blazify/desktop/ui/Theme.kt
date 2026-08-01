@@ -4,6 +4,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -11,52 +14,100 @@ import androidx.compose.ui.graphics.Color
  * Licensed under GPL-3.0
  */
 
-/** The brand palette. Amber is reserved for whatever is live right now. */
+/** The brand accent. Reserved for whatever is live right now — never decoration. */
 object Blaze {
     val Amber = Color(0xFFFFA726)
     val Ember = Color(0xFFFF7043)
-
-    /** Near-black rather than pure black: amber vibrates against #000. */
-    val Night = Color(0xFF0A0A0B)
-    val Surface = Color(0xFF141416)
-    val SurfaceHigh = Color(0xFF1C1C20)
-    val Line = Color(0xFF26262B)
-
-    val Ink = Color(0xFFF5F3F0)
-    val Muted = Color(0xFF8A8580)
-    val Dim = Color(0xFF57534E)
-
-    val Day = Color(0xFFFBF9F6)
-    val DayInk = Color(0xFF1A1714)
+    val OnAmber = Color(0xFF1A1005)
 }
 
-private val Dark = darkColorScheme(
-    primary = Blaze.Amber,
-    onPrimary = Color(0xFF1A1005),
-    secondary = Blaze.Ember,
-    background = Blaze.Night,
-    onBackground = Blaze.Ink,
-    surface = Blaze.Surface,
-    onSurface = Blaze.Ink,
-    surfaceVariant = Blaze.SurfaceHigh,
-    onSurfaceVariant = Blaze.Muted,
-    outline = Blaze.Line,
+/** Whether the window follows the desktop, or is pinned to one appearance. */
+enum class ThemeMode { System, Dark, Light }
+
+/**
+ * The colours Material's own scheme has no name for.
+ *
+ * The rail and the transport strip are deliberately a shade apart from the page
+ * behind them — that separation is what makes the content read as the thing
+ * you're looking at, and it needs its own slot in both appearances.
+ */
+@Immutable
+data class BlazeColors(
+    val dark: Boolean,
+    val page: Color,
+    val rail: Color,
+    val bar: Color,
+    val surface: Color,
+    val surfaceHigh: Color,
+    val hover: Color,
+    val line: Color,
+    val ink: Color,
+    val muted: Color,
+    val dim: Color,
+    val skeleton: Color,
+    val skeletonSheen: Color,
 )
 
-private val Light = lightColorScheme(
-    primary = Blaze.Amber,
-    onPrimary = Color(0xFF1A1005),
-    secondary = Blaze.Ember,
-    background = Blaze.Day,
-    onBackground = Blaze.DayInk,
-    surface = Color(0xFFFFFFFF),
-    onSurface = Blaze.DayInk,
-    surfaceVariant = Color(0xFFF1EDE8),
-    onSurfaceVariant = Color(0xFF6E655C),
-    outline = Color(0xFFE3DCD2),
+private val NightColors = BlazeColors(
+    dark = true,
+    // Near-black, not pure black: amber vibrates against #000.
+    page = Color(0xFF0A0A0B),
+    rail = Color(0xFF0E0E10),
+    bar = Color(0xFF111114),
+    surface = Color(0xFF141416),
+    surfaceHigh = Color(0xFF1C1C20),
+    hover = Color(0xFF1C1C20),
+    line = Color(0xFF26262B),
+    ink = Color(0xFFF5F3F0),
+    muted = Color(0xFF8A8580),
+    dim = Color(0xFF57534E),
+    skeleton = Color(0xFF1A1A1E),
+    skeletonSheen = Color(0xFF2A2A31),
 )
+
+private val DayColors = BlazeColors(
+    dark = false,
+    // Warm off-white rather than pure white, so amber sits on it without glare.
+    page = Color(0xFFFBF9F6),
+    rail = Color(0xFFF4F0EA),
+    bar = Color(0xFFF7F4EF),
+    surface = Color(0xFFFFFFFF),
+    surfaceHigh = Color(0xFFF1EDE8),
+    hover = Color(0xFFEDE8E1),
+    line = Color(0xFFE3DCD2),
+    ink = Color(0xFF1A1714),
+    muted = Color(0xFF6E655C),
+    dim = Color(0xFF9A928A),
+    skeleton = Color(0xFFEDE8E1),
+    skeletonSheen = Color(0xFFF7F4EF),
+)
+
+val LocalBlazeColors = staticCompositionLocalOf { NightColors }
+
+/** Shorthand so screens read `Blz.ink` rather than reaching through the local. */
+val Blz: BlazeColors
+    @Composable @ReadOnlyComposable get() = LocalBlazeColors.current
+
+private fun schemeFor(c: BlazeColors) = if (c.dark) {
+    darkColorScheme(
+        primary = Blaze.Amber, onPrimary = Blaze.OnAmber, secondary = Blaze.Ember,
+        background = c.page, onBackground = c.ink,
+        surface = c.surface, onSurface = c.ink,
+        surfaceVariant = c.surfaceHigh, onSurfaceVariant = c.muted, outline = c.line,
+    )
+} else {
+    lightColorScheme(
+        primary = Blaze.Amber, onPrimary = Blaze.OnAmber, secondary = Blaze.Ember,
+        background = c.page, onBackground = c.ink,
+        surface = c.surface, onSurface = c.ink,
+        surfaceVariant = c.surfaceHigh, onSurfaceVariant = c.muted, outline = c.line,
+    )
+}
 
 @Composable
 fun BlazifyTheme(dark: Boolean = true, content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (dark) Dark else Light, content = content)
+    val colors = if (dark) NightColors else DayColors
+    androidx.compose.runtime.CompositionLocalProvider(LocalBlazeColors provides colors) {
+        MaterialTheme(colorScheme = schemeFor(colors), content = content)
+    }
 }
