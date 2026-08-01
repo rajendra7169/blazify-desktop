@@ -1,5 +1,14 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
+// The media libraries ship one native jar per platform. Pick the one for
+// whatever machine is building, which is also the machine that will run it —
+// installers have to be produced on their own platform anyway.
+val fxPlatform = when {
+    System.getProperty("os.name").startsWith("Windows") -> "win"
+    System.getProperty("os.name").contains("Mac") -> "mac"
+    else -> "linux"
+}
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.compose)
@@ -13,6 +22,13 @@ dependencies {
     implementation(compose.materialIconsExtended)
     implementation(compose.components.resources)
     implementation(libs.kotlinx.coroutines)
+
+    // Audio. Chosen over a native player so the installer stays self-contained:
+    // these jars carry their own native code, so nothing has to be installed
+    // alongside the app.
+    implementation(variantOf(libs.javafx.base) { classifier(fxPlatform) })
+    implementation(variantOf(libs.javafx.graphics) { classifier(fxPlatform) })
+    implementation(variantOf(libs.javafx.media) { classifier(fxPlatform) })
 }
 
 compose.desktop {

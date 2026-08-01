@@ -6,6 +6,7 @@ serialization = "1.11.0"
 coroutines = "1.11.0"
 brotli = "0.1.2"
 slf4j = "2.0.16"
+javafx = "21.0.9"
 
 [libraries]
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
@@ -17,6 +18,9 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 brotli-dec = { module = "org.brotli:dec", version.ref = "brotli" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+javafx-base = { module = "org.openjfx:javafx-base", version.ref = "javafx" }
+javafx-graphics = { module = "org.openjfx:javafx-graphics", version.ref = "javafx" }
+javafx-media = { module = "org.openjfx:javafx-media", version.ref = "javafx" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
