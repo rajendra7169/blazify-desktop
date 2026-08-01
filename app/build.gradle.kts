@@ -59,3 +59,14 @@ compose.desktop {
         }
     }
 }
+
+
+// A way to query the catalogue from a terminal without launching the window —
+// far quicker than clicking through the UI when a parser needs checking.
+//   ./gradlew :app:probe --args="let her go"
+tasks.register<JavaExec>("probe") {
+    group = "verification"
+    description = "Search the catalogue and resolve a stream, from the terminal"
+    mainClass.set("com.blazify.desktop.tools.ProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
