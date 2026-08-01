@@ -1,8 +1,10 @@
 package com.blazify.desktop.data
 
 import com.blazify.innertube.YouTube
+import com.blazify.innertube.models.AlbumItem
+import com.blazify.innertube.models.ArtistItem
+import com.blazify.innertube.models.PlaylistItem
 import com.blazify.innertube.models.SongItem
-import com.blazify.innertube.pages.HomePage
 import com.blazify.innertube.models.YouTubeClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -58,24 +60,44 @@ object Catalogue {
         }
     }
 
-    /** One shelf of the feed: a heading and the songs under it. */
-    data class Shelf(val title: String, val tracks: List<Track>)
+    /** What a card on a shelf stands for, which decides what opening it does. */
+    enum class Kind { Song, Album, Playlist, Artist }
+
+    /** One tile on a shelf. */
+    data class Card(
+        val id: String,
+        val title: String,
+        val subtitle: String,
+        val thumbnail: String?,
+        val kind: Kind,
+    )
+
+    /** One shelf of the feed: a heading and the tiles under it. */
+    data class Shelf(val title: String, val cards: List<Card>)
 
     /**
-     * The feed, reduced to shelves of songs.
+     * The feed.
      *
-     * The catalogue mixes songs, albums, artists and playlists into the same
-     * carousels. Only songs can be played from a shelf without another request,
-     * so anything else is dropped and a shelf left empty goes with it.
+     * Signed out it comes back as playlists and albums rather than individual
+     * songs, so shelves are tiles rather than rows — which is also what a wide
+     * window has the space for.
      */
     suspend fun home(): Result<List<Shelf>> = withContext(Dispatchers.IO) {
         ensureIdentity()
         YouTube.home().map { page ->
             page.sections.mapNotNull { section ->
-                val songs = section.items.filterIsInstance<SongItem>().map { it.asTrack() }
-                if (songs.size < 3) null else Shelf(section.title, songs)
+                val cards = section.items.mapNotNull { it.asCard() }
+                if (cards.isEmpty()) null else Shelf(section.title, cards)
             }
         }
+    }
+
+    private fun com.blazify.innertube.models.YTItem.asCard(): Card? = when (this) {
+        is SongItem -> Card(id, title, artists.joinToString(", ") { it.name }, thumbnail, Kind.Song)
+        is AlbumItem -> Card(id, title, artists?.joinToString(", ") { it.name } ?: "Album", thumbnail, Kind.Album)
+        is PlaylistItem -> Card(id, title, author?.name ?: "Playlist", thumbnail, Kind.Playlist)
+        is ArtistItem -> Card(id, title, "Artist", thumbnail, Kind.Artist)
+        else -> null
     }
 
     private fun SongItem.asTrack() = Track(

@@ -78,3 +78,9 @@ tasks.register<JavaExec>("localPlayProbe") {
     mainClass.set("com.blazify.desktop.tools.LocalPlayProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
+
+tasks.register<JavaExec>("homeProbe") {
+    group = "verification"
+    mainClass.set("com.blazify.desktop.tools.HomeProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
