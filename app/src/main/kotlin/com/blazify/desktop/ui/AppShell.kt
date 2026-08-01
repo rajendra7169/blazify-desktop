@@ -35,6 +35,7 @@ import com.blazify.desktop.ui.screens.CollectionScreen
 import com.blazify.desktop.ui.screens.ExploreScreen
 import com.blazify.desktop.ui.screens.HomeScreen
 import com.blazify.desktop.ui.screens.LibraryScreen
+import com.blazify.desktop.ui.screens.LocalScreen
 import com.blazify.desktop.ui.screens.TrackListScreen
 
 /**
@@ -182,6 +183,11 @@ private fun Content(destination: Destination) {
             onPlay = PlayerState::play,
             onShuffle = PlayerState::shuffle,
             action = "Clear" to Library::clearHistory,
+        )
+
+        Destination.OnThisComputer -> LocalScreen(
+            onPlay = PlayerState::play,
+            onShuffle = PlayerState::shuffle,
         )
 
         else -> Placeholder(destination)
