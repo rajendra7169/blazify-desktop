@@ -67,6 +67,22 @@ fun AppShell() {
                 Content(Navigator.destination)
             }
 
+            AnimatedVisibility(
+                visible = lyricsOpen,
+                enter = expandHorizontally(tween(180)) + fadeIn(tween(180)),
+                exit = shrinkHorizontally(tween(160)) + fadeOut(tween(120)),
+            ) {
+                Row {
+                    Box(Modifier.fillMaxHeight().width(1.dp).background(Blz.line))
+                    LyricsPanel(
+                        track = PlayerState.current,
+                        position = PlayerState.positionSeconds,
+                        onSeekTo = PlayerState::seekTo,
+                        onClose = { lyricsOpen = false },
+                    )
+                }
+            }
+
             // Slides in beside the content rather than over it, so browsing
             // carries on while it's open.
             AnimatedVisibility(

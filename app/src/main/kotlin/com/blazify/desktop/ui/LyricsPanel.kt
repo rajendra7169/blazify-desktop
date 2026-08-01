@@ -1,0 +1,168 @@
+package com.blazify.desktop.ui
+
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.blazify.desktop.data.Lyrics
+import com.blazify.desktop.data.LyricsSource
+import com.blazify.desktop.data.Track
+
+/**
+ * Blazify Project (C) 2026
+ * Licensed under GPL-3.0
+ */
+
+/**
+ * The words, beside what you were doing.
+ *
+ * A timed transcript scrolls itself and dims everything but the line being
+ * sung; clicking a line jumps playback to it, which is the fastest way back to
+ * the part you wanted. A song with only flat text still gets a readable page —
+ * it just doesn't move.
+ */
+@Composable
+fun LyricsPanel(
+    track: Track?,
+    position: Double,
+    onSeekTo: (Double) -> Unit,
+    onClose: () -> Unit,
+) {
+    var lyrics by remember(track?.id) { mutableStateOf<Lyrics?>(null) }
+
+    LaunchedEffect(track?.id) {
+        lyrics = track?.let { LyricsSource.of(it) }
+    }
+
+    Column(
+        Modifier.width(340.dp).fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Lyrics", color = Blz.ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                track?.let {
+                    Text(
+                        it.title, color = Blz.dim, fontSize = 11.5.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            val (source, hovered) = rememberHovered()
+            Box(
+                Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .hoverBackground(Blz.hover, hovered, source)
+                    .clickable(onClick = onClose),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Rounded.Close, "Close", Modifier.size(16.dp), tint = Blz.muted)
+            }
+        }
+
+        when {
+            track == null -> Note("Play something to see its words")
+            lyrics == null -> Note("Looking…")
+            lyrics!!.synced -> Synced(lyrics!!, position, onSeekTo)
+            !lyrics!!.plain.isNullOrBlank() -> Plain(lyrics!!.plain!!)
+            else -> Note("No lyrics found for this one")
+        }
+    }
+}
+
+@Composable
+private fun Synced(lyrics: Lyrics, position: Double, onSeekTo: (Double) -> Unit) {
+    val state = rememberLazyListState()
+    val current = lyrics.lineAt(position)
+
+    // Kept a third of the way down rather than centred: the line being sung
+    // matters less than the two coming after it, and reading downward wants
+    // room ahead of the eye, not behind it.
+    LaunchedEffect(current) {
+        if (current >= 0) {
+            state.animateScrollToItem(current.coerceAtLeast(0), scrollOffset = -160)
+        }
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        state = state,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        itemsIndexed(lyrics.lines) { at, line ->
+            val active = at == current
+            val colour by animateColorAsState(
+                if (active) Blz.ink else Blz.dim, tween(180), label = "lyricInk",
+            )
+            val weight by animateFloatAsState(
+                if (active) 1f else 0f, tween(180), label = "lyricWeight",
+            )
+            val (source, hovered) = rememberHovered()
+
+            Text(
+                line.text.ifBlank { "·" },
+                color = colour,
+                fontSize = if (active) 17.sp else 15.sp,
+                fontWeight = if (weight > 0.5f) FontWeight.Bold else FontWeight.Medium,
+                lineHeight = 23.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .hoverBackground(Blz.hover, hovered, source)
+                    .clickable { onSeekTo(line.at) }
+                    .padding(horizontal = 6.dp, vertical = 5.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun Plain(text: String) {
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        items(text.lines()) { line ->
+            Text(
+                line.ifBlank { " " }, color = Blz.muted, fontSize = 14.sp, lineHeight = 22.sp,
+                modifier = Modifier.padding(horizontal = 6.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun Note(text: String) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
+        Text(text, color = Blz.dim, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+    }
+}

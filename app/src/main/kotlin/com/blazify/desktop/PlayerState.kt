@@ -56,6 +56,16 @@ object PlayerState {
         get() = seekTarget
             ?: if (AudioEngine.duration > 0) (AudioEngine.position / AudioEngine.duration).toFloat() else 0f
 
+    /** Where playback actually is, in seconds. What the lyrics follow. */
+    val positionSeconds: Double get() = AudioEngine.position
+
+    /** Jump to a moment rather than a proportion. */
+    fun seekTo(seconds: Double) {
+        val duration = AudioEngine.duration
+        if (duration <= 0) return
+        seek((seconds / duration).toFloat())
+    }
+
     val elapsed: String
         get() = clock(seekTarget?.let { it * AudioEngine.duration } ?: AudioEngine.position)
     val total: String get() = if (AudioEngine.duration > 0) clock(AudioEngine.duration) else current?.duration ?: "0:00"
