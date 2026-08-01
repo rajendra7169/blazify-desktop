@@ -49,6 +49,10 @@ data class HomePage(
         val thumbnail: String?,
         val endpoint: BrowseEndpoint?,
         val items: List<YTItem>,
+        /** How many items stack in one column: 1 is a row of cards, 4 a grid. */
+        val rows: Int = 1,
+        /** Requested tile size — LARGE, MEDIUM or SMALL. */
+        val size: String? = null,
     ) {
         companion object {
             fun fromMusicCarouselShelfRenderer(renderer: MusicCarouselShelfRenderer): Section? {
@@ -97,7 +101,9 @@ data class HomePage(
                     label = renderer.header.musicCarouselShelfBasicHeaderRenderer.strapline?.runs?.firstOrNull()?.text,
                     thumbnail = renderer.header.musicCarouselShelfBasicHeaderRenderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl(),
                     endpoint = renderer.header.musicCarouselShelfBasicHeaderRenderer.moreContentButton?.buttonRenderer?.navigationEndpoint?.browseEndpoint,
-                    items = items
+                    items = items,
+                    rows = renderer.numItemsPerColumn ?: 1,
+                    size = renderer.itemSize,
                 )
             }
 
