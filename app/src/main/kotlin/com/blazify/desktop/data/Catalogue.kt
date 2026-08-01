@@ -115,6 +115,39 @@ object Catalogue {
     )
 
     /**
+     * Seeds for the feed once the catalogue's own shelves run out.
+     *
+     * The service hands over about eight shelves and then stops, which on a tall
+     * window is roughly two scrolls. Rather than end there, each of these
+     * becomes a shelf of its own — real results, not filler — so the feed keeps
+     * going as long as you keep scrolling.
+     */
+    private val seeds = listOf(
+        "nepali songs", "bollywood hits", "lo-fi beats", "acoustic covers",
+        "90s bollywood", "nepali pop", "indie folk", "punjabi hits",
+        "romantic hindi songs", "workout songs", "sad songs hindi",
+        "chill instrumental", "classic rock", "sufi songs", "party anthems",
+        "nepali rock", "arijit singh", "old is gold hindi", "study music",
+        "monsoon songs", "road trip songs", "ghazals", "bhajan",
+    )
+
+    /** How many shelves the seeds can produce before repeating. */
+    val seedCount: Int get() = seeds.size
+
+    /** A shelf built from one seed, by position rather than by name. */
+    suspend fun discover(position: Int): Result<Shelf> = withContext(Dispatchers.IO) {
+        val seed = seeds[position % seeds.size]
+        search(seed).map { tracks ->
+            Shelf(
+                title = seed.replaceFirstChar { it.uppercase() },
+                cards = tracks.take(12).map {
+                    Card(it.id, it.title, it.artist, it.thumbnail, Kind.Song)
+                },
+            )
+        }
+    }
+
+    /**
      * The songs behind a tile.
      *
      * A song is already what it needs to be; an album or playlist is a browse
