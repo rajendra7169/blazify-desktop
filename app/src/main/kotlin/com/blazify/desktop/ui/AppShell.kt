@@ -70,7 +70,10 @@ fun AppShell() {
                     playing = PlayerState.playing,
                 )
             },
+            volume = PlayerState.volume,
             onPlayPause = PlayerState::toggle,
+            onSeek = PlayerState::seek,
+            onVolume = PlayerState::changeVolume,
             onNext = PlayerState::next,
             onPrevious = PlayerState::previous,
             onToggleLyrics = { lyricsOpen = !lyricsOpen },

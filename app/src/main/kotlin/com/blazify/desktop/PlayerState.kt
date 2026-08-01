@@ -69,6 +69,14 @@ object PlayerState {
 
     fun seek(fraction: Float) = AudioEngine.seek(fraction.toDouble())
 
+    var volume by mutableStateOf(0.8f)
+        private set
+
+    fun changeVolume(value: Float) {
+        volume = value.coerceIn(0f, 1f)
+        AudioEngine.setVolume(volume.toDouble())
+    }
+
     private fun start() {
         val track = current ?: return
         failure = null

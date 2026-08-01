@@ -68,7 +68,10 @@ data class NowPlaying(
 @Composable
 fun PlayerBar(
     now: NowPlaying?,
+    volume: Float,
     onPlayPause: () -> Unit,
+    onSeek: (Float) -> Unit,
+    onVolume: (Float) -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onToggleLyrics: () -> Unit,
@@ -87,7 +90,7 @@ fun PlayerBar(
     ) {
         Box(Modifier.weight(1f)) { NowPlayingCell(now) }
 
-        Transport(now, onPlayPause, onNext, onPrevious)
+        Transport(now, onPlayPause, onSeek, onNext, onPrevious)
 
         Row(
             Modifier.weight(1f),
@@ -97,7 +100,7 @@ fun PlayerBar(
             BarToggle(Icons.Rounded.Lyrics, "Lyrics", lyricsOpen, onToggleLyrics)
             BarToggle(Icons.Rounded.QueueMusic, "Queue", queueOpen, onToggleQueue)
             Icon(Icons.Rounded.VolumeUp, "Volume", Modifier.size(17.dp), tint = Blz.muted)
-            Meter(0.7f, Modifier.width(76.dp))
+            ScrubBar(volume, onVolume, Modifier.width(76.dp), fill = Blz.muted, thickness = 3.dp)
         }
     }
 }
@@ -133,6 +136,7 @@ private fun NowPlayingCell(now: NowPlaying?) {
 private fun Transport(
     now: NowPlaying?,
     onPlayPause: () -> Unit,
+    onSeek: (Float) -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
 ) {
@@ -175,7 +179,7 @@ private fun Transport(
             horizontalArrangement = Arrangement.spacedBy(9.dp),
         ) {
             Text(now?.elapsed ?: "0:00", color = Blz.dim, fontSize = 10.5.sp)
-            Meter(now?.position ?: 0f, Modifier.weight(1f), Blaze.Amber)
+            ScrubBar(now?.position ?: 0f, onSeek, Modifier.weight(1f))
             Text(now?.duration ?: "0:00", color = Blz.dim, fontSize = 10.5.sp)
         }
     }
