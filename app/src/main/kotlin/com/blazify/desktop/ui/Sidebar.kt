@@ -174,4 +174,17 @@ private fun RailFooter(collapsed: Boolean, onOpenSettings: () -> Unit) {
     ) {
         Text(if (collapsed) "⚙" else "Settings · Equaliser", color = Blz.dim, fontSize = 11.sp)
     }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { ThemeState.cycle() }
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        Text(
+            if (collapsed) "◐" else "Appearance · ${ThemeState.mode.name}",
+            color = Blz.dim,
+            fontSize = 11.sp,
+        )
+    }
 }

@@ -7,6 +7,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.blazify.desktop.ui.AppShell
 import com.blazify.desktop.ui.BlazifyTheme
+import com.blazify.desktop.ui.ThemeState
 
 /**
  * Blazify Project (C) 2026
@@ -27,6 +28,6 @@ fun main() = application {
     ) {
         window.minimumSize = java.awt.Dimension(940, 600)
 
-        BlazifyTheme { AppShell() }
+        BlazifyTheme(dark = ThemeState.isDark()) { AppShell() }
     }
 }
