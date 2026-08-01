@@ -96,6 +96,13 @@ object PlayerState {
         play(songs.map { it.asTrack() }, startAt)
     }
 
+    /** The same songs in a different order, starting from the top of it. */
+    fun shuffle(tracks: List<Track>) {
+        if (tracks.isEmpty()) return
+        failure = null
+        play(tracks.shuffled())
+    }
+
     fun play(tracks: List<Track>, startAt: Int = 0) {
         queue = tracks
         index = startAt.coerceIn(0, (tracks.size - 1).coerceAtLeast(0))

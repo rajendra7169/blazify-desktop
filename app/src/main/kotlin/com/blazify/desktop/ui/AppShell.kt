@@ -29,6 +29,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.PlayerState
+import com.blazify.desktop.data.Catalogue
+import com.blazify.desktop.ui.screens.CollectionScreen
 import com.blazify.desktop.ui.screens.ExploreScreen
 import com.blazify.desktop.ui.screens.HomeScreen
 
@@ -45,7 +47,6 @@ import com.blazify.desktop.ui.screens.HomeScreen
  */
 @Composable
 fun AppShell() {
-    var destination by remember { mutableStateOf(Destination.Home) }
     var railCollapsed by remember { mutableStateOf(false) }
     var lyricsOpen by remember { mutableStateOf(false) }
     var queueOpen by remember { mutableStateOf(false) }
@@ -53,14 +54,14 @@ fun AppShell() {
     Column(Modifier.fillMaxSize().background(Blz.page)) {
         Row(Modifier.weight(1f)) {
             Sidebar(
-                current = destination,
+                current = Navigator.destination,
                 collapsed = railCollapsed,
-                onSelect = { destination = it },
+                onSelect = Navigator::go,
                 onOpenSettings = { },
             )
 
             Box(Modifier.weight(1f).fillMaxSize()) {
-                Content(destination)
+                Content(Navigator.destination)
             }
 
             // Slides in beside the content rather than over it, so browsing
@@ -110,11 +111,34 @@ fun AppShell() {
     }
 }
 
+/**
+ * What the middle pane is showing.
+ *
+ * An opened collection sits over whatever destination you were on, rather than
+ * replacing it — going back puts you exactly where you left off, mid-scroll.
+ */
 @Composable
 private fun Content(destination: Destination) {
+    val opened = Navigator.opened
+    if (opened != null) {
+        CollectionScreen(
+            card = opened,
+            onBack = Navigator::back,
+            onOpen = Navigator::open,
+            onPlay = PlayerState::play,
+            onShuffle = PlayerState::shuffle,
+            onPlayAll = PlayerState::playAll,
+        )
+        return
+    }
+
     when (destination) {
         Destination.Home -> HomeScreen(
-            onOpen = PlayerState::open,
+            // A song plays where it is; anything else is a place to go.
+            onOpen = { card ->
+                if (card.kind == Catalogue.Kind.Song) PlayerState.open(card)
+                else Navigator.open(card)
+            },
             onPlayAll = PlayerState::playAll,
         )
         Destination.Explore -> ExploreScreen()
