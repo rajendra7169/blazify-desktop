@@ -35,6 +35,9 @@ object AudioEngine {
     var error by mutableStateOf<String?>(null)
         private set
 
+    /** Called when a track reaches its end, so the queue can move on. */
+    var onFinished: (() -> Unit)? = null
+
     /**
      * Created lazily. Building it loads the native library, and doing that at
      * startup would slow the window down for someone who never presses play.
@@ -60,6 +63,9 @@ object AudioEngine {
         override fun finished(mediaPlayer: MediaPlayer) {
             playing = false
             position = duration
+            // The callback arrives on a native thread and starting the next
+            // track from inside it deadlocks the player, so hand it off.
+            Thread { onFinished?.invoke() }.start()
         }
 
         override fun error(mediaPlayer: MediaPlayer) {

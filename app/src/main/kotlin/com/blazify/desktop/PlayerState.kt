@@ -99,6 +99,12 @@ object PlayerState {
         AudioEngine.setVolume(volume.toDouble())
     }
 
+    init {
+        // Nothing else is watching the engine, so the queue would stall on the
+        // first track without this.
+        AudioEngine.onFinished = { next() }
+    }
+
     private fun start() {
         val track = current ?: return
         failure = null
