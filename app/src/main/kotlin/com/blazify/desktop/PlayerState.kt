@@ -72,6 +72,10 @@ object PlayerState {
     private fun start() {
         val track = current ?: return
         failure = null
+        if (!AudioEngine.available()) {
+            failure = "Audio support is missing — install VLC and restart Blazify"
+            return
+        }
         scope.launch {
             Catalogue.streamUrl(track.id).fold(
                 onSuccess = { AudioEngine.play(it) },
