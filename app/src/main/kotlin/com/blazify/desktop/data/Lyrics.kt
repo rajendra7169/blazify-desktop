@@ -8,6 +8,8 @@ import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -70,17 +72,17 @@ object LyricsSource {
     suspend fun of(track: Track): Lyrics = withContext(Dispatchers.IO) {
         cache[track.id]?.let { return@withContext it }
 
-        val found = try {
-            val body = client.get("https://lrclib.net/api/get") {
-                parameter("track_name", track.title.cleaned())
-                parameter("artist_name", track.artist.substringBefore(",").trim())
-                track.durationSeconds?.let { parameter("duration", it) }
-            }.bodyAsText()
+        val title = track.title.cleaned()
+        val artist = track.artist.substringBefore(",").trim()
 
-            val fields = json.parseToJsonElement(body).jsonObject
-            val timed = fields["syncedLyrics"]?.jsonPrimitive?.contentOrNullSafe()
-            val flat = fields["plainLyrics"]?.jsonPrimitive?.contentOrNullSafe()
-            Lyrics(lines = timed?.let(::parse).orEmpty(), plain = flat)
+        val found = try {
+            // Asking by length is the accurate route, but it's an exact match:
+            // a couple of seconds out and there's simply no answer. Searching
+            // afterwards costs one more request and catches everything the
+            // catalogue timed slightly differently.
+            exact(title, artist, track.durationSeconds)
+                ?: search(title, artist, track.durationSeconds)
+                ?: Lyrics()
         } catch (_: Exception) {
             // No words is an ordinary outcome, not a failure worth reporting.
             Lyrics()
@@ -88,6 +90,48 @@ object LyricsSource {
 
         cache[track.id] = found
         found
+    }
+
+    private suspend fun exact(title: String, artist: String, seconds: Int?): Lyrics? {
+        val body = client.get("https://lrclib.net/api/get") {
+            parameter("track_name", title)
+            parameter("artist_name", artist)
+            seconds?.let { parameter("duration", it) }
+        }.bodyAsText()
+        return json.parseToJsonElement(body).jsonObject.toLyrics()
+    }
+
+    /**
+     * The nearest match by name, preferring one that runs about as long.
+     *
+     * A search turns up remasters, live cuts and covers under the same title.
+     * Length is the one thing that reliably tells them apart, so results within
+     * a few seconds of ours come first, and a timed transcript beats a flat one
+     * at the same distance.
+     */
+    private suspend fun search(title: String, artist: String, seconds: Int?): Lyrics? {
+        val body = client.get("https://lrclib.net/api/search") {
+            parameter("track_name", title)
+            parameter("artist_name", artist)
+        }.bodyAsText()
+
+        val results = json.parseToJsonElement(body) as? JsonArray ?: return null
+        return results
+            .mapNotNull { it.jsonObject }
+            .minByOrNull { entry ->
+                val length = entry["duration"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                val apart = if (seconds != null && length != null) kotlin.math.abs(length - seconds) else 30.0
+                val timed = entry["syncedLyrics"]?.jsonPrimitive?.contentOrNullSafe() != null
+                apart + if (timed) 0.0 else 5.0
+            }
+            ?.toLyrics()
+    }
+
+    private fun JsonObject.toLyrics(): Lyrics? {
+        val timed = this["syncedLyrics"]?.jsonPrimitive?.contentOrNullSafe()
+        val flat = this["plainLyrics"]?.jsonPrimitive?.contentOrNullSafe()
+        if (timed == null && flat == null) return null
+        return Lyrics(lines = timed?.let(::parse).orEmpty(), plain = flat)
     }
 
     /**
