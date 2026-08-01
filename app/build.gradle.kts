@@ -38,6 +38,7 @@ compose.desktop {
             packageVersion = "1.0.0"
             description = "A music player"
             vendor = "Rajendra Pandey"
+            copyright = "Blazify Project (C) 2026"
 
             windows {
                 menuGroup = "Blazify"     // Start menu entry
@@ -52,11 +53,56 @@ compose.desktop {
             linux {
                 menuGroup = "Audio"       // lands under Sound & Video
                 packageName = "blazify"
+                appCategory = "Audio"
+                debMaintainer = "rajendrapandey199971@gmail.com"
+                shortcut = true
             }
         }
     }
 }
 
+
+/**
+ * Declare the native audio library the finished package needs.
+ *
+ * The packager works out dependencies by looking at what the bundled files link
+ * against, and the audio library is opened by name at runtime rather than
+ * linked, so it looks at the package and sees nothing. Installing without it
+ * gives someone an application that starts, browses, and then refuses to make a
+ * sound — so it is written into the control file after the fact.
+ */
+val declareAudioDependency by tasks.registering {
+    val debDir = layout.buildDirectory.dir("compose/binaries/main/deb")
+    val workDir = layout.buildDirectory.dir("repack")
+    outputs.upToDateWhen { false }
+    doLast {
+        val deb = debDir.get().asFile.listFiles()?.firstOrNull { it.extension == "deb" } ?: return@doLast
+        val work = workDir.get().asFile.apply { deleteRecursively(); mkdirs() }
+
+        // Everything here is plain process work rather than the build tool's
+        // own helpers, which can't be carried in a cached configuration.
+        fun shell(vararg command: String) {
+            val process = ProcessBuilder(*command).redirectErrorStream(true).start()
+            val output = process.inputStream.bufferedReader().readText()
+            check(process.waitFor() == 0) { "${command.first()} failed: $output" }
+        }
+
+        shell("dpkg-deb", "-R", deb.absolutePath, work.absolutePath)
+        val control = File(work, "DEBIAN/control")
+        control.writeText(
+            control.readLines().joinToString("\n") { line ->
+                if (line.startsWith("Depends:")) "$line, libvlc5, vlc-plugin-base" else line
+            } + "\n",
+        )
+        shell("dpkg-deb", "-b", work.absolutePath, deb.absolutePath)
+        println("declared libvlc5 and vlc-plugin-base in ${deb.name}")
+    }
+}
+
+// Matched rather than named: the packaging tasks are registered by the
+// packaging plugin after this file is read, so asking for one by name here
+// finds nothing.
+tasks.matching { it.name == "packageDeb" }.configureEach { finalizedBy(declareAudioDependency) }
 
 // A way to query the catalogue from a terminal without launching the window —
 // far quicker than clicking through the UI when a parser needs checking.
