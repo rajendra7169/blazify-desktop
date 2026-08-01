@@ -112,10 +112,12 @@ private fun Synced(lyrics: Lyrics, position: Double, onSeekTo: (Double) -> Unit)
     // Kept a third of the way down rather than centred: the line being sung
     // matters less than the two coming after it, and reading downward wants
     // room ahead of the eye, not behind it.
+    // Measured from the panel rather than fixed, so the sung line stays a
+    // third of the way down at any window height.
     LaunchedEffect(current) {
-        if (current >= 0) {
-            state.animateScrollToItem(current.coerceAtLeast(0), scrollOffset = -190)
-        }
+        if (current < 0) return@LaunchedEffect
+        val viewport = state.layoutInfo.viewportSize.height
+        state.animateScrollToItem(current, scrollOffset = -(viewport / 3))
     }
 
     LazyColumn(
