@@ -20,6 +20,10 @@ dependencies {
     // libraries can't open at all — this one plays it without complaint, along
     // with every other container we're ever likely to meet.
     implementation(libs.vlcj)
+
+    // Artwork, fetched and cached on both sides of the window.
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network)
 }
 
 compose.desktop {

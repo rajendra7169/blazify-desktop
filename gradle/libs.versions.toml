@@ -7,6 +7,7 @@ coroutines = "1.11.0"
 brotli = "0.1.2"
 slf4j = "2.0.16"
 vlcj = "4.12.1"
+coil = "3.5.0"
 
 [libraries]
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
@@ -19,6 +20,8 @@ kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core",
 brotli-dec = { module = "org.brotli:dec", version.ref = "brotli" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 vlcj = { module = "uk.co.caprica:vlcj", version.ref = "vlcj" }
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
