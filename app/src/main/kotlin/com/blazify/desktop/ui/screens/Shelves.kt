@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -69,8 +70,16 @@ import kotlinx.coroutines.launch
 private val ArtSide = 172.dp
 private val TileGap = 14.dp
 private val LineHeight = 62.dp
-private val LineWidth = 300.dp
 private val LineGap = 12.dp
+
+/**
+ * What a song line would like to be, before the pane has its say.
+ *
+ * Columns are stretched to share the full width rather than held at a fixed
+ * size — a fixed one stops short of the edge and leaves a gutter that reads as
+ * a mistake. This only decides how many of them there are.
+ */
+private val LineTarget = 420.dp
 
 /**
  * A shelf, drawn the way the catalogue asked for it.
@@ -205,29 +214,32 @@ private fun SongGrid(
     onPlayAll: (List<Catalogue.Card>, Int) -> Unit,
 ) {
     val rows = shelf.rows.coerceIn(1, 4)
-    LazyHorizontalGrid(
-        rows = GridCells.Fixed(rows),
-        state = state,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(LineHeight * rows + LineGap * (rows - 1)),
-        horizontalArrangement = Arrangement.spacedBy(LineGap),
-        verticalArrangement = Arrangement.spacedBy(LineGap),
-    ) {
-        itemsIndexed(shelf.cards, key = { _, card -> card.kind.name + card.id }) { at, card ->
-            SongLine(card) { onPlayAll(shelf.cards, at) }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val columns = ((maxWidth + LineGap) / (LineTarget + LineGap)).toInt().coerceAtLeast(1)
+        val lineWidth = (maxWidth - LineGap * (columns - 1)) / columns
+
+        LazyHorizontalGrid(
+            rows = GridCells.Fixed(rows),
+            state = state,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(LineHeight * rows + LineGap * (rows - 1)),
+            horizontalArrangement = Arrangement.spacedBy(LineGap),
+            verticalArrangement = Arrangement.spacedBy(LineGap),
+        ) {
+            itemsIndexed(shelf.cards, key = { _, card -> card.kind.name + card.id }) { at, card ->
+                SongLine(card, lineWidth) { onPlayAll(shelf.cards, at) }
+            }
         }
     }
 }
 
 @Composable
-private fun SongLine(card: Catalogue.Card, onPlay: () -> Unit) {
+private fun SongLine(card: Catalogue.Card, width: androidx.compose.ui.unit.Dp, onPlay: () -> Unit) {
     val (source, hovered) = rememberHovered()
     Row(
         Modifier
-            // Wide enough for a real title, narrow enough that the next column
-            // is always in view — otherwise it reads as a list, not a grid.
-            .width(LineWidth)
+            .width(width)
             .height(LineHeight)
             .clip(RoundedCornerShape(8.dp))
             .hoverBackground(Blz.hover, hovered, source)
