@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.blazify.desktop.audio.AudioEngine
 import com.blazify.desktop.data.Catalogue
+import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LocalMusic
 import com.blazify.desktop.data.Track
@@ -221,9 +222,16 @@ object PlayerState {
             failure = "Audio support is missing — install VLC and restart Blazify"
             return
         }
-        // A file on disk needs no resolving — hand the path straight over.
-        if (LocalMusic.isLocal(track.id)) {
-            AudioEngine.play(LocalMusic.pathOf(track.id))
+        // Anything already on disk needs no resolving — hand the path straight
+        // over. A kept copy is preferred to the network even when there is one:
+        // it starts sooner and can't stall halfway through.
+        val onDisk = when {
+            LocalMusic.isLocal(track.id) -> LocalMusic.pathOf(track.id)
+            Downloads.has(track.id) -> Downloads.fileFor(track.id).absolutePath
+            else -> null
+        }
+        if (onDisk != null) {
+            AudioEngine.play(onDisk)
             Library.played(track)
             return
         }
@@ -240,6 +248,11 @@ object PlayerState {
                 onFailure = { failure = "Couldn't play ${track.title}" },
             )
         }
+    }
+
+    /** Keep whatever is playing, so it works without the network. */
+    fun downloadCurrent() {
+        current?.let { Downloads.start(it) }
     }
 
     /** Like or unlike whatever is playing. */
