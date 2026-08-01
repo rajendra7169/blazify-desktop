@@ -38,6 +38,7 @@ import com.blazify.desktop.ui.screens.ExploreScreen
 import com.blazify.desktop.ui.screens.HomeScreen
 import com.blazify.desktop.ui.screens.LibraryScreen
 import com.blazify.desktop.ui.screens.LocalScreen
+import com.blazify.desktop.ui.screens.SettingsScreen
 import com.blazify.desktop.ui.screens.TrackListScreen
 
 /**
@@ -63,7 +64,7 @@ fun AppShell() {
                 current = Navigator.destination,
                 collapsed = railCollapsed,
                 onSelect = Navigator::go,
-                onOpenSettings = { },
+                onOpenSettings = Navigator::openSettings,
             )
 
             Box(Modifier.weight(1f).fillMaxSize()) {
@@ -147,6 +148,11 @@ fun AppShell() {
  */
 @Composable
 private fun Content(destination: Destination) {
+    if (Navigator.settingsOpen) {
+        SettingsScreen()
+        return
+    }
+
     val opened = Navigator.opened
     if (opened != null) {
         CollectionScreen(

@@ -32,8 +32,24 @@ object Navigator {
 
     val canGoBack: Boolean get() = stack.isNotEmpty()
 
+    /**
+     * Whether the settings are showing.
+     *
+     * Kept apart from the rail rather than added to it: settings are somewhere
+     * you visit and leave, not one of the places you listen from, and putting
+     * them in the list would push the music one row further down forever.
+     */
+    var settingsOpen by mutableStateOf(false)
+        private set
+
+    fun openSettings() {
+        settingsOpen = true
+        stack.clear()
+    }
+
     fun go(to: Destination) {
         destination = to
+        settingsOpen = false
         stack.clear()
     }
 
