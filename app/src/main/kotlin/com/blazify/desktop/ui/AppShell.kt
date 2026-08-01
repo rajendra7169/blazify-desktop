@@ -20,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.blazify.desktop.PlayerState
+import com.blazify.desktop.ui.screens.ExploreScreen
 import com.blazify.desktop.ui.screens.HomeScreen
 
 /**
@@ -57,10 +59,19 @@ fun AppShell() {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Blz.line))
 
         PlayerBar(
-            now = null,
-            onPlayPause = { },
-            onNext = { },
-            onPrevious = { },
+            now = PlayerState.current?.let {
+                NowPlaying(
+                    title = it.title,
+                    artist = it.artist,
+                    position = PlayerState.progress,
+                    elapsed = PlayerState.elapsed,
+                    duration = PlayerState.total,
+                    playing = PlayerState.playing,
+                )
+            },
+            onPlayPause = PlayerState::toggle,
+            onNext = PlayerState::next,
+            onPrevious = PlayerState::previous,
             onToggleLyrics = { lyricsOpen = !lyricsOpen },
             onToggleQueue = { queueOpen = !queueOpen },
             lyricsOpen = lyricsOpen,
@@ -73,6 +84,7 @@ fun AppShell() {
 private fun Content(destination: Destination) {
     when (destination) {
         Destination.Home -> HomeScreen()
+        Destination.Explore -> ExploreScreen()
         else -> Placeholder(destination)
     }
 }
