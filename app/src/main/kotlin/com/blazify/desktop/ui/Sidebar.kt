@@ -92,15 +92,7 @@ private fun Brand(collapsed: Boolean) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
-        Box(
-            Modifier
-                .size(26.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Rounded.LocalFireDepartment, null, Modifier.size(15.dp), tint = Color(0xFF1A1005))
-        }
+        BlazifyLogo(size = 26.dp)
         if (!collapsed) {
             Text("Blazify", color = Blz.ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
