@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 
 /**
  * Blazify Project (C) 2026
@@ -17,6 +18,7 @@ import kotlinx.coroutines.withContext
  */
 
 /** One song, in the shape the screens actually use. */
+@Serializable
 data class Track(
     val id: String,
     val title: String,
@@ -70,9 +72,11 @@ object Catalogue {
     }
 
     /** What a card on a shelf stands for, which decides what opening it does. */
+    @Serializable
     enum class Kind { Song, Album, Playlist, Artist }
 
     /** One tile on a shelf. */
+    @Serializable
     data class Card(
         val id: String,
         val title: String,
