@@ -87,7 +87,7 @@ fun AppShell() {
 @Composable
 private fun Content(destination: Destination) {
     when (destination) {
-        Destination.Home -> HomeScreen()
+        Destination.Home -> HomeScreen(onOpen = { })
         Destination.Explore -> ExploreScreen()
         else -> Placeholder(destination)
     }
