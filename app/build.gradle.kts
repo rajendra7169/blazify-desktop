@@ -22,6 +22,7 @@ dependencies {
     implementation(compose.materialIconsExtended)
     implementation(compose.components.resources)
     implementation(libs.kotlinx.coroutines)
+    implementation(libs.ktor.client.okhttp)
 
     // Audio. Chosen over a native player so the installer stays self-contained:
     // these jars carry their own native code, so nothing has to be installed
@@ -68,5 +69,18 @@ tasks.register<JavaExec>("probe") {
     group = "verification"
     description = "Search the catalogue and resolve a stream, from the terminal"
     mainClass.set("com.blazify.desktop.tools.ProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
+tasks.register<JavaExec>("playProbe") {
+    group = "verification"
+    description = "Resolve a stream and try to play it, printing what the engine reports"
+    mainClass.set("com.blazify.desktop.tools.PlayProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
+tasks.register<JavaExec>("localPlayProbe") {
+    group = "verification"
+    mainClass.set("com.blazify.desktop.tools.LocalPlayProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
