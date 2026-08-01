@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 data class NowPlaying(
     val title: String,
     val artist: String,
+    val artwork: String? = null,
     val position: Float = 0f,      // 0..1
     val elapsed: String = "0:00",
     val duration: String = "0:00",
@@ -104,12 +105,7 @@ fun PlayerBar(
 @Composable
 private fun NowPlayingCell(now: NowPlaying?) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-        Box(
-            Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(7.dp))
-                .background(Blz.surfaceHigh),
-        )
+        Artwork(now?.artwork, size = 44.dp, corner = 7.dp)
         Column(Modifier.widthIn(max = 220.dp)) {
             Text(
                 now?.title ?: "Nothing playing",

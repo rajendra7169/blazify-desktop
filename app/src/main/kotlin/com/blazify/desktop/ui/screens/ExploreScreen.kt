@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.blazify.desktop.PlayerState
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Track
+import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.SkeletonRows
@@ -158,7 +159,7 @@ private fun TrackRow(position: Int, track: Track, playing: Boolean, onPlay: () -
                 fontSize = 11.5.sp,
             )
         }
-        Box(Modifier.size(38.dp).clip(RoundedCornerShape(6.dp)).background(Blz.surfaceHigh))
+        Artwork(track.thumbnail, size = 38.dp)
         Column(Modifier.weight(1f)) {
             Text(
                 track.title, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Medium,

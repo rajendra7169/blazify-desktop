@@ -63,6 +63,7 @@ fun AppShell() {
                 NowPlaying(
                     title = it.title,
                     artist = it.artist,
+                    artwork = it.thumbnail,
                     position = PlayerState.progress,
                     elapsed = PlayerState.elapsed,
                     duration = PlayerState.total,
