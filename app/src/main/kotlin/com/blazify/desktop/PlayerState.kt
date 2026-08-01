@@ -9,6 +9,7 @@ import com.blazify.desktop.data.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -37,11 +38,24 @@ object PlayerState {
     val playing: Boolean get() = AudioEngine.playing
     val loading: Boolean get() = AudioEngine.loading
 
+    /**
+     * Where the bar should sit while a seek settles.
+     *
+     * Asking the engine to move takes a moment — it has to fetch from the new
+     * offset — and during that gap it keeps reporting the OLD position. Showing
+     * that makes the bar snap backwards the instant you let go, which reads as
+     * the seek having failed. Holding the requested position until the engine
+     * agrees is what makes scrubbing feel solid.
+     */
+    private var seekTarget by mutableStateOf<Float?>(null)
+
     /** 0..1 through the current track, for the progress bar. */
     val progress: Float
-        get() = if (AudioEngine.duration > 0) (AudioEngine.position / AudioEngine.duration).toFloat() else 0f
+        get() = seekTarget
+            ?: if (AudioEngine.duration > 0) (AudioEngine.position / AudioEngine.duration).toFloat() else 0f
 
-    val elapsed: String get() = clock(AudioEngine.position)
+    val elapsed: String
+        get() = clock(seekTarget?.let { it * AudioEngine.duration } ?: AudioEngine.position)
     val total: String get() = if (AudioEngine.duration > 0) clock(AudioEngine.duration) else current?.duration ?: "0:00"
 
     var opening by mutableStateOf(false)
@@ -89,7 +103,24 @@ object PlayerState {
         else if (index - 1 in queue.indices) { index -= 1; start() }
     }
 
-    fun seek(fraction: Float) = AudioEngine.seek(fraction.toDouble())
+    fun seek(fraction: Float) {
+        val target = fraction.coerceIn(0f, 1f)
+        seekTarget = target
+        AudioEngine.seek(target.toDouble())
+        scope.launch {
+            // Let go once the engine lands near where it was asked to go, or
+            // give up after a moment so a failed seek can't freeze the bar.
+            val deadline = System.currentTimeMillis() + 2000
+            while (System.currentTimeMillis() < deadline) {
+                delay(60)
+                val duration = AudioEngine.duration
+                if (duration <= 0) continue
+                val now = (AudioEngine.position / duration).toFloat()
+                if (kotlin.math.abs(now - target) < 0.01f) break
+            }
+            seekTarget = null
+        }
+    }
 
     /** Jump straight to a track in the queue. */
     fun jumpTo(position: Int) {
@@ -135,6 +166,7 @@ object PlayerState {
     private fun start() {
         val track = current ?: return
         failure = null
+        seekTarget = null
         if (!AudioEngine.available()) {
             failure = "Audio support is missing — install VLC and restart Blazify"
             return
