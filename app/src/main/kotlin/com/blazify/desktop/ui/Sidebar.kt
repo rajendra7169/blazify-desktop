@@ -92,9 +92,9 @@ private fun Brand(collapsed: Boolean) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
-        BlazifyLogo(size = 26.dp)
+        BlazifyLogo(size = 28.dp)
         if (!collapsed) {
-            Text("Blazify", color = Blz.ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("Blazify", color = Blz.ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -104,7 +104,7 @@ private fun SectionLabel(title: String) {
     Text(
         title.uppercase(),
         color = Blz.dim,
-        fontSize = 10.sp,
+        fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 1.4.sp,
         modifier = Modifier.padding(start = 10.dp, top = 14.dp, bottom = 6.dp),
@@ -139,16 +139,16 @@ private fun RailItem(
             .background(fill)
             .then(if (selected) Modifier else Modifier.hoverBackground(Blz.hover, hovered, source))
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Icon(destination.icon, destination.label, Modifier.size(17.dp), tint = tint)
+        Icon(destination.icon, destination.label, Modifier.size(19.dp), tint = tint)
         if (!collapsed) {
             Text(
                 destination.label,
                 color = tint,
-                fontSize = 13.sp,
+                fontSize = 14.5.sp,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             )
         }
@@ -164,7 +164,7 @@ private fun RailFooter(collapsed: Boolean, onOpenSettings: () -> Unit) {
             .clickable(onClick = onOpenSettings)
             .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
-        Text(if (collapsed) "⚙" else "Settings · Equaliser", color = Blz.dim, fontSize = 11.sp)
+        Text(if (collapsed) "⚙" else "Settings · Equaliser", color = Blz.dim, fontSize = 12.sp)
     }
     Row(
         Modifier
@@ -176,7 +176,7 @@ private fun RailFooter(collapsed: Boolean, onOpenSettings: () -> Unit) {
         Text(
             if (collapsed) "◐" else "Appearance · ${ThemeState.mode.name}",
             color = Blz.dim,
-            fontSize = 11.sp,
+            fontSize = 12.sp,
         )
     }
 }
