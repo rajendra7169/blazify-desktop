@@ -57,7 +57,7 @@ fun Sidebar(
         modifier
             .width(width)
             .fillMaxHeight()
-            .background(Color(0xFF0E0E10))
+            .background(Blz.rail)
             .padding(horizontal = 10.dp, vertical = 14.dp),
     ) {
         Brand(collapsed)
@@ -101,7 +101,7 @@ private fun Brand(collapsed: Boolean) {
             Icon(Icons.Rounded.LocalFireDepartment, null, Modifier.size(15.dp), tint = Color(0xFF1A1005))
         }
         if (!collapsed) {
-            Text("Blazify", color = Blaze.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("Blazify", color = Blz.ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -110,7 +110,7 @@ private fun Brand(collapsed: Boolean) {
 private fun SectionLabel(title: String) {
     Text(
         title.uppercase(),
-        color = Blaze.Dim,
+        color = Blz.dim,
         fontSize = 10.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 1.4.sp,
@@ -126,7 +126,7 @@ private fun RailItem(
     onClick: () -> Unit,
 ) {
     // Amber marks what's active, and nothing else in the rail is amber.
-    val tint by animateColorAsState(if (selected) Blaze.Amber else Blaze.Muted, tween(140), label = "railTint")
+    val tint by animateColorAsState(if (selected) Blaze.Amber else Blz.muted, tween(140), label = "railTint")
     val fill = if (selected) Blaze.Amber.copy(alpha = 0.13f) else Color.Transparent
 
     Row(
@@ -160,6 +160,6 @@ private fun RailFooter(collapsed: Boolean, onOpenSettings: () -> Unit) {
             .clickable(onClick = onOpenSettings)
             .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
-        Text(if (collapsed) "⚙" else "Settings · Equaliser", color = Blaze.Dim, fontSize = 11.sp)
+        Text(if (collapsed) "⚙" else "Settings · Equaliser", color = Blz.dim, fontSize = 11.sp)
     }
 }

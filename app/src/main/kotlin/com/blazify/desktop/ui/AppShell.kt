@@ -39,7 +39,7 @@ fun AppShell() {
     var lyricsOpen by remember { mutableStateOf(false) }
     var queueOpen by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().background(Blaze.Night)) {
+    Column(Modifier.fillMaxSize().background(Blz.page)) {
         Row(Modifier.weight(1f)) {
             Sidebar(
                 current = destination,
@@ -53,7 +53,7 @@ fun AppShell() {
             }
         }
 
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Blaze.Line))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Blz.line))
 
         PlayerBar(
             now = null,
@@ -75,7 +75,7 @@ private fun Content(destination: Destination) {
         Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(destination.label, color = Blaze.Ink, fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
-        Text("Coming next", color = Blaze.Muted, fontSize = 13.sp)
+        Text(destination.label, color = Blz.ink, fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
+        Text("Coming next", color = Blz.muted, fontSize = 13.sp)
     }
 }

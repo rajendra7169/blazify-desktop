@@ -80,7 +80,7 @@ fun PlayerBar(
         modifier
             .fillMaxWidth()
             .height(74.dp)
-            .background(Color(0xFF111114))
+            .background(Blz.bar)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -95,7 +95,7 @@ fun PlayerBar(
         ) {
             BarToggle(Icons.Rounded.Lyrics, "Lyrics", lyricsOpen, onToggleLyrics)
             BarToggle(Icons.Rounded.QueueMusic, "Queue", queueOpen, onToggleQueue)
-            Icon(Icons.Rounded.VolumeUp, "Volume", Modifier.size(17.dp), tint = Blaze.Muted)
+            Icon(Icons.Rounded.VolumeUp, "Volume", Modifier.size(17.dp), tint = Blz.muted)
             Meter(0.7f, Modifier.width(76.dp))
         }
     }
@@ -108,17 +108,17 @@ private fun NowPlayingCell(now: NowPlaying?) {
             Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(7.dp))
-                .background(Blaze.SurfaceHigh),
+                .background(Blz.surfaceHigh),
         )
         Column(Modifier.widthIn(max = 220.dp)) {
             Text(
                 now?.title ?: "Nothing playing",
-                color = Blaze.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold,
+                color = Blz.ink, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Text(
                 now?.artist.orEmpty(),
-                color = Blaze.Muted, fontSize = 11.5.sp,
+                color = Blz.muted, fontSize = 11.5.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
@@ -127,7 +127,7 @@ private fun NowPlayingCell(now: NowPlaying?) {
                 if (now.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 "Like",
                 Modifier.size(16.dp),
-                tint = if (now.liked) Blaze.Amber else Blaze.Muted,
+                tint = if (now.liked) Blaze.Amber else Blz.muted,
             )
         }
     }
@@ -146,16 +146,16 @@ private fun Transport(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(16.dp), tint = Blaze.Muted)
+            Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(16.dp), tint = Blz.muted)
             Icon(
                 Icons.Rounded.SkipPrevious, "Previous",
-                Modifier.size(20.dp).clip(CircleShape).clickable(onClick = onPrevious), tint = Blaze.Muted,
+                Modifier.size(20.dp).clip(CircleShape).clickable(onClick = onPrevious), tint = Blz.muted,
             )
             Box(
                 Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(Blaze.Ink)
+                    .background(Blz.ink)
                     .clickable(onClick = onPlayPause),
                 contentAlignment = Alignment.Center,
             ) {
@@ -163,14 +163,14 @@ private fun Transport(
                     if (now?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     if (now?.playing == true) "Pause" else "Play",
                     Modifier.size(18.dp),
-                    tint = Blaze.Night,
+                    tint = Blz.page,
                 )
             }
             Icon(
                 Icons.Rounded.SkipNext, "Next",
-                Modifier.size(20.dp).clip(CircleShape).clickable(onClick = onNext), tint = Blaze.Muted,
+                Modifier.size(20.dp).clip(CircleShape).clickable(onClick = onNext), tint = Blz.muted,
             )
-            Icon(Icons.Rounded.Repeat, "Repeat", Modifier.size(16.dp), tint = Blaze.Muted)
+            Icon(Icons.Rounded.Repeat, "Repeat", Modifier.size(16.dp), tint = Blz.muted)
         }
 
         Row(
@@ -178,9 +178,9 @@ private fun Transport(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp),
         ) {
-            Text(now?.elapsed ?: "0:00", color = Blaze.Dim, fontSize = 10.5.sp)
+            Text(now?.elapsed ?: "0:00", color = Blz.dim, fontSize = 10.5.sp)
             Meter(now?.position ?: 0f, Modifier.weight(1f), Blaze.Amber)
-            Text(now?.duration ?: "0:00", color = Blaze.Dim, fontSize = 10.5.sp)
+            Text(now?.duration ?: "0:00", color = Blz.dim, fontSize = 10.5.sp)
         }
     }
 }
@@ -192,15 +192,15 @@ private fun BarToggle(icon: ImageVector, label: String, on: Boolean, onClick: ()
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(icon, label, Modifier.size(16.dp), tint = if (on) Blaze.Amber else Blaze.Muted)
-        Text(label, color = if (on) Blaze.Amber else Blaze.Muted, fontSize = 11.5.sp)
+        Icon(icon, label, Modifier.size(16.dp), tint = if (on) Blaze.Amber else Blz.muted)
+        Text(label, color = if (on) Blaze.Amber else Blz.muted, fontSize = 11.5.sp)
     }
 }
 
 /** A flat two-tone bar. Used for both progress and volume. */
 @Composable
-private fun Meter(fraction: Float, modifier: Modifier = Modifier, fill: Color = Blaze.Muted) {
-    Box(modifier.height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF2A2A30))) {
+private fun Meter(fraction: Float, modifier: Modifier = Modifier, fill: Color = Blz.muted) {
+    Box(modifier.height(4.dp).clip(RoundedCornerShape(2.dp)).background(Blz.surfaceHigh)) {
         Box(
             Modifier
                 .fillMaxHeight()
