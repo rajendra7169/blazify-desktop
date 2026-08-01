@@ -120,6 +120,7 @@ fun AppShell() {
             volume = PlayerState.volume,
             onPlayPause = PlayerState::toggle,
             onToggleLike = PlayerState::toggleLike,
+            onToggleMute = PlayerState::toggleMute,
             onSeek = PlayerState::seek,
             onVolume = PlayerState::changeVolume,
             onNext = PlayerState::next,

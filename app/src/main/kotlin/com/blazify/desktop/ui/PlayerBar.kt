@@ -30,6 +30,8 @@ import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.VolumeDown
+import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -75,6 +77,7 @@ fun PlayerBar(
     volume: Float,
     onPlayPause: () -> Unit,
     onToggleLike: () -> Unit,
+    onToggleMute: () -> Unit,
     onSeek: (Float) -> Unit,
     onVolume: (Float) -> Unit,
     onNext: () -> Unit,
@@ -107,7 +110,19 @@ fun PlayerBar(
         ) {
             BarToggle(Icons.Rounded.Lyrics, "Lyrics", lyricsOpen, onToggleLyrics)
             BarToggle(Icons.Rounded.QueueMusic, "Queue", queueOpen, onToggleQueue)
-            Icon(Icons.Rounded.VolumeUp, "Volume", Modifier.size(17.dp), tint = Blz.muted)
+            // The icon is the mute button, and it says which state you're in —
+            // a speaker that never changes is decoration, not a control.
+            TransportButton(
+                when {
+                    volume <= 0f -> Icons.Rounded.VolumeOff
+                    volume < 0.5f -> Icons.Rounded.VolumeDown
+                    else -> Icons.Rounded.VolumeUp
+                },
+                if (volume <= 0f) "Unmute" else "Mute",
+                17.dp,
+                onClick = onToggleMute,
+                tint = if (volume <= 0f) Blaze.Amber else null,
+            )
             ScrubBar(volume, onVolume, Modifier.width(76.dp), fill = Blz.muted, thickness = 3.dp)
         }
     }
