@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import com.blazify.desktop.audio.AudioEngine
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Library
+import com.blazify.desktop.data.LocalMusic
 import com.blazify.desktop.data.Track
 import com.blazify.desktop.data.asTrack
 import kotlinx.coroutines.CoroutineScope
@@ -220,6 +221,13 @@ object PlayerState {
             failure = "Audio support is missing — install VLC and restart Blazify"
             return
         }
+        // A file on disk needs no resolving — hand the path straight over.
+        if (LocalMusic.isLocal(track.id)) {
+            AudioEngine.play(LocalMusic.pathOf(track.id))
+            Library.played(track)
+            return
+        }
+
         scope.launch {
             Catalogue.streamUrl(track.id).fold(
                 onSuccess = {
