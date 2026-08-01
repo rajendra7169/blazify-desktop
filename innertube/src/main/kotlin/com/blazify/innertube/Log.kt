@@ -20,6 +20,7 @@ object Log {
 
     fun tag(name: String): Log = apply { tag = name }
 
+    fun v(message: String, vararg args: Any?) = write("V", message, args, null)
     fun d(message: String, vararg args: Any?) = write("D", message, args, null)
     fun i(message: String, vararg args: Any?) = write("I", message, args, null)
     fun w(message: String, vararg args: Any?) = write("W", message, args, null)

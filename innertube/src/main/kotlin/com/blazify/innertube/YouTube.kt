@@ -3454,12 +3454,14 @@ object YouTube {
 
     private val VISITOR_DATA_REGEX = Regex("^Cg[t|s]")
 
-    fun getNewPipeStreamUrls(videoId: String): List<Pair<Int, String>> =
-        if (ENABLE_NEWPIPE_STREAM_INFO_EXTRACTOR) {
-            NewPipeExtractor.newPipePlayer(videoId)
-        } else {
-            emptyList()
-        }
+    /**
+     * Extra stream URLs from a fallback extractor.
+     *
+     * Empty here on purpose: the clients this module asks first return direct,
+     * playable URLs, so nothing has needed a second route. Left as a seam — if a
+     * track ever comes back without a URL, this is where a fallback plugs in.
+     */
+    fun getNewPipeStreamUrls(videoId: String): List<Pair<Int, String>> = emptyList()
 
     suspend fun newPipePlayer(
         videoId: String,
