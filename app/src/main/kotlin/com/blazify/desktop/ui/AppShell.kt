@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.blazify.desktop.ui.screens.HomeScreen
 
 /**
  * Blazify Project (C) 2026
@@ -68,9 +69,17 @@ fun AppShell() {
     }
 }
 
-/** Placeholder until each screen is built out. */
 @Composable
 private fun Content(destination: Destination) {
+    when (destination) {
+        Destination.Home -> HomeScreen()
+        else -> Placeholder(destination)
+    }
+}
+
+/** Stands in for the screens not built yet. */
+@Composable
+private fun Placeholder(destination: Destination) {
     Column(
         Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
