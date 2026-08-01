@@ -28,6 +28,15 @@ data class Track(
         get() = durationSeconds?.let { "%d:%02d".format(it / 60, it % 60) } ?: ""
 }
 
+/** A song card is already a track — nothing needs fetching before it plays. */
+fun Catalogue.Card.asTrack() = Track(
+    id = id,
+    title = title,
+    artist = subtitle,
+    thumbnail = thumbnail,
+    durationSeconds = durationSeconds,
+)
+
 /**
  * Everything the app asks of the catalogue, behind one door.
  *
@@ -162,15 +171,6 @@ object Catalogue {
         is ArtistItem -> Card(id, title, "Artist", thumbnail, Kind.Artist)
         else -> null
     }
-
-    /** A song card is already a track — nothing needs fetching to play it. */
-    fun Card.asTrack() = Track(
-        id = id,
-        title = title,
-        artist = subtitle,
-        thumbnail = thumbnail,
-        durationSeconds = durationSeconds,
-    )
 
     private fun SongItem.asTrack() = Track(
         id = id,

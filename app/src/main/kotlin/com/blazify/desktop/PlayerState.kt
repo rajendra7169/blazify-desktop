@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import com.blazify.desktop.audio.AudioEngine
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Track
+import com.blazify.desktop.data.asTrack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -78,6 +79,21 @@ object PlayerState {
                 },
             )
         }
+    }
+
+    /**
+     * Play a shelf of songs from the one that was clicked.
+     *
+     * Clicking a song should leave the rest of the shelf lined up behind it —
+     * playing it alone and then falling silent is the wrong end of the
+     * expectation. Nothing needs fetching: a song card already carries
+     * everything a queue entry holds.
+     */
+    fun playAll(cards: List<Catalogue.Card>, startAt: Int = 0) {
+        val songs = cards.filter { it.kind == Catalogue.Kind.Song }
+        if (songs.isEmpty()) return
+        failure = null
+        play(songs.map { it.asTrack() }, startAt)
     }
 
     fun play(tracks: List<Track>, startAt: Int = 0) {
