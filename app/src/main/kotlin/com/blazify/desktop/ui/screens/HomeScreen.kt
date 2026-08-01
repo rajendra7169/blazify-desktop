@@ -76,18 +76,31 @@ fun HomeScreen(onOpen: (Catalogue.Card) -> Unit) {
             last >= listState.layoutInfo.totalItemsCount - 2
         }
     }
+    // Once the catalogue's own shelves are exhausted the feed carries on with
+    // seeded ones, so scrolling never hits a dead stop.
+    var discovered by remember { mutableStateOf(0) }
+
     LaunchedEffect(Unit) {
         snapshotFlow { nearEnd }.collect { atEnd ->
-            val token = more
-            if (!atEnd || extending || token == null) return@collect
+            if (!atEnd || extending) return@collect
             extending = true
-            Catalogue.home(after = token).onSuccess { next ->
-                // Shelves repeat across pages often enough to notice; keeping
-                // them out is cheaper than letting the feed stutter.
-                val seen = shelves.map { it.title }.toSet()
-                shelves = shelves + next.shelves.filter { it.title !in seen }
-                more = next.more
+
+            val token = more
+            if (token != null) {
+                Catalogue.home(after = token).onSuccess { next ->
+                    // Shelves repeat across pages often enough to notice; keeping
+                    // them out is cheaper than letting the feed stutter.
+                    val seen = shelves.map { it.title }.toSet()
+                    shelves = shelves + next.shelves.filter { it.title !in seen }
+                    more = next.more
+                }
+            } else if (discovered < Catalogue.seedCount) {
+                Catalogue.discover(discovered).onSuccess { shelf ->
+                    if (shelf.cards.isNotEmpty()) shelves = shelves + shelf
+                }
+                discovered += 1
             }
+
             extending = false
         }
     }
