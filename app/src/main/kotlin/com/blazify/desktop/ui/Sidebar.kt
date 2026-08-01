@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -125,8 +126,18 @@ private fun RailItem(
     collapsed: Boolean,
     onClick: () -> Unit,
 ) {
-    // Amber marks what's active, and nothing else in the rail is amber.
-    val tint by animateColorAsState(if (selected) Blaze.Amber else Blz.muted, tween(140), label = "railTint")
+    val (source, hovered) = rememberHovered()
+    // Amber marks what's active, and nothing else in the rail is amber. Hovering
+    // an inactive row lifts its text to full strength — the row answers before
+    // you click it, which is what a pointer expects.
+    val tint by animateColorAsState(
+        when {
+            selected -> Blaze.Amber
+            hovered.value -> Blz.ink
+            else -> Blz.muted
+        },
+        tween(140), label = "railTint",
+    )
     val fill = if (selected) Blaze.Amber.copy(alpha = 0.13f) else Color.Transparent
 
     Row(
@@ -134,6 +145,7 @@ private fun RailItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(fill)
+            .then(if (selected) Modifier else Modifier.hoverBackground(Blz.hover, hovered, source))
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
