@@ -75,6 +75,9 @@ object Catalogue {
     /** One shelf of the feed: a heading and the tiles under it. */
     data class Shelf(val title: String, val cards: List<Card>)
 
+    /** A page of shelves, plus the token that fetches the next lot. */
+    data class Feed(val shelves: List<Shelf>, val more: String?)
+
     /**
      * The feed.
      *
@@ -82,13 +85,16 @@ object Catalogue {
      * songs, so shelves are tiles rather than rows — which is also what a wide
      * window has the space for.
      */
-    suspend fun home(): Result<List<Shelf>> = withContext(Dispatchers.IO) {
+    suspend fun home(after: String? = null): Result<Feed> = withContext(Dispatchers.IO) {
         ensureIdentity()
-        YouTube.home().map { page ->
-            page.sections.mapNotNull { section ->
-                val cards = section.items.mapNotNull { it.asCard() }
-                if (cards.isEmpty()) null else Shelf(section.title, cards)
-            }
+        YouTube.home(continuation = after).map { page ->
+            Feed(
+                shelves = page.sections.mapNotNull { section ->
+                    val cards = section.items.mapNotNull { it.asCard() }
+                    if (cards.isEmpty()) null else Shelf(section.title, cards)
+                },
+                more = page.continuation,
+            )
         }
     }
 

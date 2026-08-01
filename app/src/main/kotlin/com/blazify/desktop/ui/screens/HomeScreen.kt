@@ -16,7 +16,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,20 +51,48 @@ private val Moods = listOf("Relax", "Party", "Gym", "Focus", "Sleep", "Drive")
 @Composable
 fun HomeScreen(onOpen: (Catalogue.Card) -> Unit) {
     var shelves by remember { mutableStateOf<List<Catalogue.Shelf>>(emptyList()) }
+    var more by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
+    var extending by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<String?>(null) }
     var mood by remember { mutableStateOf(Moods.first()) }
+    val listState = rememberLazyListState()
 
     LaunchedEffect(Unit) {
         Catalogue.home().fold(
-            onSuccess = { shelves = it },
+            onSuccess = { shelves = it.shelves; more = it.more },
             onFailure = { problem = "Couldn't reach the catalogue" },
         )
         loading = false
     }
 
+    // Pull the next page in as the last shelf comes into view, so the feed
+    // keeps going rather than stopping at whatever the first response held.
+    val nearEnd by remember {
+        derivedStateOf {
+            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            last >= listState.layoutInfo.totalItemsCount - 2
+        }
+    }
+    LaunchedEffect(Unit) {
+        snapshotFlow { nearEnd }.collect { atEnd ->
+            val token = more
+            if (!atEnd || extending || token == null) return@collect
+            extending = true
+            Catalogue.home(after = token).onSuccess { next ->
+                // Shelves repeat across pages often enough to notice; keeping
+                // them out is cheaper than letting the feed stutter.
+                val seen = shelves.map { it.title }.toSet()
+                shelves = shelves + next.shelves.filter { it.title !in seen }
+                more = next.more
+            }
+            extending = false
+        }
+    }
+
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
+        state = listState,
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
         item {
@@ -80,6 +111,8 @@ fun HomeScreen(onOpen: (Catalogue.Card) -> Unit) {
             }
             else -> items(shelves) { shelf -> Shelf(shelf, onOpen) }
         }
+
+        if (extending) item { SkeletonRail(count = 5) }
     }
 }
 

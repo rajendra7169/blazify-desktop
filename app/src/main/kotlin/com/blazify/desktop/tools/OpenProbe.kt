@@ -5,7 +5,7 @@ import kotlinx.coroutines.runBlocking
 
 /** Blazify Project (C) 2026 · Licensed under GPL-3.0 */
 fun main() = runBlocking {
-    val shelves = Catalogue.home().getOrElse { println("home failed: ${it.message}"); return@runBlocking }
+    val shelves = Catalogue.home().getOrElse { println("home failed: ${it.message}"); return@runBlocking }.shelves
     shelves.take(2).forEach { shelf ->
         println("shelf: ${shelf.title}")
         shelf.cards.take(2).forEach { card ->
