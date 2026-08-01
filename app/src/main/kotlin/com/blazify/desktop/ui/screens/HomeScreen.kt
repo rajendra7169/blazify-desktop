@@ -18,7 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,23 +67,31 @@ fun HomeScreen(onOpen: (Catalogue.Card) -> Unit) {
         loading = false
     }
 
-    // Pull the next page in as the last shelf comes into view, so the feed
-    // keeps going rather than stopping at whatever the first response held.
-    val nearEnd by remember {
-        derivedStateOf {
-            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            last >= listState.layoutInfo.totalItemsCount - 2
-        }
-    }
     // Once the catalogue's own shelves are exhausted the feed carries on with
     // seeded ones, so scrolling never hits a dead stop.
     var discovered by remember { mutableStateOf(0) }
 
+    // Watching the layout itself rather than a true/false "near the end" flag.
+    // That flag goes true and STAYS true, and a flow only emits on change — so
+    // it fired once and the feed never grew again. This changes every time the
+    // list does, which is what actually drives the loading.
     LaunchedEffect(Unit) {
-        snapshotFlow { nearEnd }.collect { atEnd ->
-            if (!atEnd || extending) return@collect
-            extending = true
+        snapshotFlow {
+            val info = listState.layoutInfo
+            Triple(
+                info.totalItemsCount,
+                info.visibleItemsInfo.lastOrNull()?.index ?: -1,
+                listState.canScrollForward,
+            )
+        }.collect { (total, lastVisible, canScrollDown) ->
+            if (extending || loading) return@collect
+            // Two reasons to fetch: you're near the bottom, or there isn't
+            // enough here to scroll at all — on a tall window the first pages
+            // don't fill the screen, and then nothing would ever trigger.
+            val wanted = !canScrollDown || lastVisible >= total - 2
+            if (!wanted) return@collect
 
+            extending = true
             val token = more
             if (token != null) {
                 Catalogue.home(after = token).onSuccess { next ->
@@ -95,12 +102,12 @@ fun HomeScreen(onOpen: (Catalogue.Card) -> Unit) {
                     more = next.more
                 }
             } else if (discovered < Catalogue.seedCount) {
-                Catalogue.discover(discovered).onSuccess { shelf ->
+                val next = discovered
+                discovered += 1
+                Catalogue.discover(next).onSuccess { shelf ->
                     if (shelf.cards.isNotEmpty()) shelves = shelves + shelf
                 }
-                discovered += 1
             }
-
             extending = false
         }
     }
