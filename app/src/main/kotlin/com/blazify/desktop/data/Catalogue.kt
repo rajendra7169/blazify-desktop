@@ -232,6 +232,60 @@ object Catalogue {
     }
 
     /**
+     * A page for one thing: what it is, and what's inside it.
+     *
+     * An album or a playlist is a track list. An artist isn't — there's no one
+     * list worth playing, so it comes back as shelves instead, the same shape
+     * the feed is built from, and the page draws whichever it was given.
+     */
+    data class Collection(
+        val card: Card,
+        val tracks: List<Track> = emptyList(),
+        val shelves: List<Shelf> = emptyList(),
+        val note: String? = null,
+    )
+
+    suspend fun collection(card: Card): Result<Collection> = withContext(Dispatchers.IO) {
+        ensureIdentity()
+        when (card.kind) {
+            Kind.Song -> Result.success(Collection(card, tracks = listOf(card.asTrack())))
+
+            Kind.Album -> YouTube.album(card.id).map { page ->
+                Collection(
+                    card = card.copy(thumbnail = page.album.thumbnail ?: card.thumbnail),
+                    tracks = page.songs.map { it.asTrack() },
+                    note = page.album.year?.toString(),
+                )
+            }
+
+            Kind.Playlist -> YouTube.playlist(card.id).map { page ->
+                Collection(
+                    card = card.copy(thumbnail = page.playlist.thumbnail ?: card.thumbnail),
+                    tracks = page.songs.map { it.asTrack() },
+                    note = page.playlist.songCountText,
+                )
+            }
+
+            Kind.Artist -> YouTube.artist(card.id).map { page ->
+                Collection(
+                    card = card.copy(thumbnail = page.artist.thumbnail ?: card.thumbnail),
+                    // The top shelf of an artist page is their songs, which is
+                    // what the play button on the header should reach for.
+                    tracks = page.sections.firstOrNull()
+                        ?.items?.filterIsInstance<SongItem>()?.map { it.asTrack() }
+                        .orEmpty(),
+                    shelves = page.sections.mapNotNull { section ->
+                        val cards = section.items.mapNotNull { it.asCard() }
+                        if (cards.isEmpty()) null
+                        else Shelf(section.title, cards, rows = if (cards.all { it.kind == Kind.Song }) 4 else 1)
+                    },
+                    note = page.subscriberCountText,
+                )
+            }
+        }
+    }
+
+    /**
      * A playable audio URL for a song.
      *
      * Tries each client in turn: the first two answer for music without a proof
