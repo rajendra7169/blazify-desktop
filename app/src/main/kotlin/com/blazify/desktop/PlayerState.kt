@@ -91,6 +91,33 @@ object PlayerState {
 
     fun seek(fraction: Float) = AudioEngine.seek(fraction.toDouble())
 
+    /** Jump straight to a track in the queue. */
+    fun jumpTo(position: Int) {
+        if (position !in queue.indices || position == index) return
+        index = position
+        start()
+    }
+
+    /** Drop a track. Removing the one playing moves on to the next. */
+    fun removeAt(position: Int) {
+        if (position !in queue.indices) return
+        val wasCurrent = position == index
+        queue = queue.toMutableList().also { it.removeAt(position) }
+        when {
+            queue.isEmpty() -> { AudioEngine.stop(); index = 0 }
+            wasCurrent -> { index = index.coerceAtMost(queue.lastIndex); start() }
+            position < index -> index -= 1
+        }
+    }
+
+    /** Reorder by dragging, keeping the playing track under the same finger. */
+    fun move(from: Int, to: Int) {
+        if (from !in queue.indices || to !in queue.indices || from == to) return
+        val playing = current
+        queue = queue.toMutableList().also { it.add(to, it.removeAt(from)) }
+        playing?.let { index = queue.indexOf(it).coerceAtLeast(0) }
+    }
+
     var volume by mutableStateOf(0.8f)
         private set
 
