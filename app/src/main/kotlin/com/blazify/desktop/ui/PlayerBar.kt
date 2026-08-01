@@ -1,7 +1,10 @@
 package com.blazify.desktop.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +34,7 @@ import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -83,7 +87,10 @@ fun PlayerBar(
     Row(
         modifier
             .fillMaxWidth()
-            .height(74.dp)
+            // Tall enough that a hovered control's circle has room to sit in.
+            // At the old height they landed against the top edge, which read as
+            // the bar being too small for its own contents.
+            .height(88.dp)
             .background(Blz.bar)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -141,47 +148,81 @@ private fun Transport(
     onPrevious: () -> Unit,
 ) {
     Column(
-        Modifier.width(430.dp),
+        // The bar you drag is the control people use most, and a short one is
+        // both harder to aim at and coarser to seek with — every pixel is worth
+        // more seconds. It gets the width.
+        Modifier.width(620.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(Icons.Rounded.Shuffle, "Shuffle", Modifier.size(16.dp), tint = Blz.muted)
-            Icon(
-                Icons.Rounded.SkipPrevious, "Previous",
-                Modifier.size(20.dp).clip(CircleShape).clickable(onClick = onPrevious), tint = Blz.muted,
-            )
-            Box(
-                Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Blz.ink)
-                    .clickable(onClick = onPlayPause),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    if (now?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    if (now?.playing == true) "Pause" else "Play",
-                    Modifier.size(18.dp),
-                    tint = Blz.page,
-                )
-            }
-            Icon(
-                Icons.Rounded.SkipNext, "Next",
-                Modifier.size(20.dp).clip(CircleShape).clickable(onClick = onNext), tint = Blz.muted,
-            )
-            Icon(Icons.Rounded.Repeat, "Repeat", Modifier.size(16.dp), tint = Blz.muted)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TransportButton(Icons.Rounded.Shuffle, "Shuffle", 17.dp)
+            TransportButton(Icons.Rounded.SkipPrevious, "Previous", 22.dp, onClick = onPrevious)
+            PlayButton(now?.playing == true, onPlayPause)
+            TransportButton(Icons.Rounded.SkipNext, "Next", 22.dp, onClick = onNext)
+            TransportButton(Icons.Rounded.Repeat, "Repeat", 17.dp)
         }
 
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(now?.elapsed ?: "0:00", color = Blz.dim, fontSize = 10.5.sp)
-            ScrubBar(now?.position ?: 0f, onSeek, Modifier.weight(1f))
-            Text(now?.duration ?: "0:00", color = Blz.dim, fontSize = 10.5.sp)
+            Text(now?.elapsed ?: "0:00", color = Blz.dim, fontSize = 11.sp)
+            ScrubBar(now?.position ?: 0f, onSeek, Modifier.weight(1f), thickness = 5.dp)
+            Text(now?.duration ?: "0:00", color = Blz.dim, fontSize = 11.sp)
         }
+    }
+}
+
+/**
+ * A transport control with room around it.
+ *
+ * The circle is drawn around the icon rather than on it, so hovering lights a
+ * shape that sits inside the bar instead of running up against its edge.
+ */
+@Composable
+private fun TransportButton(
+    icon: ImageVector,
+    label: String,
+    size: androidx.compose.ui.unit.Dp,
+    onClick: (() -> Unit)? = null,
+) {
+    val (source, hovered) = rememberHovered()
+    val tint by animateColorAsState(
+        if (hovered.value) Blz.ink else Blz.muted, tween(120), label = "transportTint",
+    )
+    Box(
+        Modifier
+            .size(size + 16.dp)
+            .clip(CircleShape)
+            .hoverBackground(Blz.hover, hovered, source)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, label, Modifier.size(size), tint = tint)
+    }
+}
+
+@Composable
+private fun PlayButton(playing: Boolean, onClick: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Box(
+        Modifier
+            .size(38.dp)
+            .hoverLift(hovered, to = 1.06f)
+            .clip(CircleShape)
+            .background(Blz.ink)
+            .hoverable(source)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+            if (playing) "Pause" else "Play",
+            Modifier.size(22.dp),
+            tint = Blz.page,
+        )
     }
 }
 
