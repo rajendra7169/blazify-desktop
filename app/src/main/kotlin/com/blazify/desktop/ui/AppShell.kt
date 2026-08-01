@@ -95,10 +95,12 @@ fun AppShell() {
                     elapsed = PlayerState.elapsed,
                     duration = PlayerState.total,
                     playing = PlayerState.playing,
+                    liked = PlayerState.currentLiked,
                 )
             },
             volume = PlayerState.volume,
             onPlayPause = PlayerState::toggle,
+            onToggleLike = PlayerState::toggleLike,
             onSeek = PlayerState::seek,
             onVolume = PlayerState::changeVolume,
             onNext = PlayerState::next,

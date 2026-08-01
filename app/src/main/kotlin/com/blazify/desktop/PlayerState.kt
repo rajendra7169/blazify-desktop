@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.blazify.desktop.audio.AudioEngine
 import com.blazify.desktop.data.Catalogue
+import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.Track
 import com.blazify.desktop.data.asTrack
 import kotlinx.coroutines.CoroutineScope
@@ -196,11 +197,24 @@ object PlayerState {
         }
         scope.launch {
             Catalogue.streamUrl(track.id).fold(
-                onSuccess = { AudioEngine.play(it) },
+                onSuccess = {
+                    AudioEngine.play(it)
+                    // Recorded once it's actually playing rather than on the
+                    // click, so a track that never resolves doesn't leave a
+                    // false entry in a list of what you listened to.
+                    Library.played(track)
+                },
                 onFailure = { failure = "Couldn't play ${track.title}" },
             )
         }
     }
+
+    /** Like or unlike whatever is playing. */
+    fun toggleLike() {
+        current?.let { Library.toggleLike(it) }
+    }
+
+    val currentLiked: Boolean get() = current?.let { Library.isLiked(it.id) } == true
 
     private fun clock(seconds: Double): String {
         val whole = seconds.toInt().coerceAtLeast(0)

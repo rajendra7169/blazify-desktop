@@ -74,6 +74,7 @@ fun PlayerBar(
     now: NowPlaying?,
     volume: Float,
     onPlayPause: () -> Unit,
+    onToggleLike: () -> Unit,
     onSeek: (Float) -> Unit,
     onVolume: (Float) -> Unit,
     onNext: () -> Unit,
@@ -95,7 +96,7 @@ fun PlayerBar(
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.weight(1f)) { NowPlayingCell(now) }
+        Box(Modifier.weight(1f)) { NowPlayingCell(now, onToggleLike) }
 
         Transport(now, onPlayPause, onSeek, onNext, onPrevious)
 
@@ -113,7 +114,7 @@ fun PlayerBar(
 }
 
 @Composable
-private fun NowPlayingCell(now: NowPlaying?) {
+private fun NowPlayingCell(now: NowPlaying?, onToggleLike: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
         Artwork(now?.artwork, size = 44.dp, corner = 7.dp)
         Column(Modifier.widthIn(max = 220.dp)) {
@@ -129,11 +130,12 @@ private fun NowPlayingCell(now: NowPlaying?) {
             )
         }
         if (now != null) {
-            Icon(
+            TransportButton(
                 if (now.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                "Like",
-                Modifier.size(16.dp),
+                if (now.liked) "Unlike" else "Like",
+                17.dp,
                 tint = if (now.liked) Blaze.Amber else Blz.muted,
+                onClick = onToggleLike,
             )
         }
     }
@@ -187,10 +189,11 @@ private fun TransportButton(
     label: String,
     size: androidx.compose.ui.unit.Dp,
     onClick: (() -> Unit)? = null,
+    tint: Color? = null,
 ) {
     val (source, hovered) = rememberHovered()
-    val tint by animateColorAsState(
-        if (hovered.value) Blz.ink else Blz.muted, tween(120), label = "transportTint",
+    val shade by animateColorAsState(
+        tint ?: if (hovered.value) Blz.ink else Blz.muted, tween(120), label = "transportTint",
     )
     Box(
         Modifier
@@ -200,7 +203,7 @@ private fun TransportButton(
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, label, Modifier.size(size), tint = tint)
+        Icon(icon, label, Modifier.size(size), tint = shade)
     }
 }
 
