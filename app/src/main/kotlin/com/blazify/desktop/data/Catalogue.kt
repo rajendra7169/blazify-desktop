@@ -2,6 +2,7 @@ package com.blazify.desktop.data
 
 import com.blazify.innertube.YouTube
 import com.blazify.innertube.models.SongItem
+import com.blazify.innertube.pages.HomePage
 import com.blazify.innertube.models.YouTubeClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -53,17 +54,37 @@ object Catalogue {
 
     suspend fun search(query: String): Result<List<Track>> = withContext(Dispatchers.IO) {
         YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).map { result ->
-            result.items.filterIsInstance<SongItem>().map { song ->
-                Track(
-                    id = song.id,
-                    title = song.title,
-                    artist = song.artists.joinToString(", ") { it.name },
-                    thumbnail = song.thumbnail,
-                    durationSeconds = song.duration,
-                )
+            result.items.filterIsInstance<SongItem>().map { it.asTrack() }
+        }
+    }
+
+    /** One shelf of the feed: a heading and the songs under it. */
+    data class Shelf(val title: String, val tracks: List<Track>)
+
+    /**
+     * The feed, reduced to shelves of songs.
+     *
+     * The catalogue mixes songs, albums, artists and playlists into the same
+     * carousels. Only songs can be played from a shelf without another request,
+     * so anything else is dropped and a shelf left empty goes with it.
+     */
+    suspend fun home(): Result<List<Shelf>> = withContext(Dispatchers.IO) {
+        ensureIdentity()
+        YouTube.home().map { page ->
+            page.sections.mapNotNull { section ->
+                val songs = section.items.filterIsInstance<SongItem>().map { it.asTrack() }
+                if (songs.size < 3) null else Shelf(section.title, songs)
             }
         }
     }
+
+    private fun SongItem.asTrack() = Track(
+        id = id,
+        title = title,
+        artist = artists.joinToString(", ") { it.name },
+        thumbnail = thumbnail,
+        durationSeconds = duration,
+    )
 
     /**
      * A playable audio URL for a song.
