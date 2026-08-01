@@ -3,6 +3,11 @@ package com.blazify.desktop.audio
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
 import uk.co.caprica.vlcj.player.component.AudioPlayerComponent
@@ -39,6 +44,36 @@ object AudioEngine {
     var onFinished: (() -> Unit)? = null
 
     /**
+     * The player reports the time it has reached, but only every few hundred
+     * milliseconds — enough to move a progress bar, nowhere near enough to
+     * follow a line of a song. So the last report is kept with the moment it
+     * arrived, and the time between reports is carried by the wall clock.
+     *
+     * The result is a position that moves continuously and is corrected by the
+     * truth several times a second, rather than one that jumps.
+     */
+    private var anchor = 0.0
+    private var anchoredAt = System.nanoTime()
+
+    private fun anchorAt(seconds: Double) {
+        anchor = seconds
+        anchoredAt = System.nanoTime()
+        position = seconds
+    }
+
+    init {
+        CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            while (true) {
+                delay(40)
+                if (!playing) continue
+                val since = (System.nanoTime() - anchoredAt) / 1_000_000_000.0
+                val guess = anchor + since
+                position = if (duration > 0) guess.coerceAtMost(duration) else guess
+            }
+        }
+    }
+
+    /**
      * Created lazily. Building it loads the native library, and doing that at
      * startup would slow the window down for someone who never presses play.
      */
@@ -62,7 +97,7 @@ object AudioEngine {
 
         override fun finished(mediaPlayer: MediaPlayer) {
             playing = false
-            position = duration
+            anchorAt(duration)
             // The callback arrives on a native thread and starting the next
             // track from inside it deadlocks the player, so hand it off.
             Thread { onFinished?.invoke() }.start()
@@ -79,7 +114,7 @@ object AudioEngine {
         }
 
         override fun timeChanged(mediaPlayer: MediaPlayer, newTime: Long) {
-            position = newTime / 1000.0
+            anchorAt(newTime / 1000.0)
         }
     }
 
@@ -89,7 +124,7 @@ object AudioEngine {
     fun play(mrl: String) {
         error = null
         loading = true
-        position = 0.0
+        anchorAt(0.0)
         duration = 0.0
         runCatching { player.media().play(mrl) }
             .onFailure {
@@ -102,10 +137,16 @@ object AudioEngine {
         runCatching {
             if (player.status().isPlaying) player.controls().pause() else player.controls().play()
         }
+        // Resuming counts on from here, not from whenever the last report was.
+        anchorAt(position)
     }
 
     fun seek(fraction: Double) {
-        runCatching { player.controls().setPosition(fraction.coerceIn(0.0, 1.0).toFloat()) }
+        val target = fraction.coerceIn(0.0, 1.0)
+        runCatching { player.controls().setPosition(target.toFloat()) }
+        // Moved now rather than waiting for the player to say so, or the
+        // in-between would be spent counting up from where you just left.
+        if (duration > 0) anchorAt(target * duration)
     }
 
     fun setVolume(value: Double) {
@@ -115,7 +156,7 @@ object AudioEngine {
     fun stop() {
         runCatching { player.controls().stop() }
         playing = false
-        position = 0.0
+        anchorAt(0.0)
         duration = 0.0
     }
 }
