@@ -50,7 +50,10 @@ private val Moods = listOf(
 )
 
 @Composable
-fun HomeScreen(onOpen: (Catalogue.Card) -> Unit) {
+fun HomeScreen(
+    onOpen: (Catalogue.Card) -> Unit,
+    onPlayAll: (List<Catalogue.Card>, Int) -> Unit,
+) {
     var shelves by remember { mutableStateOf<List<Catalogue.Shelf>>(emptyList()) }
     var more by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
@@ -131,7 +134,7 @@ fun HomeScreen(onOpen: (Catalogue.Card) -> Unit) {
             shelves.isEmpty() -> item {
                 Text("Nothing in the feed right now", color = Blz.dim, fontSize = 13.sp)
             }
-            else -> items(shelves) { shelf -> Shelf(shelf, onOpen) }
+            else -> items(shelves) { shelf -> Shelf(shelf, onOpen, onPlayAll) }
         }
 
         if (extending) item { SkeletonRail(count = 5) }

@@ -1,25 +1,45 @@
 package com.blazify.desktop.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.ScrollableState
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,10 +47,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.ui.Artwork
+import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverLift
 import com.blazify.desktop.ui.rememberHovered
+import kotlinx.coroutines.launch
 
 /**
  * Blazify Project (C) 2026
@@ -38,70 +60,218 @@ import com.blazify.desktop.ui.rememberHovered
  */
 
 /**
- * A shelf, drawn according to what's on it.
+ * How big a shelf draws itself.
+ *
+ * A window is a good deal wider than a hand, so everything here runs larger
+ * than it would on a small screen — but the proportions between artwork, title
+ * and subtitle are what make a shelf readable, and those are kept.
+ */
+private val ArtSide = 172.dp
+private val TileGap = 14.dp
+private val LineHeight = 62.dp
+private val LineWidth = 300.dp
+private val LineGap = 12.dp
+
+/**
+ * A shelf, drawn the way the catalogue asked for it.
  *
  * A feed of identical squares is hard to read — everything looks equally
- * important and there's no rhythm to scrolling it. Songs go into a compact grid
- * that scrolls sideways, four to a column, because a song is a line of text and
- * a thumbnail rather than a cover worth showing off. Albums and playlists get
- * the space their artwork deserves. Artists are circles, which is how everyone
- * expects a person to be drawn.
+ * important and there's no rhythm to scrolling it. Shelves that stack several
+ * deep become a grid of compact lines, because a song there is a line of text
+ * and a thumbnail rather than a cover worth showing off. Everything else gets
+ * the space its artwork deserves: widescreen stills stay wide, artists are
+ * circles, and heights stay level across a rail so a mixed shelf still reads as
+ * one row.
  */
 @Composable
-fun Shelf(shelf: Catalogue.Shelf, onOpen: (Catalogue.Card) -> Unit) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(11.dp)) {
-        Text(shelf.title, color = Blz.ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-        if (shelf.isSongs) SongGrid(shelf, onOpen) else CardRail(shelf, onOpen)
-    }
-}
+fun Shelf(
+    shelf: Catalogue.Shelf,
+    onOpen: (Catalogue.Card) -> Unit,
+    onPlayAll: (List<Catalogue.Card>, Int) -> Unit,
+) {
+    var width by remember { mutableStateOf(0) }
 
-/** Four rows of compact song lines, scrolling sideways a column at a time. */
-@Composable
-private fun SongGrid(shelf: Catalogue.Shelf, onOpen: (Catalogue.Card) -> Unit) {
-    LazyHorizontalGrid(
-        rows = GridCells.Fixed(4),
-        modifier = Modifier.fillMaxWidth().height(56.dp * 4 + 8.dp * 3),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    Column(
+        Modifier.fillMaxWidth().onSizeChanged { width = it.width },
+        verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
-        items(shelf.cards, key = { it.kind.name + it.id }) { card -> SongLine(card, onOpen) }
-    }
-}
-
-@Composable
-private fun SongLine(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
-    val (source, hovered) = rememberHovered()
-    Row(
-        Modifier
-            // Wide enough for a real title, narrow enough that a second column
-            // is always visible — otherwise it reads as a list, not a grid.
-            .width(330.dp)
-            .height(56.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .hoverBackground(Blz.hover, hovered, source)
-            .clickable { onOpen(card) }
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(11.dp),
-    ) {
-        Artwork(card.thumbnail, size = 40.dp)
-        Column(Modifier.weight(1f)) {
-            Text(
-                card.title, color = Blz.ink, fontSize = 12.5.sp, fontWeight = FontWeight.Medium,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                card.subtitle, color = Blz.muted, fontSize = 11.5.sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+        if (shelf.isSongs) {
+            val state = rememberLazyGridState()
+            ShelfHeader(shelf, state, width, onPlay = { onPlayAll(shelf.cards, 0) })
+            SongGrid(shelf, state, onPlayAll)
+        } else {
+            val state = rememberLazyListState()
+            ShelfHeader(shelf, state, width, onPlay = null)
+            CardRail(shelf, state, onOpen)
         }
     }
 }
 
-/** Artwork cards: square for a release, circular for a person. */
+/**
+ * The line above a shelf: what it is, who it came from, and the way through it.
+ *
+ * The arrows exist because a rail on a desktop has no thumb to flick it — a
+ * scroll wheel moves the page, not the row, so without them the far end of a
+ * shelf is unreachable for anyone not dragging a scrollbar.
+ */
 @Composable
-private fun CardRail(shelf: Catalogue.Shelf, onOpen: (Catalogue.Card) -> Unit) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+private fun ShelfHeader(
+    shelf: Catalogue.Shelf,
+    state: ScrollableState,
+    width: Int,
+    onPlay: (() -> Unit)?,
+) {
+    val scope = rememberCoroutineScope()
+    // Just under a full pane, so the tile you were looking at stays in sight
+    // and gives you your bearings after the jump.
+    fun nudge(direction: Int) = scope.launch {
+        state.animateScrollBy(direction * (width * 0.8f).coerceAtLeast(200f))
+    }
+
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        shelf.avatar?.let {
+            Artwork(it, size = 42.dp, corner = 21.dp, modifier = Modifier.clip(CircleShape))
+            Spacer(Modifier.width(12.dp))
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            shelf.label?.let {
+                Text(
+                    it.uppercase(), color = Blz.muted, fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold, letterSpacing = 0.9.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                shelf.title, color = Blz.ink, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            onPlay?.let { PlayAllPill(it) }
+            Arrow(Icons.Rounded.ChevronLeft, state.canScrollBackward) { nudge(-1) }
+            Arrow(Icons.Rounded.ChevronRight, state.canScrollForward) { nudge(1) }
+        }
+    }
+}
+
+@Composable
+private fun PlayAllPill(onPlay: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(onClick = onPlay)
+            .padding(start = 10.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(Icons.Rounded.PlayArrow, null, Modifier.size(17.dp), tint = Blaze.OnAmber)
+        Text("Play all", color = Blaze.OnAmber, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun Arrow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val (source, hovered) = rememberHovered()
+    Box(
+        Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .background(Blz.surface)
+            .then(if (enabled) Modifier.hoverBackground(Blz.hover, hovered, source) else Modifier)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Left in place while it does nothing, rather than shifting the other
+        // arrow sideways every time a rail reaches an end.
+        Icon(icon, null, Modifier.size(19.dp), tint = if (enabled) Blz.ink else Blz.dim)
+    }
+}
+
+/** A grid of compact song lines, as many rows deep as the shelf asked for. */
+@Composable
+private fun SongGrid(
+    shelf: Catalogue.Shelf,
+    state: androidx.compose.foundation.lazy.grid.LazyGridState,
+    onPlayAll: (List<Catalogue.Card>, Int) -> Unit,
+) {
+    val rows = shelf.rows.coerceIn(1, 4)
+    LazyHorizontalGrid(
+        rows = GridCells.Fixed(rows),
+        state = state,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(LineHeight * rows + LineGap * (rows - 1)),
+        horizontalArrangement = Arrangement.spacedBy(LineGap),
+        verticalArrangement = Arrangement.spacedBy(LineGap),
+    ) {
+        itemsIndexed(shelf.cards, key = { _, card -> card.kind.name + card.id }) { at, card ->
+            SongLine(card) { onPlayAll(shelf.cards, at) }
+        }
+    }
+}
+
+@Composable
+private fun SongLine(card: Catalogue.Card, onPlay: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            // Wide enough for a real title, narrow enough that the next column
+            // is always in view — otherwise it reads as a list, not a grid.
+            .width(LineWidth)
+            .height(LineHeight)
+            .clip(RoundedCornerShape(8.dp))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(onClick = onPlay)
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(11.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Artwork(card.thumbnail, size = 46.dp)
+            if (hovered.value) {
+                Box(
+                    Modifier.size(46.dp).clip(RoundedCornerShape(6.dp))
+                        .background(Blaze.OnAmber.copy(alpha = 0.55f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Rounded.PlayArrow, null, Modifier.size(22.dp), tint = Blz.ink)
+                }
+            }
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                card.title, color = Blz.ink, fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                card.subtitle, color = Blz.muted, fontSize = 12.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (card.duration.isNotEmpty()) {
+            Text(card.duration, color = Blz.dim, fontSize = 12.sp)
+        }
+    }
+}
+
+/** Artwork cards: square for a release, wide for a video, circular for a person. */
+@Composable
+private fun CardRail(
+    shelf: Catalogue.Shelf,
+    state: androidx.compose.foundation.lazy.LazyListState,
+    onOpen: (Catalogue.Card) -> Unit,
+) {
+    LazyRow(state = state, horizontalArrangement = Arrangement.spacedBy(TileGap)) {
         items(shelf.cards, key = { it.kind.name + it.id }) { card -> Tile(card, onOpen) }
     }
 }
@@ -110,11 +280,14 @@ private fun CardRail(shelf: Catalogue.Shelf, onOpen: (Catalogue.Card) -> Unit) {
 private fun Tile(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
     val (source, hovered) = rememberHovered()
     val round = card.kind == Catalogue.Kind.Artist
+    // Heights stay level down the rail; only widescreen stills run wider, so a
+    // shelf holding both still reads as a single row rather than a staircase.
+    val artWidth = if (card.wide && !round) ArtSide * 16f / 9f else ArtSide
 
     Column(
         Modifier
-            .width(150.dp)
-            .clip(RoundedCornerShape(10.dp))
+            .width(artWidth + 14.dp)
+            .clip(RoundedCornerShape(12.dp))
             .hoverBackground(Blz.hover, hovered, source)
             .clickable { onOpen(card) }
             .padding(7.dp),
@@ -123,18 +296,23 @@ private fun Tile(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
     ) {
         Artwork(
             card.thumbnail,
-            size = 136.dp,
-            corner = if (round) 68.dp else 9.dp,
-            modifier = Modifier.hoverLift(hovered).then(if (round) Modifier.clip(CircleShape) else Modifier),
+            size = artWidth,
+            height = ArtSide,
+            corner = if (round) ArtSide / 2 else 12.dp,
+            modifier = Modifier.hoverLift(hovered)
+                .then(if (round) Modifier.clip(CircleShape) else Modifier),
         )
-        Column(horizontalAlignment = if (round) Alignment.CenterHorizontally else Alignment.Start) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+            horizontalAlignment = if (round) Alignment.CenterHorizontally else Alignment.Start,
+        ) {
             Text(
-                card.title, color = Blz.ink, fontSize = 12.5.sp, fontWeight = FontWeight.Medium,
+                card.title, color = Blz.ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 2, overflow = TextOverflow.Ellipsis,
                 textAlign = if (round) TextAlign.Center else TextAlign.Start,
             )
             Text(
-                card.subtitle, color = Blz.muted, fontSize = 11.5.sp,
+                card.subtitle, color = Blz.muted, fontSize = 12.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 textAlign = if (round) TextAlign.Center else TextAlign.Start,
             )
