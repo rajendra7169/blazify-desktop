@@ -4,6 +4,8 @@ import com.blazify.innertube.YouTube
 import com.blazify.innertube.models.SongItem
 import com.blazify.innertube.models.YouTubeClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -31,6 +33,24 @@ data class Track(
  */
 object Catalogue {
 
+    private val identityLock = Mutex()
+
+    /**
+     * Fetch the visitor identity once, and keep it.
+     *
+     * Without it the good clients refuse outright — one asks for a login, the
+     * other calls every track unplayable — and the only one left over hands back
+     * a URL that stops dead at exactly one megabyte. With it they answer
+     * properly. It costs a single request on the first play of a session.
+     */
+    private suspend fun ensureIdentity() {
+        if (YouTube.visitorData != null) return
+        identityLock.withLock {
+            if (YouTube.visitorData != null) return
+            YouTube.visitorData().getOrNull()?.let { YouTube.visitorData = it }
+        }
+    }
+
     suspend fun search(query: String): Result<List<Track>> = withContext(Dispatchers.IO) {
         YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).map { result ->
             result.items.filterIsInstance<SongItem>().map { song ->
@@ -54,6 +74,7 @@ object Catalogue {
      * player can't open, so a higher bitrate in the wrong format is no use.
      */
     suspend fun streamUrl(videoId: String): Result<String> = withContext(Dispatchers.IO) {
+        ensureIdentity()
         val clients = listOf(
             YouTubeClient.ANDROID_VR_NO_AUTH,
             YouTubeClient.VISIONOS,

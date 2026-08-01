@@ -6,8 +6,7 @@ import javafx.scene.media.Media
 import javafx.scene.media.MediaPlayer
 import kotlinx.coroutines.runBlocking
 import java.io.File
-import okhttp3.OkHttpClient
-import okhttp3.Request
+import com.blazify.desktop.audio.StreamFetcher
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -22,17 +21,12 @@ fun main(args: Array<String>) = runBlocking {
     val track = Catalogue.search(query).getOrNull()?.firstOrNull() ?: run { println("no results"); return@runBlocking }
     val url = Catalogue.streamUrl(track.id).getOrElse { println("resolve failed: ${it.message}"); return@runBlocking }
 
-    val file = File.createTempFile("blazify-probe", ".m4a").apply { deleteOnExit() }
+    val file = File("/tmp/blazify-probe.m4a")
     println("downloading to ${file.absolutePath}")
-    // Fetched with the same client the catalogue uses. The server wants a Range
-    // header (the URL says rqh=1) and is fussy about the rest of the request.
-    val http = OkHttpClient()
-    val response = http.newCall(
-        Request.Builder().url(url).header("Range", "bytes=0-").build(),
-    ).execute()
-    println("fetch  : HTTP ${response.code}")
-    if (!response.isSuccessful) { println("giving up"); return@runBlocking }
-    response.body?.byteStream()?.use { input -> file.outputStream().use { input.copyTo(it) } }
+    val started = System.currentTimeMillis()
+    StreamFetcher.download(url, file) { print("\r  fetching ${(it * 100).toInt()}%") }
+        .onFailure { println("\nfetch failed: ${it.message}"); return@runBlocking }
+    println("\rfetched: ${file.length() / 1024} KB in ${System.currentTimeMillis() - started} ms")
     println("downloaded ${file.length() / 1024} KB")
 
     runCatching { Platform.startup { } }

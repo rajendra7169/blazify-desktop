@@ -1,13 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
-// The media libraries ship one native jar per platform. Pick the one for
-// whatever machine is building, which is also the machine that will run it —
-// installers have to be produced on their own platform anyway.
-val fxPlatform = when {
-    System.getProperty("os.name").startsWith("Windows") -> "win"
-    System.getProperty("os.name").contains("Mac") -> "mac"
-    else -> "linux"
-}
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -24,12 +16,10 @@ dependencies {
     implementation(libs.kotlinx.coroutines)
     implementation(libs.ktor.client.okhttp)
 
-    // Audio. Chosen over a native player so the installer stays self-contained:
-    // these jars carry their own native code, so nothing has to be installed
-    // alongside the app.
-    implementation(variantOf(libs.javafx.base) { classifier(fxPlatform) })
-    implementation(variantOf(libs.javafx.graphics) { classifier(fxPlatform) })
-    implementation(variantOf(libs.javafx.media) { classifier(fxPlatform) })
+    // Audio. The catalogue serves fragmented MP4, which the lighter JVM media
+    // libraries can't open at all — this one plays it without complaint, along
+    // with every other container we're ever likely to meet.
+    implementation(libs.vlcj)
 }
 
 compose.desktop {

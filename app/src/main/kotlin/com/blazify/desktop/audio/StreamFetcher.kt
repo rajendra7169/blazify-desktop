@@ -34,7 +34,10 @@ import java.util.concurrent.TimeUnit
 object StreamFetcher {
 
     private const val CHUNK = 1L shl 20      // 1 MiB — larger ranges get refused
-    private const val PARALLEL = 6
+    // Three at a time. Six tripped a limit and started handing back 403s partway
+    // through; three is still several times quicker than one at a time.
+    private const val PARALLEL = 3
+    private const val ATTEMPTS = 3
 
     private val http = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -88,17 +91,33 @@ object StreamFetcher {
         }
     }
 
+    /**
+     * One chunk, retried on a refusal.
+     *
+     * A 403 here is almost always the server pushing back on how fast we're
+     * asking rather than anything wrong with the request — the same range
+     * succeeds a moment later. Backing off and trying again is the whole fix.
+     */
     private fun fetchRange(url: String, from: Long, to: Long, into: File) {
-        val response = http.newCall(
-            Request.Builder().url(url).header("Range", "bytes=$from-$to").build(),
-        ).execute()
-        response.use {
-            check(it.isSuccessful) { "Chunk $from-$to came back ${it.code}" }
-            val bytes = it.body?.bytes() ?: error("Chunk $from-$to was empty")
-            RandomAccessFile(into, "rw").use { file ->
-                file.seek(from)
-                file.write(bytes)
+        var last: Exception? = null
+        repeat(ATTEMPTS) { attempt ->
+            try {
+                http.newCall(
+                    Request.Builder().url(url).header("Range", "bytes=$from-$to").build(),
+                ).execute().use { response ->
+                    check(response.isSuccessful) { "Chunk $from-$to came back ${response.code}" }
+                    val bytes = response.body?.bytes() ?: error("Chunk $from-$to was empty")
+                    RandomAccessFile(into, "rw").use { file ->
+                        file.seek(from)
+                        file.write(bytes)
+                    }
+                }
+                return
+            } catch (e: Exception) {
+                last = e
+                Thread.sleep(250L * (attempt + 1))
             }
         }
+        throw last ?: IllegalStateException("Chunk $from-$to failed")
     }
 }
