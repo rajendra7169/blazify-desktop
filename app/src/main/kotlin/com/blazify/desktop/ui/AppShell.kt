@@ -33,6 +33,7 @@ import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.ui.screens.CollectionScreen
+import com.blazify.desktop.ui.screens.DownloadsScreen
 import com.blazify.desktop.ui.screens.ExploreScreen
 import com.blazify.desktop.ui.screens.HomeScreen
 import com.blazify.desktop.ui.screens.LibraryScreen
@@ -187,6 +188,11 @@ private fun Content(destination: Destination) {
             onPlay = PlayerState::play,
             onShuffle = PlayerState::shuffle,
             action = "Clear" to Library::clearHistory,
+        )
+
+        Destination.Downloads -> DownloadsScreen(
+            onPlay = PlayerState::play,
+            onShuffle = PlayerState::shuffle,
         )
 
         Destination.OnThisComputer -> LocalScreen(
