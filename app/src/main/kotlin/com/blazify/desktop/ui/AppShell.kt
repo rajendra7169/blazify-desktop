@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.PlayerState
 import com.blazify.desktop.data.Catalogue
+import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.ui.screens.CollectionScreen
 import com.blazify.desktop.ui.screens.ExploreScreen
@@ -116,12 +117,15 @@ fun AppShell() {
                     duration = PlayerState.total,
                     playing = PlayerState.playing,
                     liked = PlayerState.currentLiked,
+                    kept = Downloads.has(it.id),
+                    keeping = if (Downloads.isRunning(it.id)) Downloads.progressOf(it.id) else null,
                 )
             },
             volume = PlayerState.volume,
             onPlayPause = PlayerState::toggle,
             onToggleLike = PlayerState::toggleLike,
             onToggleMute = PlayerState::toggleMute,
+            onKeep = PlayerState::downloadCurrent,
             onSeek = PlayerState::seek,
             onVolume = PlayerState::changeVolume,
             onNext = PlayerState::next,

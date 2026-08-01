@@ -20,7 +20,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Pause
@@ -33,6 +39,7 @@ import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.VolumeDown
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,6 +69,9 @@ data class NowPlaying(
     val duration: String = "0:00",
     val playing: Boolean = false,
     val liked: Boolean = false,
+    val kept: Boolean = false,
+    /** Null unless a download is under way, 0..1 while it is. */
+    val keeping: Float? = null,
 )
 
 /**
@@ -78,6 +88,7 @@ fun PlayerBar(
     onPlayPause: () -> Unit,
     onToggleLike: () -> Unit,
     onToggleMute: () -> Unit,
+    onKeep: () -> Unit,
     onSeek: (Float) -> Unit,
     onVolume: (Float) -> Unit,
     onNext: () -> Unit,
@@ -99,7 +110,7 @@ fun PlayerBar(
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.weight(1f)) { NowPlayingCell(now, onToggleLike) }
+        Box(Modifier.weight(1f)) { NowPlayingCell(now, onToggleLike, onKeep) }
 
         Transport(now, onPlayPause, onSeek, onNext, onPrevious)
 
@@ -129,7 +140,7 @@ fun PlayerBar(
 }
 
 @Composable
-private fun NowPlayingCell(now: NowPlaying?, onToggleLike: () -> Unit) {
+private fun NowPlayingCell(now: NowPlaying?, onToggleLike: () -> Unit, onKeep: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
         Artwork(now?.artwork, size = 44.dp, corner = 7.dp)
         Column(Modifier.widthIn(max = 220.dp)) {
@@ -152,6 +163,7 @@ private fun NowPlayingCell(now: NowPlaying?, onToggleLike: () -> Unit) {
                 tint = if (now.liked) Blaze.Amber else Blz.muted,
                 onClick = onToggleLike,
             )
+            KeepButton(now, onKeep)
         }
     }
 }
@@ -188,6 +200,43 @@ private fun Transport(
             Text(now?.elapsed ?: "0:00", color = Blz.dim, fontSize = 11.sp)
             ScrubBar(now?.position ?: 0f, onSeek, Modifier.weight(1f), thickness = 5.dp)
             Text(now?.duration ?: "0:00", color = Blz.dim, fontSize = 11.sp)
+        }
+    }
+}
+
+/**
+ * Keep for offline, and how far along that is.
+ *
+ * The ring around the icon is the progress — a bar somewhere else on screen
+ * would leave you hunting for which song it belonged to.
+ */
+@Composable
+private fun KeepButton(now: NowPlaying, onKeep: () -> Unit) {
+    val fraction = now.keeping
+    Box(contentAlignment = Alignment.Center) {
+        TransportButton(
+            when {
+                now.kept -> Icons.Rounded.DownloadDone
+                fraction != null -> Icons.Rounded.Downloading
+                else -> Icons.Rounded.Download
+            },
+            when {
+                now.kept -> "Kept for offline"
+                fraction != null -> "Keeping"
+                else -> "Keep for offline"
+            },
+            17.dp,
+            onClick = if (now.kept || fraction != null) null else onKeep,
+            tint = if (now.kept) Blaze.Amber else null,
+        )
+        if (fraction != null) {
+            CircularProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier.size(28.dp),
+                color = Blaze.Amber,
+                trackColor = Blz.surfaceHigh,
+                strokeWidth = 2.dp,
+            )
         }
     }
 }
