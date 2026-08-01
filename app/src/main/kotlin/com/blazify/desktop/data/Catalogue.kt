@@ -97,8 +97,20 @@ object Catalogue {
 
     private val Sized = Regex("=w(\\d+)-h(\\d+)")
 
-    /** One shelf of the feed: a heading and the tiles under it. */
-    data class Shelf(val title: String, val cards: List<Card>) {
+    /**
+     * One shelf of the feed: a heading and the tiles under it.
+     *
+     * Some shelves arrive with more than a title — a line of context above it
+     * ("Similar to", "Listen again") and a small picture of whoever it came
+     * from. Those turn a wall of equal headings into something you can skim,
+     * so they're carried through rather than dropped.
+     */
+    data class Shelf(
+        val title: String,
+        val cards: List<Card>,
+        val label: String? = null,
+        val avatar: String? = null,
+    ) {
         /** Songs are drawn as compact lines; everything else as artwork cards. */
         val isSongs: Boolean get() = cards.isNotEmpty() && cards.all { it.kind == Kind.Song }
     }
@@ -119,7 +131,8 @@ object Catalogue {
             Feed(
                 shelves = page.sections.mapNotNull { section ->
                     val cards = section.items.mapNotNull { it.asCard() }
-                    if (cards.isEmpty()) null else Shelf(section.title, cards)
+                    if (cards.isEmpty()) null
+                    else Shelf(section.title, cards, section.label, section.thumbnail)
                 },
                 more = page.continuation,
             )
