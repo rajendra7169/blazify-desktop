@@ -19,6 +19,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Icon
@@ -39,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.data.Catalogue
+import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.Track
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
@@ -161,10 +164,20 @@ private fun Header(
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
 
-            if (tracks.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (tracks.isNotEmpty()) {
                     Action(Icons.Rounded.PlayArrow, "Play", filled = true) { onPlay(tracks, 0) }
                     Action(Icons.Rounded.Shuffle, "Shuffle", filled = false) { onShuffle(tracks) }
+                }
+                // Songs aren't saved from here — the heart in the bar is where
+                // that lives, and two ways to do one thing is one too many.
+                if (card.kind != Catalogue.Kind.Song) {
+                    val saved = Library.isSaved(card.id)
+                    Action(
+                        if (saved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                        if (saved) "Saved" else "Save",
+                        filled = false,
+                    ) { Library.toggleSaved(card) }
                 }
             }
         }
