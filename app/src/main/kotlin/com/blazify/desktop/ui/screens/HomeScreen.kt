@@ -46,7 +46,9 @@ import java.time.LocalTime
  * Licensed under GPL-3.0
  */
 
-private val Moods = listOf("Relax", "Party", "Gym", "Focus", "Sleep", "Drive")
+private val Moods = listOf(
+    "Relax", "Party", "Gym", "Focus", "Sleep", "Drive", "Romance", "Feel good",
+)
 
 @Composable
 fun HomeScreen(onOpen: (Catalogue.Card) -> Unit) {
@@ -167,13 +169,16 @@ private fun MoodChips(selected: String, onSelect: (String) -> Unit) {
                     )
                     .then(if (on) Modifier else Modifier.hoverBackground(Blz.hover, hovered, source))
                     .clickable { onSelect(name) }
-                    .padding(horizontal = 14.dp, vertical = 7.dp),
+                    // Slim. These are a filter, not a headline — they were
+                    // sitting taller than the mark in the rail, which put the
+                    // emphasis in completely the wrong place.
+                    .padding(horizontal = 11.dp, vertical = 4.dp),
             ) {
                 Text(
                     name,
                     color = if (on) Blaze.OnAmber else Blz.muted,
-                    fontSize = 12.sp,
-                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                    fontSize = 11.sp,
+                    fontWeight = if (on) FontWeight.Medium else FontWeight.Normal,
                 )
             }
         }
