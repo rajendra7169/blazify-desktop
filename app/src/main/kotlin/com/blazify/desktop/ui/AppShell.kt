@@ -1,5 +1,11 @@
 package com.blazify.desktop.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,7 +13,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,6 +61,24 @@ fun AppShell() {
 
             Box(Modifier.weight(1f).fillMaxSize()) {
                 Content(destination)
+            }
+
+            // Slides in beside the content rather than over it, so browsing
+            // carries on while it's open.
+            AnimatedVisibility(
+                visible = queueOpen,
+                enter = expandHorizontally(tween(180)) + fadeIn(tween(180)),
+                exit = shrinkHorizontally(tween(160)) + fadeOut(tween(120)),
+            ) {
+                Row {
+                    Box(Modifier.fillMaxHeight().width(1.dp).background(Blz.line))
+                    QueuePanel(
+                        queue = PlayerState.queue,
+                        current = PlayerState.index,
+                        onJump = PlayerState::jumpTo,
+                        onRemove = PlayerState::removeAt,
+                    )
+                }
             }
         }
 
