@@ -70,7 +70,32 @@ object Catalogue {
         val subtitle: String,
         val thumbnail: String?,
         val kind: Kind,
-    )
+        val durationSeconds: Int? = null,
+    ) {
+        val duration: String
+            get() = durationSeconds?.let { "%d:%02d".format(it / 60, it % 60) } ?: ""
+
+        /**
+         * Whether the artwork is a widescreen still rather than a cover.
+         *
+         * Live sets, music videos and anything lifted from a video carry a 16:9
+         * frame, and cropping one to a square throws away the half of the shot
+         * that made it worth looking at. Nothing says so outright, but the size
+         * baked into the URL does — and a video still comes from a different
+         * host altogether.
+         */
+        val wide: Boolean
+            get() {
+                val url = thumbnail ?: return false
+                if ("ytimg.com" in url) return true
+                val (w, h) = Sized.find(url)?.destructured ?: return false
+                val width = w.toIntOrNull() ?: return false
+                val height = h.toIntOrNull() ?: return false
+                return width * 5 > height * 6
+            }
+    }
+
+    private val Sized = Regex("=w(\\d+)-h(\\d+)")
 
     /** One shelf of the feed: a heading and the tiles under it. */
     data class Shelf(val title: String, val cards: List<Card>) {
@@ -102,12 +127,21 @@ object Catalogue {
     }
 
     private fun com.blazify.innertube.models.YTItem.asCard(): Card? = when (this) {
-        is SongItem -> Card(id, title, artists.joinToString(", ") { it.name }, thumbnail, Kind.Song)
+        is SongItem -> Card(id, title, artists.joinToString(", ") { it.name }, thumbnail, Kind.Song, duration)
         is AlbumItem -> Card(id, title, artists?.joinToString(", ") { it.name } ?: "Album", thumbnail, Kind.Album)
         is PlaylistItem -> Card(id, title, author?.name ?: "Playlist", thumbnail, Kind.Playlist)
         is ArtistItem -> Card(id, title, "Artist", thumbnail, Kind.Artist)
         else -> null
     }
+
+    /** A song card is already a track — nothing needs fetching to play it. */
+    fun Card.asTrack() = Track(
+        id = id,
+        title = title,
+        artist = subtitle,
+        thumbnail = thumbnail,
+        durationSeconds = durationSeconds,
+    )
 
     private fun SongItem.asTrack() = Track(
         id = id,
@@ -144,7 +178,7 @@ object Catalogue {
             Shelf(
                 title = seed.replaceFirstChar { it.uppercase() },
                 cards = tracks.take(12).map {
-                    Card(it.id, it.title, it.artist, it.thumbnail, Kind.Song)
+                    Card(it.id, it.title, it.artist, it.thumbnail, Kind.Song, it.durationSeconds)
                 },
             )
         }
@@ -160,9 +194,7 @@ object Catalogue {
     suspend fun open(card: Card): Result<List<Track>> = withContext(Dispatchers.IO) {
         ensureIdentity()
         when (card.kind) {
-            Kind.Song -> Result.success(
-                listOf(Track(card.id, card.title, card.subtitle, card.thumbnail, null)),
-            )
+            Kind.Song -> Result.success(listOf(card.asTrack()))
             Kind.Album -> YouTube.album(card.id).map { page -> page.songs.map { it.asTrack() } }
             Kind.Playlist -> YouTube.playlist(card.id).map { page -> page.songs.map { it.asTrack() } }
             Kind.Artist -> Result.success(emptyList())
