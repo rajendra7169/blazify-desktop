@@ -25,12 +25,14 @@ import coil3.compose.SubcomposeAsyncImageContent
  */
 
 /**
- * Album art, at the size it will actually be drawn.
+ * Album art, at the size and shape it will actually be drawn.
  *
  * The catalogue puts a size in the URL, and whatever it happens to be is often
  * far smaller than the space we're giving it — a row thumbnail asking for the
  * default comes back blurry. Rewriting it to the size we need costs nothing and
- * is the difference between sharp and soft.
+ * is the difference between sharp and soft. Asking in the right *shape* matters
+ * just as much: request a square of a widescreen still and it comes back
+ * already cropped, with the sides gone before we ever see it.
  */
 @Composable
 fun Artwork(
@@ -38,14 +40,15 @@ fun Artwork(
     size: Dp,
     modifier: Modifier = Modifier,
     corner: Dp = 6.dp,
+    height: Dp = size,
 ) {
     val shape = RoundedCornerShape(corner)
-    Box(modifier.size(size).clip(shape).background(Blz.surfaceHigh)) {
+    Box(modifier.size(size, height).clip(shape).background(Blz.surfaceHigh)) {
         if (url == null) {
             Placeholder()
         } else {
             SubcomposeAsyncImage(
-                model = url.atSize(size.value.toInt() * 2),
+                model = url.atSize(size.value.toInt() * 2, height.value.toInt() * 2),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -69,7 +72,8 @@ private fun Placeholder() {
 }
 
 /** Rewrite the size the catalogue baked into the URL. Left alone if absent. */
-private fun String.atSize(pixels: Int): String {
-    val capped = pixels.coerceIn(64, 1080)
-    return Regex("=w\\d+-h\\d+").replace(this, "=w$capped-h$capped")
+private fun String.atSize(width: Int, height: Int): String {
+    val w = width.coerceIn(64, 1920)
+    val h = height.coerceIn(64, 1080)
+    return Regex("=w\\d+-h\\d+").replace(this, "=w$w-h$h")
 }
