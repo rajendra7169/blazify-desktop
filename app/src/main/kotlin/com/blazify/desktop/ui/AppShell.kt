@@ -30,9 +30,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.PlayerState
 import com.blazify.desktop.data.Catalogue
+import com.blazify.desktop.data.Library
 import com.blazify.desktop.ui.screens.CollectionScreen
 import com.blazify.desktop.ui.screens.ExploreScreen
 import com.blazify.desktop.ui.screens.HomeScreen
+import com.blazify.desktop.ui.screens.LibraryScreen
+import com.blazify.desktop.ui.screens.TrackListScreen
 
 /**
  * Blazify Project (C) 2026
@@ -144,6 +147,26 @@ private fun Content(destination: Destination) {
             onPlayAll = PlayerState::playAll,
         )
         Destination.Explore -> ExploreScreen()
+
+        Destination.Library -> LibraryScreen(onOpen = Navigator::open)
+
+        Destination.Liked -> TrackListScreen(
+            title = "Liked songs",
+            tracks = Library.liked,
+            empty = "Songs you like will collect here",
+            onPlay = PlayerState::play,
+            onShuffle = PlayerState::shuffle,
+        )
+
+        Destination.History -> TrackListScreen(
+            title = "History",
+            tracks = Library.history,
+            empty = "Nothing played yet",
+            onPlay = PlayerState::play,
+            onShuffle = PlayerState::shuffle,
+            action = "Clear" to Library::clearHistory,
+        )
+
         else -> Placeholder(destination)
     }
 }
