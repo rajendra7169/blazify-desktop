@@ -109,6 +109,25 @@ object Catalogue {
     )
 
     /**
+     * The songs behind a tile.
+     *
+     * A song is already what it needs to be; an album or playlist is a browse
+     * away. An artist has no single track list worth playing, so it comes back
+     * empty and the caller can open the page instead.
+     */
+    suspend fun open(card: Card): Result<List<Track>> = withContext(Dispatchers.IO) {
+        ensureIdentity()
+        when (card.kind) {
+            Kind.Song -> Result.success(
+                listOf(Track(card.id, card.title, card.subtitle, card.thumbnail, null)),
+            )
+            Kind.Album -> YouTube.album(card.id).map { page -> page.songs.map { it.asTrack() } }
+            Kind.Playlist -> YouTube.playlist(card.id).map { page -> page.songs.map { it.asTrack() } }
+            Kind.Artist -> Result.success(emptyList())
+        }
+    }
+
+    /**
      * A playable audio URL for a song.
      *
      * Tries each client in turn: the first two answer for music without a proof

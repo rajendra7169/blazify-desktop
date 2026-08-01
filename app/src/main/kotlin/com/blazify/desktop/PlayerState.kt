@@ -44,6 +44,28 @@ object PlayerState {
     val elapsed: String get() = clock(AudioEngine.position)
     val total: String get() = if (AudioEngine.duration > 0) clock(AudioEngine.duration) else current?.duration ?: "0:00"
 
+    var opening by mutableStateOf(false)
+        private set
+
+    /** Open a tile and play what's inside it. */
+    fun open(card: Catalogue.Card) {
+        opening = true
+        failure = null
+        scope.launch {
+            Catalogue.open(card).fold(
+                onSuccess = { tracks ->
+                    opening = false
+                    if (tracks.isEmpty()) failure = "Nothing to play in ${card.title}"
+                    else play(tracks)
+                },
+                onFailure = {
+                    opening = false
+                    failure = "Couldn't open ${card.title}"
+                },
+            )
+        }
+    }
+
     fun play(tracks: List<Track>, startAt: Int = 0) {
         queue = tracks
         index = startAt.coerceIn(0, (tracks.size - 1).coerceAtLeast(0))

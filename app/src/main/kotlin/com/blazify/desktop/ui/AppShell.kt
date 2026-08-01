@@ -87,7 +87,7 @@ fun AppShell() {
 @Composable
 private fun Content(destination: Destination) {
     when (destination) {
-        Destination.Home -> HomeScreen(onOpen = { })
+        Destination.Home -> HomeScreen(onOpen = PlayerState::open)
         Destination.Explore -> ExploreScreen()
         else -> Placeholder(destination)
     }
