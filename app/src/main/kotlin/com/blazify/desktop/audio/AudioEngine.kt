@@ -3,11 +3,9 @@ package com.blazify.desktop.audio
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import javafx.application.Platform
-import javafx.scene.media.Media
-import javafx.scene.media.MediaPlayer
-import javafx.util.Duration
-import java.util.concurrent.atomic.AtomicBoolean
+import uk.co.caprica.vlcj.player.base.MediaPlayer
+import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
+import uk.co.caprica.vlcj.player.component.AudioPlayerComponent
 
 /**
  * Blazify Project (C) 2026
@@ -15,12 +13,14 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 
 /**
- * Plays one stream at a time.
+ * Plays one track at a time.
  *
- * The media toolkit has to be started once, on its own thread, before anything
- * can be constructed — and every call after that has to happen on that thread,
- * not the one Compose draws on. Both rules are handled here so nothing above
- * this file has to know they exist.
+ * Built on a native audio component rather than a JVM media library, for one
+ * concrete reason: the catalogue serves fragmented MP4, and the lighter options
+ * refuse to open it at all. This one takes it as it comes.
+ *
+ * Every callback arrives on a native thread, so nothing here touches anything
+ * beyond the state fields — those are observable, and the UI reads them.
  */
 object AudioEngine {
 
@@ -35,87 +35,79 @@ object AudioEngine {
     var error by mutableStateOf<String?>(null)
         private set
 
-    private val started = AtomicBoolean(false)
-    private var player: MediaPlayer? = null
-
     /**
-     * Boots the media toolkit. Safe to call repeatedly: the flag wins the race,
-     * and the toolkit itself throws if it's already up, which we swallow — that
-     * outcome is exactly what we wanted anyway.
+     * Created lazily. Building it loads the native library, and doing that at
+     * startup would slow the window down for someone who never presses play.
      */
-    private fun ensureStarted() {
-        if (started.compareAndSet(false, true)) {
-            runCatching { Platform.startup { } }
-            // Without this the toolkit shuts itself down the moment the last
-            // window closes, taking playback with it. There is no window.
-            runCatching { Platform.setImplicitExit(false) }
+    private val component: AudioPlayerComponent by lazy {
+        AudioPlayerComponent().also { it.mediaPlayer().events().addMediaPlayerEventListener(Listener) }
+    }
+
+    private val player: MediaPlayer get() = component.mediaPlayer()
+
+    private object Listener : MediaPlayerEventAdapter() {
+        override fun playing(mediaPlayer: MediaPlayer) {
+            playing = true
+            loading = false
+        }
+
+        override fun paused(mediaPlayer: MediaPlayer) { playing = false }
+
+        override fun stopped(mediaPlayer: MediaPlayer) {
+            playing = false
+        }
+
+        override fun finished(mediaPlayer: MediaPlayer) {
+            playing = false
+            position = duration
+        }
+
+        override fun error(mediaPlayer: MediaPlayer) {
+            loading = false
+            playing = false
+            error = "This track wouldn't play"
+        }
+
+        override fun lengthChanged(mediaPlayer: MediaPlayer, newLength: Long) {
+            if (newLength > 0) duration = newLength / 1000.0
+        }
+
+        override fun timeChanged(mediaPlayer: MediaPlayer, newTime: Long) {
+            position = newTime / 1000.0
         }
     }
 
-    /** Hand work to the media thread — everything below must run there. */
-    private fun onFxThread(block: () -> Unit) {
-        ensureStarted()
-        Platform.runLater(block)
-    }
+    /** Whether the native library could be found. False means VLC isn't installed. */
+    fun available(): Boolean = runCatching { component; true }.getOrDefault(false)
 
-    fun play(url: String) {
+    fun play(mrl: String) {
         error = null
         loading = true
-        onFxThread {
-            runCatching {
-                player?.dispose()
-                val media = Media(url)
-                val fresh = MediaPlayer(media)
-
-                fresh.setOnReady {
-                    duration = fresh.media.duration?.toSeconds() ?: 0.0
-                    loading = false
-                    fresh.play()
-                }
-                fresh.setOnPlaying { playing = true }
-                fresh.setOnPaused { playing = false }
-                fresh.setOnStopped { playing = false }
-                fresh.setOnEndOfMedia {
-                    playing = false
-                    position = duration
-                }
-                fresh.setOnError {
-                    loading = false
-                    playing = false
-                    error = fresh.error?.message ?: "This track wouldn't play"
-                }
-                // Four times a second is enough for a progress bar and costs
-                // nothing; the default is far chattier.
-                fresh.currentTimeProperty().addListener { _, _, now ->
-                    position = now.toSeconds()
-                }
-
-                player = fresh
-            }.onFailure {
+        position = 0.0
+        duration = 0.0
+        runCatching { player.media().play(mrl) }
+            .onFailure {
                 loading = false
                 error = it.message ?: "This track wouldn't play"
             }
+    }
+
+    fun toggle() {
+        runCatching {
+            if (player.status().isPlaying) player.controls().pause() else player.controls().play()
         }
     }
 
-    fun toggle() = onFxThread {
-        val p = player ?: return@onFxThread
-        if (p.status == MediaPlayer.Status.PLAYING) p.pause() else p.play()
+    fun seek(fraction: Double) {
+        runCatching { player.controls().setPosition(fraction.coerceIn(0.0, 1.0).toFloat()) }
     }
 
-    fun seek(fraction: Double) = onFxThread {
-        val p = player ?: return@onFxThread
-        if (duration > 0) p.seek(Duration.seconds(fraction.coerceIn(0.0, 1.0) * duration))
+    fun setVolume(value: Double) {
+        runCatching { player.audio().setVolume((value.coerceIn(0.0, 1.0) * 100).toInt()) }
     }
 
-    fun setVolume(value: Double) = onFxThread {
-        player?.volume = value.coerceIn(0.0, 1.0)
-    }
-
-    fun stop() = onFxThread {
-        player?.stop()
-        player?.dispose()
-        player = null
+    fun stop() {
+        runCatching { player.controls().stop() }
         playing = false
         position = 0.0
         duration = 0.0
