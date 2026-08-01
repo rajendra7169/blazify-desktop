@@ -66,15 +66,17 @@ fun LyricsPanel(
     }
 
     Column(
-        Modifier.width(340.dp).fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        // Wide enough that a full line of a song rarely wraps, which is what
+        // makes a transcript readable rather than a column of fragments.
+        Modifier.width(440.dp).fillMaxSize().padding(horizontal = 22.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Lyrics", color = Blz.ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text("Lyrics", color = Blz.ink, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 track?.let {
                     Text(
-                        it.title, color = Blz.dim, fontSize = 11.5.sp,
+                        it.title, color = Blz.dim, fontSize = 13.sp,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -82,13 +84,13 @@ fun LyricsPanel(
             val (source, hovered) = rememberHovered()
             Box(
                 Modifier
-                    .size(28.dp)
+                    .size(32.dp)
                     .clip(RoundedCornerShape(999.dp))
                     .hoverBackground(Blz.hover, hovered, source)
                     .clickable(onClick = onClose),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Rounded.Close, "Close", Modifier.size(16.dp), tint = Blz.muted)
+                Icon(Icons.Rounded.Close, "Close", Modifier.size(18.dp), tint = Blz.muted)
             }
         }
 
@@ -112,14 +114,14 @@ private fun Synced(lyrics: Lyrics, position: Double, onSeekTo: (Double) -> Unit)
     // room ahead of the eye, not behind it.
     LaunchedEffect(current) {
         if (current >= 0) {
-            state.animateScrollToItem(current.coerceAtLeast(0), scrollOffset = -160)
+            state.animateScrollToItem(current.coerceAtLeast(0), scrollOffset = -190)
         }
     }
 
     LazyColumn(
         Modifier.fillMaxSize(),
         state = state,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         itemsIndexed(lyrics.lines) { at, line ->
             val active = at == current
@@ -134,15 +136,18 @@ private fun Synced(lyrics: Lyrics, position: Double, onSeekTo: (Double) -> Unit)
             Text(
                 line.text.ifBlank { "·" },
                 color = colour,
-                fontSize = if (active) 17.sp else 15.sp,
+                // The line being sung is the whole point of the panel, so it
+                // steps up in size as well as in colour — dimming alone reads
+                // as "these are off" rather than "this one is now".
+                fontSize = if (active) 24.sp else 20.sp,
                 fontWeight = if (weight > 0.5f) FontWeight.Bold else FontWeight.Medium,
-                lineHeight = 23.sp,
+                lineHeight = 31.sp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(6.dp))
                     .hoverBackground(Blz.hover, hovered, source)
                     .clickable { onSeekTo(line.at) }
-                    .padding(horizontal = 6.dp, vertical = 5.dp),
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
             )
         }
     }
@@ -153,8 +158,8 @@ private fun Plain(text: String) {
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         items(text.lines()) { line ->
             Text(
-                line.ifBlank { " " }, color = Blz.muted, fontSize = 14.sp, lineHeight = 22.sp,
-                modifier = Modifier.padding(horizontal = 6.dp),
+                line.ifBlank { " " }, color = Blz.muted, fontSize = 18.sp, lineHeight = 28.sp,
+                modifier = Modifier.padding(horizontal = 8.dp),
             )
         }
     }
@@ -163,6 +168,6 @@ private fun Plain(text: String) {
 @Composable
 private fun Note(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
-        Text(text, color = Blz.dim, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+        Text(text, color = Blz.dim, fontSize = 15.sp, modifier = Modifier.padding(top = 10.dp))
     }
 }
