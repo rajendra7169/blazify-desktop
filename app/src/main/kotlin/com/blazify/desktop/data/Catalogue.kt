@@ -110,9 +110,19 @@ object Catalogue {
         val cards: List<Card>,
         val label: String? = null,
         val avatar: String? = null,
+        /**
+         * How deep the shelf stacks: one means a row of artwork, more means a
+         * grid of compact lines. The catalogue decides this per shelf — the
+         * same songs are worth four rows in one place and full-size cards in
+         * another — so it's taken rather than guessed.
+         */
+        val rows: Int = 1,
+        /** Whether the tiles were asked to be shown large. */
+        val big: Boolean = false,
     ) {
-        /** Songs are drawn as compact lines; everything else as artwork cards. */
-        val isSongs: Boolean get() = cards.isNotEmpty() && cards.all { it.kind == Kind.Song }
+        /** A grid of lines only makes sense for things you play directly. */
+        val isSongs: Boolean
+            get() = rows > 1 && cards.isNotEmpty() && cards.all { it.kind == Kind.Song }
     }
 
     /** A page of shelves, plus the token that fetches the next lot. */
@@ -131,8 +141,14 @@ object Catalogue {
             Feed(
                 shelves = page.sections.mapNotNull { section ->
                     val cards = section.items.mapNotNull { it.asCard() }
-                    if (cards.isEmpty()) null
-                    else Shelf(section.title, cards, section.label, section.thumbnail)
+                    if (cards.isEmpty()) null else Shelf(
+                        title = section.title,
+                        cards = cards,
+                        label = section.label,
+                        avatar = section.thumbnail,
+                        rows = section.rows,
+                        big = section.size?.contains("LARGE") == true,
+                    )
                 },
                 more = page.continuation,
             )
@@ -193,6 +209,7 @@ object Catalogue {
                 cards = tracks.take(12).map {
                     Card(it.id, it.title, it.artist, it.thumbnail, Kind.Song, it.durationSeconds)
                 },
+                rows = 4,
             )
         }
     }
