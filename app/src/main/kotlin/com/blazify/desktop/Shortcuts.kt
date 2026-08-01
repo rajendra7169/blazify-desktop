@@ -14,8 +14,11 @@ import androidx.compose.ui.input.key.type
 /**
  * The keys a music player is expected to answer to.
  *
- * Handled on release rather than press: a held key repeats, and a held space
- * bar toggling play thirty times a second is not what anyone meant by it.
+ * Split by what the key means rather than handled all one way. Volume and
+ * seeking are things you do *by degree*: holding the key should keep going, so
+ * they act on press and repeat as long as it's held. Play, next and mute are
+ * things you do *once*, so they act on release — a held space bar toggling play
+ * thirty times a second is not what anyone meant by it.
  *
  * Returns whether the key was ours. Anything we don't claim carries on to
  * whatever had focus, so typing a search query still types.
@@ -25,33 +28,52 @@ object Shortcuts {
     /** How far the arrow keys move through a track. */
     private const val STEP = 5.0
 
-    /** How much one press changes the volume. */
-    private const val VOLUME_STEP = 0.05f
+    /**
+     * How much one press changes the volume.
+     *
+     * Ten presses covers the whole range. Any finer and getting from loud to
+     * quiet is a drum solo on the arrow key.
+     */
+    private const val VOLUME_STEP = 0.1f
 
     fun handle(event: KeyEvent, typing: Boolean): Boolean {
-        if (event.type != KeyEventType.KeyUp) return false
+        val pressed = event.type == KeyEventType.KeyDown
+        val released = event.type == KeyEventType.KeyUp
+        if (!pressed && !released) return false
 
         // The media keys stay live everywhere. The letter and space shortcuts
         // stand down while there's a text field in play — otherwise a search
         // for "space oddity" would pause the music halfway through typing it.
-        val media = when (event.key) {
-            Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> { PlayerState.toggle(); true }
-            Key.MediaNext -> { PlayerState.next(); true }
-            Key.MediaPrevious -> { PlayerState.previous(); true }
-            Key.MediaStop -> { PlayerState.toggle(); true }
-            else -> false
+        if (released) {
+            when (event.key) {
+                Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> { PlayerState.toggle(); return true }
+                Key.MediaNext -> { PlayerState.next(); return true }
+                Key.MediaPrevious -> { PlayerState.previous(); return true }
+                Key.MediaStop -> { PlayerState.toggle(); return true }
+                else -> Unit
+            }
         }
-        if (media || typing) return media
+        if (typing) return false
 
+        // By degree — held down, these keep going.
+        if (pressed) {
+            when (event.key) {
+                Key.DirectionUp -> { PlayerState.changeVolume(PlayerState.volume + VOLUME_STEP); return true }
+                Key.DirectionDown -> { PlayerState.changeVolume(PlayerState.volume - VOLUME_STEP); return true }
+                Key.DirectionRight, Key.L -> { PlayerState.nudge(STEP); return true }
+                Key.DirectionLeft, Key.J -> { PlayerState.nudge(-STEP); return true }
+                else -> Unit
+            }
+        }
+
+        // Once each — and the matching release is swallowed so the key doesn't
+        // reach anything behind us.
         return when (event.key) {
-            Key.Spacebar, Key.K -> { PlayerState.toggle(); true }
-            Key.DirectionRight, Key.L -> { PlayerState.nudge(STEP); true }
-            Key.DirectionLeft, Key.J -> { PlayerState.nudge(-STEP); true }
-            Key.N -> { PlayerState.next(); true }
-            Key.P -> { PlayerState.previous(); true }
-            Key.DirectionUp -> { PlayerState.changeVolume(PlayerState.volume + VOLUME_STEP); true }
-            Key.DirectionDown -> { PlayerState.changeVolume(PlayerState.volume - VOLUME_STEP); true }
-            Key.M -> { PlayerState.toggleMute(); true }
+            Key.Spacebar, Key.K -> { if (released) PlayerState.toggle(); true }
+            Key.N -> { if (released) PlayerState.next(); true }
+            Key.P -> { if (released) PlayerState.previous(); true }
+            Key.M -> { if (released) PlayerState.toggleMute(); true }
+            Key.DirectionUp, Key.DirectionDown, Key.DirectionRight, Key.DirectionLeft, Key.J -> true
             else -> false
         }
     }
