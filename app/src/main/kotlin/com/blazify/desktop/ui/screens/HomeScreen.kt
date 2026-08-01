@@ -139,42 +139,6 @@ fun HomeScreen(onOpen: (Catalogue.Card) -> Unit) {
 }
 
 @Composable
-private fun Shelf(shelf: Catalogue.Shelf, onOpen: (Catalogue.Card) -> Unit) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(11.dp)) {
-        Text(shelf.title, color = Blz.ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            items(shelf.cards, key = { it.kind.name + it.id }) { card -> Tile(card, onOpen) }
-        }
-    }
-}
-
-@Composable
-private fun Tile(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
-    val (source, hovered) = rememberHovered()
-    Column(
-        Modifier
-            .width(132.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .hoverBackground(Blz.hover, hovered, source)
-            .clickable { onOpen(card) }
-            .padding(6.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Artwork(card.thumbnail, size = 120.dp, corner = 9.dp, modifier = Modifier.hoverLift(hovered))
-        Column {
-            Text(
-                card.title, color = Blz.ink, fontSize = 12.5.sp, fontWeight = FontWeight.Medium,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                card.subtitle, color = Blz.muted, fontSize = 11.5.sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-@Composable
 private fun MoodChips(selected: String, onSelect: (String) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Moods.forEach { name ->

@@ -73,7 +73,10 @@ object Catalogue {
     )
 
     /** One shelf of the feed: a heading and the tiles under it. */
-    data class Shelf(val title: String, val cards: List<Card>)
+    data class Shelf(val title: String, val cards: List<Card>) {
+        /** Songs are drawn as compact lines; everything else as artwork cards. */
+        val isSongs: Boolean get() = cards.isNotEmpty() && cards.all { it.kind == Kind.Song }
+    }
 
     /** A page of shelves, plus the token that fetches the next lot. */
     data class Feed(val shelves: List<Shelf>, val more: String?)
