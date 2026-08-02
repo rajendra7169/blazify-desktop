@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,7 +75,7 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
         Row(
             Modifier
                 .width(720.dp)
-                .height(470.dp)
+                .height(500.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(Blz.bar)
                 .clickable(enabled = false) {},
@@ -148,6 +149,20 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                             .padding(horizontal = 22.dp, vertical = 18.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
+                        Text(
+                            track?.title ?: "Nothing playing",
+                            color = Color.White, fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            track?.artist.orEmpty(),
+                            color = Color.White.copy(alpha = 0.72f), fontSize = 11.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 2.dp, bottom = 12.dp),
+                        )
+
                         // Where the song has got to. Drawn rather than live — a
                         // preview you could scrub would move the music while you
                         // were deciding how it looks.
@@ -220,13 +235,13 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                 // as one thing changing rather than five things flickering.
                 Crossfade(previewing, animationSpec = tween(220), label = "themePreview") { theme ->
                     Box(
-                        Modifier.size(228.dp),
+                        Modifier.size(196.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         PlayerStage(
                             theme = theme,
                             artwork = track?.thumbnail,
-                            side = 200.dp,
+                            side = 176.dp,
                             playing = PlayerState.playing,
                             progress = PlayerState.progress,
                         )
@@ -240,15 +255,47 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                     modifier = Modifier.padding(top = 14.dp),
                 )
                 Text(
+                    track?.artist.orEmpty(),
+                    color = Blz.muted, fontSize = 11.5.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+
+                // The same bar every look gets, at the song's real position.
+                Box(
+                    Modifier
+                        .padding(top = 12.dp)
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Blz.surfaceHigh),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(PlayerState.progress.coerceIn(0f, 1f))
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))),
+                    )
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    Text(PlayerState.elapsed, color = Blz.dim, fontSize = 9.5.sp)
+                    Box(Modifier.weight(1f))
+                    Text(PlayerState.total, color = Blz.dim, fontSize = 9.5.sp)
+                }
+
+                Text(
                     previewing.blurb, color = Blz.dim, fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 4.dp),
+                    textAlign = TextAlign.Center,
+                    maxLines = 2, lineHeight = 16.sp,
+                    modifier = Modifier.padding(top = 12.dp),
                 )
 
                 // The transport, drawn but not live — the preview is about the
                 // artwork, and a play button that worked here would move the
                 // song while you were looking at it.
                 Row(
-                    Modifier.padding(top = 18.dp),
+                    Modifier.padding(top = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
