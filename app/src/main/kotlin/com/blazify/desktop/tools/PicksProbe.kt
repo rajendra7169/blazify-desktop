@@ -11,6 +11,7 @@ import kotlinx.coroutines.runBlocking
 /** Build the song shelves twice, to check they differ between refreshes. */
 fun main(): Unit = runBlocking {
     repeat(2) { round ->
+        val began = System.currentTimeMillis()
         println("--- refresh ${round + 1} ---")
         Catalogue.songShelves(emptyList(), emptyList()).fold(
             onSuccess = { shelves ->
@@ -22,5 +23,6 @@ fun main(): Unit = runBlocking {
             },
             onFailure = { println("  failed: ${it.message}") },
         )
+        println("  took ${(System.currentTimeMillis() - began) / 1000.0}s")
     }
 }

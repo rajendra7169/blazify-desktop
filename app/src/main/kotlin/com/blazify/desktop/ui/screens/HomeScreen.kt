@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,7 +37,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.data.Catalogue
-import com.blazify.desktop.data.Library
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
@@ -46,6 +46,7 @@ import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverGlow
 import com.blazify.desktop.ui.hoverLift
 import com.blazify.desktop.ui.rememberHovered
+import kotlinx.coroutines.launch
 import java.time.LocalTime
 
 /**
@@ -58,52 +59,16 @@ fun HomeScreen(
     onOpen: (Catalogue.Card) -> Unit,
     onPlayAll: (List<Catalogue.Card>, Int) -> Unit,
 ) {
-    var shelves by remember { mutableStateOf<List<Catalogue.Shelf>>(emptyList()) }
-    // Songs first, built from what's been played rather than taken from the
-    // feed — the feed answers with albums and playlists, which are things to
-    // look at rather than things to put on.
-    var picks by remember { mutableStateOf<List<Catalogue.Shelf>>(emptyList()) }
-    var building by remember { mutableStateOf(true) }
-    var more by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(true) }
-    var extending by remember { mutableStateOf(false) }
-    var problem by remember { mutableStateOf<String?>(null) }
-
-    // Once the catalogue's own shelves are exhausted the feed carries on with
-    // seeded ones, so scrolling never hits a dead stop.
-    var discovered by remember { mutableStateOf(0) }
-    // The moods the catalogue itself offers, and which one is picked. They were
-    // decoration before — a fixed list of words that filtered nothing.
-    var moods by remember { mutableStateOf<List<Catalogue.Mood>>(emptyList()) }
-    var mood by remember { mutableStateOf<Catalogue.Mood?>(null) }
+    // Held outside the screen, so stepping to Explore and back is the page you
+    // left rather than a fresh load.
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { HomeState.scroll = listState }
+    LaunchedEffect(Unit) { HomeState.ensureLoaded() }
 
-    // Re-fetched when the mood changes: it's a different feed, not a filter we
-    // could apply to the one already here.
-    // Rebuilt on every visit, and shuffled each time, so the top of the screen
-    // is a different twenty songs whenever you come back to it.
-    LaunchedEffect(Unit) {
-        building = true
-        picks = Catalogue.songShelves(Library.history, Library.liked).getOrDefault(emptyList())
-        building = false
-    }
-
-    LaunchedEffect(mood) {
-        loading = true
-        problem = null
-        shelves = emptyList()
-        discovered = 0
-        Catalogue.home(mood = mood?.params).fold(
-            onSuccess = {
-                shelves = it.shelves
-                more = it.more
-                if (it.moods.isNotEmpty()) moods = it.moods
-            },
-            onFailure = { problem = "Couldn't reach the catalogue" },
-        )
-        loading = false
-    }
-
+    val picks = HomeState.picks
+    val shelves = HomeState.shelves
+    val mood = HomeState.mood
 
     // Watching the layout itself rather than a true/false "near the end" flag.
     // That flag goes true and STAYS true, and a flow only emits on change — so
@@ -118,31 +83,10 @@ fun HomeScreen(
                 listState.canScrollForward,
             )
         }.collect { (total, lastVisible, canScrollDown) ->
-            if (extending || loading) return@collect
             // Two reasons to fetch: you're near the bottom, or there isn't
             // enough here to scroll at all — on a tall window the first pages
             // don't fill the screen, and then nothing would ever trigger.
-            val wanted = !canScrollDown || lastVisible >= total - 2
-            if (!wanted) return@collect
-
-            extending = true
-            val token = more
-            if (token != null) {
-                Catalogue.home(after = token, mood = mood?.params).onSuccess { next ->
-                    // Shelves repeat across pages often enough to notice; keeping
-                    // them out is cheaper than letting the feed stutter.
-                    val seen = shelves.map { it.title }.toSet()
-                    shelves = shelves + next.shelves.filter { it.title !in seen }
-                    more = next.more
-                }
-            } else if (discovered < Catalogue.seedCount) {
-                val next = discovered
-                discovered += 1
-                Catalogue.discover(next).onSuccess { shelf ->
-                    if (shelf.cards.isNotEmpty()) shelves = shelves + shelf
-                }
-            }
-            extending = false
+            if (!canScrollDown || lastVisible >= total - 2) HomeState.extend()
         }
     }
 
@@ -163,8 +107,12 @@ fun HomeScreen(
                 }
             }
         }
-        if (moods.isNotEmpty()) {
-            item { MoodChips(moods, mood) { mood = it } }
+        if (HomeState.moods.isNotEmpty()) {
+            item {
+                MoodChips(HomeState.moods, mood) { picked ->
+                    scope.launch { HomeState.choose(picked) }
+                }
+            }
         }
 
         if (mood == null) {
@@ -172,13 +120,15 @@ fun HomeScreen(
             // Building them takes several requests while the feed takes one, so
             // without this the albums would win the race every time and be the
             // first thing on the page — which is exactly backwards.
-            if (building && picks.isEmpty()) items(3) { SkeletonRail() }
+            if (HomeState.building && picks.isEmpty()) items(3) { SkeletonRail() }
             items(picks) { shelf -> Shelf(shelf, onOpen, onPlayAll) }
         }
 
         when {
-            loading -> items(2) { SkeletonRail() }
-            problem != null -> item { Text(problem!!, color = Blz.muted, fontSize = 13.sp) }
+            HomeState.loading -> items(2) { SkeletonRail() }
+            HomeState.problem != null -> item {
+                Text(HomeState.problem!!, color = Blz.muted, fontSize = 13.sp)
+            }
             shelves.isEmpty() -> item {
                 Text("Nothing in the feed right now", color = Blz.dim, fontSize = 13.sp)
             }
@@ -188,7 +138,7 @@ fun HomeScreen(
             else -> items(interleave(shelves, picks)) { shelf -> Shelf(shelf, onOpen, onPlayAll) }
         }
 
-        if (extending) item { SkeletonRail(count = 5) }
+        if (HomeState.extending) item { SkeletonRail(count = 5) }
     }
 
     // Sits over the feed in the bottom corner, just above the transport strip.

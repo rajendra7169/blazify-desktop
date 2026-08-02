@@ -83,7 +83,9 @@ fun ExploreScreen(
     onPlayAll: (List<Catalogue.Card>, Int) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    var browse by remember { mutableStateOf<Catalogue.Explore?>(null) }
+    // Kept between visits like the home feed: the browse tab is the same for
+    // everyone and doesn't change between one look at it and the next.
+    val browse = ExploreState.browse
     var genre by remember { mutableStateOf<Catalogue.Genre?>(null) }
     var genreShelves by remember { mutableStateOf<List<Catalogue.Shelf>>(emptyList()) }
     var scope by remember { mutableStateOf(Catalogue.Scope.Songs) }
@@ -116,9 +118,7 @@ fun ExploreScreen(
 
     // Fetched once and kept: the browse tab is the same for everyone and
     // doesn't change between one visit to this screen and the next.
-    LaunchedEffect(Unit) {
-        if (browse == null) browse = Catalogue.explore().getOrNull()
-    }
+    LaunchedEffect(Unit) { ExploreState.ensureLoaded() }
 
     LaunchedEffect(genre) {
         genreShelves = emptyList()

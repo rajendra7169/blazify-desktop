@@ -8,6 +8,9 @@ import com.blazify.innertube.models.SongItem
 import com.blazify.innertube.models.WatchEndpoint
 import com.blazify.innertube.models.YouTubeClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -360,17 +363,40 @@ object Catalogue {
                 // Nothing played yet: borrow seeds so a first run still opens
                 // onto songs. Three different ones rather than three from the
                 // same search, or every shelf would be the same music twice.
+                //
+                // All at once. Done in turn these were five round trips before
+                // a single song appeared, which is why the top of the screen
+                // arrived long after the rest of it.
                 val borrowed = if (history.isEmpty() && liked.isEmpty()) {
-                    coldStart.shuffled().take(5).mapNotNull { term ->
-                        search(term).getOrNull().orEmpty().shuffled().firstOrNull()
+                    coroutineScope {
+                        coldStart.shuffled().take(5)
+                            .map { term -> async { search(term).getOrNull().orEmpty().shuffled().firstOrNull() } }
+                            .awaitAll()
+                            .filterNotNull()
                     }
                 } else {
                     emptyList()
                 }
 
+                // Every seed's related songs fetched together, for the same
+                // reason: the slowest one decides how long this takes, rather
+                // than the sum of all of them.
+                val seedsUsed = buildList {
+                    (history.firstOrNull() ?: borrowed.firstOrNull())?.let { add(it) }
+                    addAll(liked.shuffled().take(3).ifEmpty { history.drop(1).take(2) }.ifEmpty { borrowed.drop(1) })
+                    addAll(history.drop(1).take(4).ifEmpty { borrowed.drop(1) })
+                }.distinctBy { it.id }
+
+                val relatedBySeed = coroutineScope {
+                    seedsUsed.map { seed -> async { seed.id to relatedTo(seed.id).getOrNull().orEmpty() } }
+                        .awaitAll()
+                        .toMap()
+                }
+                fun related(seed: Track) = relatedBySeed[seed.id].orEmpty()
+
                 // Quick picks — what follows on from the last thing played.
                 val opener = history.firstOrNull() ?: borrowed.firstOrNull()
-                opener?.let { keep("Quick picks", null, relatedTo(it.id).getOrNull().orEmpty().shuffled()) }
+                opener?.let { keep("Quick picks", null, related(it).shuffled()) }
 
                 // Daily discover — spread across several seeds rather than
                 // drawn from one, so it widens instead of narrowing.
@@ -378,7 +404,7 @@ object Catalogue {
                     .ifEmpty { history.drop(1).take(2) }
                     .ifEmpty { borrowed.drop(1) }
                 val discovered = discoverSeeds
-                    .flatMap { relatedTo(it.id).getOrNull().orEmpty() }
+                    .flatMap { related(it) }
                     .distinctBy { it.id }
                     .shuffled()
                 keep("Your daily discover", null, discovered, deep = false)
@@ -402,7 +428,7 @@ object Catalogue {
                     keep(
                         seed.artist.substringBefore(",").ifBlank { seed.title },
                         "SIMILAR TO",
-                        relatedTo(seed.id).getOrNull().orEmpty().shuffled(),
+                        related(seed).shuffled(),
                         // Every other one, so a run of them still alternates.
                         deep = at % 2 == 0,
                     )
