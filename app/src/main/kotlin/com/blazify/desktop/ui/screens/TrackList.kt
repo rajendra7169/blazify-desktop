@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
@@ -59,11 +60,30 @@ fun TrackListScreen(
     onPlay: (List<Track>, Int) -> Unit,
     onShuffle: (List<Track>) -> Unit,
     action: Pair<String, () -> Unit>? = null,
+    onBack: (() -> Unit)? = null,
 ) {
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
+        onBack?.let { back ->
+            item {
+                val (source, hovered) = rememberHovered()
+                androidx.compose.foundation.layout.Row(
+                    Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .hoverBackground(Blz.hover, hovered, source)
+                        .clickable(onClick = back)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    Icon(Icons.Rounded.ArrowBack, "Back", Modifier.size(17.dp), tint = Blz.muted)
+                    Text("Back", color = Blz.muted, fontSize = 13.sp)
+                }
+            }
+        }
+
         item {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Row(

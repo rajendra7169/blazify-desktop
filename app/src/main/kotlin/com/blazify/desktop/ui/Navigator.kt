@@ -45,11 +45,33 @@ object Navigator {
     fun openSettings() {
         settingsOpen = true
         stack.clear()
+        playlist = null
+    }
+
+    /**
+     * A playlist made here, being looked at.
+     *
+     * Kept beside the card stack rather than inside it: one of these isn't
+     * something the catalogue can hand back, so it can't be a card without
+     * inventing a kind that means "not really from there".
+     */
+    var playlist by mutableStateOf<String?>(null)
+        private set
+
+    fun openPlaylist(id: String) {
+        playlist = id
+        settingsOpen = false
+        stack.clear()
+    }
+
+    fun closePlaylist() {
+        playlist = null
     }
 
     fun go(to: Destination) {
         destination = to
         settingsOpen = false
+        playlist = null
         stack.clear()
     }
 
@@ -62,6 +84,7 @@ object Navigator {
      */
     fun open(card: Catalogue.Card) {
         if (card.kind == Catalogue.Kind.Song) return
+        playlist = null
         if (stack.lastOrNull()?.id == card.id) return
         stack.add(card)
     }

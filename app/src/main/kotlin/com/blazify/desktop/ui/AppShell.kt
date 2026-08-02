@@ -33,6 +33,7 @@ import com.blazify.desktop.SleepTimer
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
+import com.blazify.desktop.data.Playlists
 import com.blazify.desktop.ui.screens.CollectionScreen
 import com.blazify.desktop.ui.screens.DownloadsScreen
 import com.blazify.desktop.ui.screens.ExploreScreen
@@ -172,6 +173,27 @@ private fun Content(destination: Destination) {
         return
     }
 
+    Navigator.playlist?.let { id ->
+        val playlist = Playlists.find(id)
+        if (playlist == null) {
+            Navigator.closePlaylist()
+        } else {
+            TrackListScreen(
+                title = playlist.name,
+                tracks = playlist.tracks,
+                empty = "Nothing in here yet",
+                onPlay = PlayerState::play,
+                onShuffle = PlayerState::shuffle,
+                action = "Delete playlist" to {
+                    Playlists.delete(id)
+                    Navigator.closePlaylist()
+                },
+                onBack = Navigator::closePlaylist,
+            )
+            return
+        }
+    }
+
     val opened = Navigator.opened
     if (opened != null) {
         CollectionScreen(
@@ -196,7 +218,10 @@ private fun Content(destination: Destination) {
         )
         Destination.Explore -> ExploreScreen(onOpen = Navigator::open)
 
-        Destination.Library -> LibraryScreen(onOpen = Navigator::open)
+        Destination.Library -> LibraryScreen(
+            onOpen = Navigator::open,
+            onOpenPlaylist = Navigator::openPlaylist,
+        )
 
         Destination.Liked -> TrackListScreen(
             title = "Liked songs",
