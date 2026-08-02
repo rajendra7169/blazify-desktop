@@ -122,13 +122,21 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                         Modifier.size(228.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        PlayerStage(
-                            theme = theme,
-                            artwork = track?.thumbnail,
-                            side = 200.dp,
-                            playing = PlayerState.playing,
-                            progress = PlayerState.progress,
-                        )
+                        // Full art has no centrepiece — it is the whole window.
+                        // A square of the cover would be Classic under another
+                        // name, so this one previews as a window. Same 228dp
+                        // slot as the rest, so nothing below it moves.
+                        if (theme == PlayerTheme.FullArt) {
+                            FullArtPreview(track)
+                        } else {
+                            PlayerStage(
+                                theme = theme,
+                                artwork = track?.thumbnail,
+                                side = 200.dp,
+                                playing = PlayerState.playing,
+                                progress = PlayerState.progress,
+                            )
+                        }
                     }
                 }
 
@@ -165,6 +173,86 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                         )
                     }
                     Icon(Icons.Rounded.SkipNext, null, Modifier.size(22.dp), tint = Blz.dim)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The real screen, shrunk to a card.
+ *
+ * The same cover under the same two scrims, with the song and its position
+ * where they actually sit — because the only question this look raises is
+ * whether white type stays readable over your covers, and a plain square
+ * answers none of it.
+ */
+@Composable
+private fun FullArtPreview(track: com.blazify.desktop.data.Track?) {
+    Box(
+        Modifier
+            .width(228.dp)
+            .height(146.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Blz.page),
+    ) {
+        Backdrop(track?.thumbnail, Modifier.fillMaxSize())
+        // A flat floor first so a pale sleeve can't swallow the type, then the
+        // gradient that shapes it — exactly what the player itself draws.
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.34f)))
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    0f to Color.Black.copy(alpha = 0.52f),
+                    0.30f to Color.Black.copy(alpha = 0.12f),
+                    0.52f to Color.Black.copy(alpha = 0.34f),
+                    0.74f to Color.Black.copy(alpha = 0.70f),
+                    1f to Color.Black.copy(alpha = 0.92f),
+                ),
+            ),
+        )
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                "NOW PLAYING", color = Color.White.copy(alpha = 0.85f), fontSize = 7.sp,
+                fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp,
+            )
+            Column(
+                Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    track?.title ?: "Nothing playing",
+                    color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    track?.artist.orEmpty(),
+                    color = Color.White.copy(alpha = 0.72f), fontSize = 9.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 1.dp),
+                )
+                // Where the song has got to. Drawn rather than a live bar — a
+                // preview you could scrub would move the music while you were
+                // deciding how it looks.
+                Box(
+                    Modifier
+                        .padding(top = 7.dp)
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color.White.copy(alpha = 0.26f)),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(PlayerState.progress.coerceIn(0f, 1f))
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))),
+                    )
                 }
             }
         }
