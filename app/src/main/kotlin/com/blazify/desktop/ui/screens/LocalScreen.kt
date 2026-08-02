@@ -38,6 +38,7 @@ import com.blazify.desktop.data.LocalMusic
 import com.blazify.desktop.data.Track
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.EmptyState
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverGlow
 import com.blazify.desktop.ui.rememberHovered
@@ -62,6 +63,19 @@ import javax.swing.UIManager
 fun LocalScreen(onPlay: (List<Track>, Int) -> Unit, onShuffle: (List<Track>) -> Unit) {
     val scope = rememberCoroutineScope()
     val tracks = LocalMusic.tracks
+
+    if (tracks.isEmpty() && LocalMusic.folders.isEmpty()) {
+        EmptyState(
+            Icons.Rounded.Folder,
+            "No music from this computer yet",
+            "Point at a folder and everything in it turns up here. Nothing is copied " +
+                "or moved — your files stay exactly where they are.",
+            action = "Add a folder" to {
+                chooseFolder()?.let { folder -> scope.launch { LocalMusic.add(folder) } }
+            },
+        )
+        return
+    }
 
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),

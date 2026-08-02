@@ -37,6 +37,7 @@ import com.blazify.desktop.data.Track
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.EmptyState
 import com.blazify.desktop.ui.SongMenu
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverGlow
@@ -59,11 +60,36 @@ fun TrackListScreen(
     title: String,
     tracks: List<Track>,
     empty: String,
+    emptyIcon: ImageVector = Icons.Rounded.Favorite,
+    emptyDetail: String = "",
     onPlay: (List<Track>, Int) -> Unit,
     onShuffle: (List<Track>) -> Unit,
     action: Pair<String, () -> Unit>? = null,
     onBack: (() -> Unit)? = null,
 ) {
+    if (tracks.isEmpty()) {
+        Column(Modifier.fillMaxSize()) {
+            onBack?.let { back ->
+                val (source, hovered) = rememberHovered()
+                androidx.compose.foundation.layout.Row(
+                    Modifier
+                        .padding(start = 26.dp, top = 22.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .hoverBackground(Blz.hover, hovered, source)
+                        .clickable(onClick = back)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    Icon(Icons.Rounded.ArrowBack, "Back", Modifier.size(17.dp), tint = Blz.muted)
+                    Text("Back", color = Blz.muted, fontSize = 13.sp)
+                }
+            }
+            EmptyState(emptyIcon, title, emptyDetail.ifBlank { empty })
+        }
+        return
+    }
+
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),

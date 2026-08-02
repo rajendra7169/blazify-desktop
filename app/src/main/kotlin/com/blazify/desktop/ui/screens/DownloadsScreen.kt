@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Icon
@@ -35,6 +36,7 @@ import com.blazify.desktop.data.Track
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.EmptyState
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverGlow
 import com.blazify.desktop.ui.rememberHovered
@@ -54,6 +56,16 @@ import com.blazify.desktop.ui.rememberHovered
 @Composable
 fun DownloadsScreen(onPlay: (List<Track>, Int) -> Unit, onShuffle: (List<Track>) -> Unit) {
     val kept = Downloads.items
+
+    if (kept.isEmpty()) {
+        EmptyState(
+            Icons.Rounded.Download,
+            "Nothing kept yet",
+            "Keep a song and it plays without the network — right-click any song, " +
+                "or use the arrow beside what's playing.",
+        )
+        return
+    }
 
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),

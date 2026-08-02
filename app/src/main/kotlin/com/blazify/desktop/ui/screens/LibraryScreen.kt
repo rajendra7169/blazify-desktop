@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -43,6 +44,7 @@ import com.blazify.desktop.data.Playlists
 import com.blazify.desktop.data.Track
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.EmptyState
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverLift
 import com.blazify.desktop.ui.rememberHovered
@@ -75,17 +77,15 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
     }
 
     if (saved.isEmpty() && mine.isEmpty() && own.isEmpty() && !loading) {
-        Column(
-            Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text("Library", color = Blz.ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-            Text(
-                if (Account.signedIn) "Albums and playlists you save will collect here"
-                else "Sign in to see your own playlists, or save anything to keep it here",
-                color = Blz.muted, fontSize = 13.sp,
-            )
-        }
+        EmptyState(
+            Icons.Rounded.LibraryMusic,
+            "Your library is empty",
+            if (Account.signedIn) {
+                "Save an album or playlist and it collects here, alongside anything you make."
+            } else {
+                "Sign in to bring your own playlists across, or save anything you find to keep it here."
+            },
+        )
         return
     }
 
