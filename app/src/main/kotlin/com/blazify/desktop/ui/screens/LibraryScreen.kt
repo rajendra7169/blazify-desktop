@@ -8,12 +8,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.blazify.desktop.data.Account
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.Track
@@ -46,15 +53,26 @@ import com.blazify.desktop.ui.rememberHovered
 @Composable
 fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit) {
     val saved = Library.saved
+    var mine by remember { mutableStateOf<List<Catalogue.Card>>(emptyList()) }
+    var loading by remember { mutableStateOf(Account.signedIn) }
 
-    if (saved.isEmpty()) {
+    // Re-asked whenever you sign in or out, since the answer is entirely
+    // different on each side of that.
+    LaunchedEffect(Account.cookie) {
+        loading = Account.signedIn
+        mine = Catalogue.mine().getOrDefault(emptyList())
+        loading = false
+    }
+
+    if (saved.isEmpty() && mine.isEmpty() && !loading) {
         Column(
             Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text("Library", color = Blz.ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
             Text(
-                "Albums and playlists you save will collect here",
+                if (Account.signedIn) "Albums and playlists you save will collect here"
+                else "Sign in to see your own playlists, or save anything to keep it here",
                 color = Blz.muted, fontSize = 13.sp,
             )
         }
@@ -67,14 +85,40 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text("Library", color = Blz.ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                Text("${saved.size} saved", color = Blz.muted, fontSize = 13.sp)
+                Text(
+                    listOfNotNull(
+                        mine.size.takeIf { it > 0 }?.let { "$it yours" },
+                        saved.size.takeIf { it > 0 }?.let { "$it saved" },
+                    ).joinToString("  ·  ").ifEmpty { "Nothing here yet" },
+                    color = Blz.muted, fontSize = 13.sp,
+                )
             }
         }
-        items(saved, key = { it.kind.name + it.id }) { card -> SavedTile(card, onOpen) }
+
+        // What's on the account first: those are playlists someone built, and
+        // they outrank anything picked up along the way.
+        if (mine.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { Heading("Your playlists") }
+            items(mine, key = { "mine-" + it.kind.name + it.id }) { card -> SavedTile(card, onOpen) }
+        }
+
+        if (saved.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { Heading("Saved") }
+            items(saved, key = { "saved-" + it.kind.name + it.id }) { card -> SavedTile(card, onOpen) }
+        }
     }
+}
+
+@Composable
+private fun Heading(text: String) {
+    Text(
+        text.uppercase(), color = Blz.dim, fontSize = 11.sp,
+        fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp,
+        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
+    )
 }
 
 @Composable
