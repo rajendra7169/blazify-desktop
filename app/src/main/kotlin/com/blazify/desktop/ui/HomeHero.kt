@@ -93,6 +93,22 @@ fun HomeHero(
             // colour while a wash sat behind it at a different colour was what
             // put a seam down the middle: two gradients meeting at an edge
             // instead of one continuous surface.
+            // The name, set enormous and left almost invisible, filling the
+            // space between the words and the figure. It reads as texture from
+            // across the room and as the word itself when you look at it — and
+            // it goes down before the picture, so she stands in front of it.
+            Text(
+                "Blazify",
+                color = Blz.ink.copy(alpha = if (dark) 0.055f else 0.045f),
+                fontSize = (pane.value * 0.13f).coerceIn(96f, 210f).sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-4).sp,
+                maxLines = 1,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = pane * 0.02f),
+            )
+
             hero?.let {
                 Image(
                     it,
@@ -104,9 +120,13 @@ fun HomeHero(
                     alignment = Alignment.BottomCenter,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = pane * 0.04f)
-                        .width(pane * 0.26f)
-                        .fillMaxHeight(0.92f),
+                        // Flush with the right edge — an inset here left a strip
+                        // of bare background beside her that read as a gap.
+                        // Lifted a little off the bottom so she isn't standing
+                        // on the shelves below.
+                        .padding(bottom = 22.dp)
+                        .width(pane * 0.24f)
+                        .fillMaxHeight(0.86f),
                 )
             }
 
