@@ -236,10 +236,10 @@ fun NowPlayingScreen(
             // with this much room, refusing to say what they do is a choice
             // rather than a constraint.
             //
-            // Lyrics sits at the right end where the panel it opens appears,
-            // and add-to-playlist at the left end away from it; the ones you
-            // reach for by habit are on the outside, the occasional ones in
-            // the middle.
+            // Lyrics at the right end and the queue beside it, since both open
+            // the panel that slides in from that side — the button and the
+            // thing it summons on the same edge. What belongs to the song
+            // rather than to the screen goes left.
             Row(
                 Modifier.padding(top = 26.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -247,14 +247,6 @@ fun NowPlayingScreen(
             ) {
                 if (track != null) {
                     Labelled(Icons.Rounded.PlaylistAdd, "Playlist", onClick = onAddToPlaylist)
-                }
-                Labelled(
-                    Icons.Rounded.QueueMusic, "Queue", on = queueOpen, onClick = onToggleQueue,
-                )
-                Labelled(
-                    Icons.Rounded.Bedtime, "Timer", on = timerOn, onClick = onOpenTimer,
-                )
-                if (track != null) {
                     val kept = Downloads.has(track.id)
                     Labelled(
                         if (kept) Icons.Rounded.DownloadDone else Icons.Rounded.Download,
@@ -263,6 +255,12 @@ fun NowPlayingScreen(
                         onClick = PlayerState::downloadCurrent,
                     )
                 }
+                Labelled(
+                    Icons.Rounded.Bedtime, "Timer", on = timerOn, onClick = onOpenTimer,
+                )
+                Labelled(
+                    Icons.Rounded.QueueMusic, "Queue", on = queueOpen, onClick = onToggleQueue,
+                )
                 Labelled(
                     Icons.Rounded.Lyrics, "Lyrics", on = lyricsOpen, onClick = onToggleLyrics,
                 )
