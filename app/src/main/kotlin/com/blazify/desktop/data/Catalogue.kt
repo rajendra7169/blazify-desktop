@@ -291,61 +291,107 @@ object Catalogue {
     /**
      * Songs like a given song.
      *
-     * Two steps, because the catalogue doesn't answer "what is like this" in
-     * one: the first asks what would play next after a track, which comes back
-     * carrying a pointer to its related page, and the second follows it.
+     * Asking what would play next after a track answers twice over: it carries
+     * a pointer to a page of similar music, and it carries the queue that would
+     * actually follow on. The pointer gives the better list, but it isn't
+     * always there — the same track answers with it one minute and without it
+     * the next — so the queue stands in when it's missing. Both are songs
+     * chosen because of this one, which is all the shelf claims.
      */
     suspend fun relatedTo(videoId: String): Result<List<Track>> = withContext(Dispatchers.IO) {
         ensureIdentity()
         runCatching {
-            val pointer = YouTube.next(WatchEndpoint(videoId = videoId)).getOrThrow().relatedEndpoint
-                ?: return@runCatching emptyList<Track>()
-            YouTube.related(pointer).getOrThrow().songs.map { it.asTrack() }
+            val next = YouTube.next(WatchEndpoint(videoId = videoId)).getOrThrow()
+
+            val similar = next.relatedEndpoint
+                ?.let { YouTube.related(it).getOrNull()?.songs.orEmpty().map { song -> song.asTrack() } }
+                .orEmpty()
+            if (similar.size >= 4) return@runCatching similar
+
+            // The queue that would follow on, minus the track itself, which is
+            // always the first thing in it.
+            (similar + next.items.map { it.asTrack() })
+                .distinctBy { it.id }
+                .filterNot { it.id == videoId }
         }
     }
 
     /**
-     * Shelves of songs to open the feed with.
+     * The part of the feed that is songs.
      *
-     * The catalogue's own feed answers with albums and playlists — things to
-     * look at rather than things to play — so the songs are built here instead,
-     * out of what has actually been listened to. Every shelf is shuffled, so
-     * opening the app twice doesn't show the same twenty songs twice.
+     * Everything here is built rather than fetched as a page, because the
+     * catalogue's own feed answers with albums and playlists — things to look
+     * at rather than things to put on. Each shelf starts from a song that has
+     * actually been played and asks what is like it, and every one is shuffled,
+     * so opening the app twice never shows the same twenty songs.
      *
-     * With nothing to go on it borrows a seed from the catalogue rather than
-     * showing nothing: a first run should still open onto music.
+     * The order is deliberate and runs from most to least personal: what you
+     * were just listening to, then what your likes suggest, then what you've
+     * stopped playing, then the artists behind all of it.
      */
-    suspend fun songShelves(seeds: List<Track>): Result<List<Shelf>> = withContext(Dispatchers.IO) {
-        runCatching {
-            val starting = seeds.ifEmpty {
-                search(coldStart.random()).getOrNull().orEmpty().take(3)
-            }
-            if (starting.isEmpty()) return@runCatching emptyList<Shelf>()
+    suspend fun songShelves(history: List<Track>, liked: List<Track>): Result<List<Shelf>> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val built = mutableListOf<Shelf>()
+                val used = mutableSetOf<String>()
 
-            val built = mutableListOf<Shelf>()
-            val used = mutableSetOf<String>()
+                fun keep(title: String, label: String?, songs: List<Track>) {
+                    val fresh = songs.filterNot { it.id in used }.take(16)
+                    if (fresh.size < 4) return
+                    used += fresh.map { it.id }
+                    built += Shelf(
+                        title = title,
+                        label = label,
+                        cards = fresh.map {
+                            Card(it.id, it.title, it.artist, it.thumbnail, Kind.Song, it.durationSeconds)
+                        },
+                        rows = 4,
+                    )
+                }
 
-            starting.take(3).forEachIndexed { at, seed ->
-                val songs = relatedTo(seed.id).getOrNull().orEmpty()
-                    .filterNot { it.id in used || it.id == seed.id }
+                // Nothing played yet: borrow seeds so a first run still opens
+                // onto songs. Three different ones rather than three from the
+                // same search, or every shelf would be the same music twice.
+                val borrowed = if (history.isEmpty() && liked.isEmpty()) {
+                    coldStart.shuffled().take(3).mapNotNull { term ->
+                        search(term).getOrNull().orEmpty().shuffled().firstOrNull()
+                    }
+                } else {
+                    emptyList()
+                }
+
+                // Quick picks — what follows on from the last thing played.
+                val opener = history.firstOrNull() ?: borrowed.firstOrNull()
+                opener?.let { keep("Quick picks", null, relatedTo(it.id).getOrNull().orEmpty().shuffled()) }
+
+                // Daily discover — spread across several seeds rather than
+                // drawn from one, so it widens instead of narrowing.
+                val discoverSeeds = liked.shuffled().take(3)
+                    .ifEmpty { history.drop(1).take(2) }
+                    .ifEmpty { borrowed.drop(1) }
+                val discovered = discoverSeeds
+                    .flatMap { relatedTo(it.id).getOrNull().orEmpty() }
+                    .distinctBy { it.id }
                     .shuffled()
-                    .take(16)
-                if (songs.size < 4) return@forEachIndexed
-                used += songs.map { it.id }
-                built += Shelf(
-                    // The first is whatever was played last, so it reads as a
-                    // continuation rather than as a fresh recommendation.
-                    title = if (at == 0) "Quick picks" else seed.title,
-                    label = if (at == 0) null else "BECAUSE YOU PLAYED",
-                    cards = songs.map {
-                        Card(it.id, it.title, it.artist, it.thumbnail, Kind.Song, it.durationSeconds)
-                    },
-                    rows = 4,
-                )
+                keep("Your daily discover", null, discovered)
+
+                // Forgotten favourites — the far end of the history, which is
+                // the part worth being reminded of.
+                keep("Forgotten favourites", null, history.drop(20).shuffled())
+
+                // Keep listening — plainly what was on recently, no fetching.
+                keep("Keep listening", null, history.take(16))
+
+                // Similar to — named after the seed, so the shelf explains
+                // itself rather than claiming to be a recommendation engine.
+                (history.drop(1).take(2).ifEmpty { borrowed.drop(1) }).forEach { seed ->
+                    keep(seed.artist.substringBefore(",").ifBlank { seed.title }, "SIMILAR TO",
+                        relatedTo(seed.id).getOrNull().orEmpty().shuffled())
+                }
+
+                built
             }
-            built
         }
-    }
 
     /**
      * Somewhere to start when there is no history at all.

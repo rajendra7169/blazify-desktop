@@ -76,8 +76,7 @@ fun HomeScreen(
     // Rebuilt on every visit, and shuffled each time, so the top of the screen
     // is a different twenty songs whenever you come back to it.
     LaunchedEffect(Unit) {
-        val seeds = (Library.history.take(2) + Library.liked.shuffled().take(2)).distinctBy { it.id }
-        picks = Catalogue.songShelves(seeds).getOrDefault(emptyList())
+        picks = Catalogue.songShelves(Library.history, Library.liked).getOrDefault(emptyList())
     }
 
     LaunchedEffect(mood) {

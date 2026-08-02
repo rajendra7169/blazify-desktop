@@ -12,7 +12,7 @@ import kotlinx.coroutines.runBlocking
 fun main() = runBlocking {
     repeat(2) { round ->
         println("--- refresh ${round + 1} ---")
-        Catalogue.songShelves(emptyList()).fold(
+        Catalogue.songShelves(emptyList(), emptyList()).fold(
             onSuccess = { shelves ->
                 if (shelves.isEmpty()) println("  nothing came back")
                 shelves.forEach { shelf: Catalogue.Shelf ->
