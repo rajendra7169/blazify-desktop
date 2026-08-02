@@ -1,5 +1,6 @@
 package com.blazify.desktop.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -36,6 +38,8 @@ import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.res.useResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.data.Account
@@ -64,9 +68,8 @@ fun HomeHero(
     modifier: Modifier = Modifier,
 ) {
     val dark = Blz.dark
-    val hero = remember(dark) {
-        val name = if (dark) "blaze_home_dark.png" else "blaze_home_light.png"
-        runCatching { useResource(name) { loadImageBitmap(it) } }.getOrNull()
+    val hero = remember {
+        runCatching { useResource("blazify_people.png") { loadImageBitmap(it) } }.getOrNull()
     }
 
     BoxWithConstraints(modifier.fillMaxWidth()) {
@@ -93,41 +96,50 @@ fun HomeHero(
             // colour while a wash sat behind it at a different colour was what
             // put a seam down the middle: two gradients meeting at an edge
             // instead of one continuous surface.
-            // The name, set enormous and left almost invisible, filling the
-            // space between the words and the figure. It reads as texture from
-            // across the room and as the word itself when you look at it — and
-            // it goes down before the picture, so she stands in front of it.
-            Text(
-                "Blazify",
-                color = Blz.ink.copy(alpha = if (dark) 0.055f else 0.045f),
-                fontSize = (pane.value * 0.13f).coerceIn(96f, 210f).sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-4).sp,
-                maxLines = 1,
-                modifier = Modifier
+            // The right-hand side: the name across the top, the crowd along
+            // the bottom underneath it. Starting after the buttons so nothing
+            // reads across the words on the left.
+            Box(
+                Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = pane * 0.02f),
-            )
-
-            hero?.let {
-                Image(
-                    it,
-                    contentDescription = null,
-                    // Fitted rather than cropped now she's small: cropping a
-                    // narrow box takes the sides off the figure instead of
-                    // making her smaller, which is the opposite of the ask.
-                    contentScale = ContentScale.Fit,
-                    alignment = Alignment.BottomCenter,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        // Flush with the right edge — an inset here left a strip
-                        // of bare background beside her that read as a gap.
-                        // Lifted a little off the bottom so she isn't standing
-                        // on the shelves below.
-                        .padding(bottom = 22.dp)
-                        .width(pane * 0.24f)
-                        .fillMaxHeight(0.86f),
+                    .width(pane * 0.62f)
+                    .fillMaxHeight(),
+            ) {
+                Text(
+                    "Blazify",
+                    color = Blz.ink.copy(alpha = if (dark) 0.07f else 0.05f),
+                    fontSize = (pane.value * 0.075f).coerceIn(64f, 132f).sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-3).sp,
+                    maxLines = 1,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp),
                 )
+
+                hero?.let { picture ->
+                    val wide = pane * 0.62f
+                    val tall = wide * (picture.height.toFloat() / picture.width)
+
+                    Canvas(
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .width(wide)
+                            .height(tall),
+                    ) {
+                        // The picture is cut out on black. Painted normally
+                        // that black is a rectangle sitting on the page; added
+                        // to what's underneath instead, black contributes
+                        // nothing at all and only the figures land — no edge,
+                        // nothing to hide, and it works on any background the
+                        // artwork happens to have tinted the window.
+                        drawImage(
+                            image = picture,
+                            dstOffset = IntOffset.Zero,
+                            dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+                            alpha = if (dark) 0.95f else 0.8f,
+                            blendMode = BlendMode.Screen,
+                        )
+                    }
+                }
             }
 
             // Across the whole width: solid where the words are, gone by the
