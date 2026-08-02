@@ -638,23 +638,22 @@ object Catalogue {
      */
     suspend fun streamUrl(videoId: String): Result<String> = withContext(Dispatchers.IO) {
         ensureIdentity()
-        val clients = listOf(
-            YouTubeClient.ANDROID_VR_NO_AUTH,
-            YouTubeClient.VISIONOS,
-            YouTubeClient.IOS,
-        )
 
-        for (client in clients) {
-            val response = YouTube.player(videoId, client = client).getOrNull() ?: continue
+        // Which ways of asking, and in what order, is a setting — see Streams.
+        // The catalogue answers differently to each of its own clients, and
+        // which one works changes over time without anything here changing.
+        for (source in Streams.chain()) {
+            val response = YouTube.player(videoId, client = source.client).getOrNull() ?: continue
             if (response.playabilityStatus.status != "OK") continue
 
-            val best = response.streamingData
+            val offered = response.streamingData
                 ?.adaptiveFormats
                 ?.filter { it.mimeType.startsWith("audio/mp4") && !it.url.isNullOrEmpty() }
-                ?.maxByOrNull { it.bitrate }
-                ?: continue
+                .orEmpty()
+            if (offered.isEmpty()) continue
 
-            best.url?.let { return@withContext Result.success(it) }
+            val chosen = Streams.pick(offered) { it.bitrate } ?: continue
+            chosen.url?.let { return@withContext Result.success(it) }
         }
         Result.failure(IllegalStateException("No playable audio for $videoId"))
     }

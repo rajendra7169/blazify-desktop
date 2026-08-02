@@ -35,6 +35,7 @@ import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.data.LyricsProvider
 import com.blazify.desktop.data.LyricsProviders
 import com.blazify.desktop.data.Romanize
+import com.blazify.desktop.data.Streams
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.Destination
 import com.blazify.desktop.ui.GridSize
@@ -173,6 +174,97 @@ fun LookAndFeelSection(
             }
             Switch("Pure black", Look.pureBlack, Look::choosePureBlack)
             Switch("Greeting on the home screen", Look.showGreeting, Look::chooseShowGreeting)
+        }
+    }
+}
+
+/**
+ * How the audio is fetched, which is the other half of the player page.
+ *
+ * Nothing here changes what a song sounds like on good equipment — it changes
+ * which way of asking is used, and how much data that costs. Both are things
+ * that go wrong for reasons outside this app, so both are reachable rather than
+ * decided for you.
+ */
+@Composable
+fun StreamSettingsSection(
+    section: @Composable (String, (() -> Unit)?, @Composable () -> Unit) -> Unit,
+) {
+    section("Quality", null) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Choices(
+                Streams.Quality.entries.map { it.label },
+                Streams.quality.label,
+            ) { picked ->
+                Streams.chooseQuality(Streams.Quality.entries.first { it.label == picked })
+            }
+            Text(Streams.quality.blurb, color = Blz.dim, fontSize = 11.5.sp)
+            Text(
+                "This picks between the streams the catalogue offers. It has no effect on " +
+                    "anything already kept for offline — those were fetched at whatever was " +
+                    "set at the time.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
+        }
+    }
+
+    section("Where the audio comes from", Streams::reset) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                "Tried top to bottom until one hands over a stream. If a song refuses to " +
+                    "play, moving a source up is usually the fix — no two of them are " +
+                    "offered the same things.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
+
+            val chain = Streams.order.mapNotNull { name ->
+                Streams.Source.entries.firstOrNull { it.name == name }
+            } + Streams.Source.entries.filterNot { it.name in Streams.order }
+
+            chain.forEachIndexed { at, source ->
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    val on = source.name in Streams.enabled
+                    Text(
+                        "${at + 1}",
+                        color = if (on) Blaze.Amber else Blz.dim,
+                        fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.width(20.dp),
+                    )
+                    Box(Modifier.weight(1f)) {
+                        Switch(source.label, on) { wanted ->
+                            Streams.chooseEnabled(
+                                if (wanted) Streams.enabled + source.name
+                                else Streams.enabled - source.name,
+                            )
+                        }
+                    }
+                    Nudge(Icons.Rounded.KeyboardArrowUp, "Move up", at > 0) {
+                        val names = chain.map { it.name }.toMutableList()
+                        names.add(at - 1, names.removeAt(at))
+                        Streams.chooseOrder(names)
+                    }
+                    Nudge(Icons.Rounded.KeyboardArrowDown, "Move down", at < chain.lastIndex) {
+                        val names = chain.map { it.name }.toMutableList()
+                        names.add(at + 1, names.removeAt(at))
+                        Streams.chooseOrder(names)
+                    }
+                }
+                Text(
+                    source.blurb, color = Blz.dim, fontSize = 11.sp,
+                    modifier = Modifier.padding(start = 24.dp, bottom = 2.dp),
+                )
+            }
+
+            if (Streams.enabled.isEmpty()) {
+                Text(
+                    "With none of them on, nothing will play. Turn at least one back on.",
+                    color = Blaze.Amber, fontSize = 11.5.sp,
+                )
+            }
         }
     }
 }
