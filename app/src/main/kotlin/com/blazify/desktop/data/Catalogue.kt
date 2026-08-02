@@ -210,6 +210,46 @@ object Catalogue {
         }
     }
 
+    /** A coloured tile in the browse grid, and where it leads. */
+    data class Genre(val title: String, val colour: Long, val browseId: String, val params: String?)
+
+    /** What the browse tab offers: new releases, and the mood and genre tiles. */
+    data class Explore(val releases: List<Card>, val genres: List<Genre>)
+
+    suspend fun explore(): Result<Explore> = withContext(Dispatchers.IO) {
+        ensureIdentity()
+        YouTube.explore().map { page ->
+            Explore(
+                releases = page.newReleaseAlbums.mapNotNull { it.asCard() },
+                genres = page.moodAndGenres.map {
+                    Genre(it.title, it.stripeColor, it.endpoint.browseId, it.endpoint.params)
+                },
+            )
+        }
+    }
+
+    /**
+     * What's behind a genre tile.
+     *
+     * It comes back as shelves rather than a flat list — a genre holds several
+     * kinds of thing, and flattening them would put an album and a song side by
+     * side as if they were the same.
+     */
+    suspend fun genre(genre: Genre): Result<List<Shelf>> = withContext(Dispatchers.IO) {
+        ensureIdentity()
+        YouTube.browse(browseId = genre.browseId, params = genre.params).map { result ->
+            result.items.mapNotNull { section ->
+                val cards = section.items.mapNotNull { it.asCard() }
+                if (cards.isEmpty()) null
+                else Shelf(
+                    title = section.title.orEmpty(),
+                    cards = cards,
+                    rows = if (cards.all { it.kind == Kind.Song }) 4 else 1,
+                )
+            }
+        }
+    }
+
     /**
      * The playlists, albums and artists on the signed-in account.
      *
