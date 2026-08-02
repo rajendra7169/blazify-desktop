@@ -5,6 +5,7 @@ import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import com.blazify.desktop.ui.Theatre
 
 /**
  * Blazify Project (C) 2026
@@ -53,6 +54,12 @@ object Shortcuts {
                 else -> Unit
             }
         }
+        // Out of the full-screen sheet, before anything else looks at the key.
+        // Escape means "put the window back" everywhere else on a desktop, and
+        // it works while typing because the search box in a covered window
+        // isn't the thing being escaped from.
+        if (released && event.key == Key.Escape && Theatre.leave()) return true
+
         if (typing) return false
 
         // By degree — held down, these keep going.

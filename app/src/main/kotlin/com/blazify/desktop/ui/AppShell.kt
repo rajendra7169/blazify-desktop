@@ -117,6 +117,7 @@ fun AppShell() {
                         position = PlayerState.positionSeconds,
                         onSeekTo = PlayerState::seekTo,
                         onClose = { lyricsOpen = false },
+                        onExpand = { Theatre.open = true },
                     )
                 }
             }
@@ -180,6 +181,18 @@ fun AppShell() {
             timerOn = SleepTimer.running,
         )
     }
+
+        // The whole window, rail and transport included. Full screen that left
+        // a sidebar showing would only be a bigger panel, and the reason for
+        // this view is that nothing else is on the screen.
+        if (Theatre.open) {
+            LyricsTheatre(
+                track = PlayerState.current,
+                position = PlayerState.positionSeconds,
+                onSeekTo = PlayerState::seekTo,
+                onClose = { Theatre.open = false },
+            )
+        }
 
         // Over everything, including the transport — a dialog that the bar
         // could be clicked through is not a dialog.
