@@ -43,6 +43,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.VolumeDown
+import androidx.compose.material.icons.rounded.VolumeOff
+import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.PlayerState
 
 /**
@@ -53,17 +71,28 @@ import com.blazify.desktop.PlayerState
 /**
  * The song, given the whole window.
  *
- * Nothing here is new — every control exists in the strip along the bottom
- * already. What's different is the artwork, and that is the entire point: this
- * is the view you leave open while listening rather than while looking for
- * something, so the cover gets the room and the controls get out of the way.
+ * Everything that was scattered along the bottom strip is gathered here in one
+ * column: what's playing at the top, the cover, the bar you drag, the
+ * transport, and everything else in a row beneath it. The strip itself gets out
+ * of the way — two sets of the same controls, one of them half the size, is a
+ * question about which one to press that shouldn't have to be asked.
  *
  * The words sit beside it when they're open, which is the one pairing worth
  * having on screen at once.
  */
 @Composable
-fun NowPlayingScreen(lyricsOpen: Boolean, onToggleLyrics: () -> Unit, onClose: () -> Unit) {
+fun NowPlayingScreen(
+    lyricsOpen: Boolean,
+    queueOpen: Boolean,
+    timerOn: Boolean,
+    onToggleLyrics: () -> Unit,
+    onToggleQueue: () -> Unit,
+    onOpenTimer: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onClose: () -> Unit,
+) {
     val track = PlayerState.current
+    var themeOpen by remember { mutableStateOf(false) }
 
     // A wash of the accent behind the artwork, or the plain page, or true
     // black. The gradient is bottom-heavy so the controls sit on colour and
@@ -82,36 +111,69 @@ fun NowPlayingScreen(lyricsOpen: Boolean, onToggleLyrics: () -> Unit, onClose: (
         )
     }
 
-    Row(Modifier.fillMaxSize().then(background)) {
+    Column(Modifier.fillMaxSize().then(background)) {
+        // ── what this screen is, and the two ways out of its look ──
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Round(Icons.Rounded.KeyboardArrowDown, "Back to the strip", onClose, 24.dp)
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "NOW PLAYING", color = Blz.dim, fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp,
+                )
+                // Where in the queue this is, since with the browser hidden
+                // there is otherwise nothing saying how much is left.
+                if (PlayerState.queue.isNotEmpty()) {
+                    Text(
+                        "${PlayerState.index + 1} of ${PlayerState.queue.size}",
+                        color = Blz.muted, fontSize = 12.sp,
+                    )
+                }
+            }
+            Box {
+                Round(Icons.Rounded.Palette, "Player look", { themeOpen = true }, 20.dp)
+                PlayerLookMenu(themeOpen) { themeOpen = false }
+            }
+        }
+
         Column(
-            Modifier.weight(1f).fillMaxHeight().padding(horizontal = 40.dp, vertical = 28.dp),
+            Modifier.weight(1f).fillMaxWidth().padding(horizontal = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Box(Modifier.fillMaxWidth()) {
-                Round(Icons.Rounded.CloseFullscreen, "Back", onClose)
-            }
+            Artwork(track?.thumbnail, size = 340.dp, corner = 20.dp)
 
-            Artwork(track?.thumbnail, size = 380.dp, corner = 20.dp)
-
-            Column(
-                Modifier.padding(top = 30.dp).widthIn(max = 520.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    track?.title ?: "Nothing playing",
-                    color = Blz.ink, fontSize = 26.sp, fontWeight = FontWeight.Bold,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    track?.artist.orEmpty(), color = Blz.muted, fontSize = 15.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            Column(
+            Row(
                 Modifier.padding(top = 26.dp).widthIn(max = 560.dp).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(
+                        track?.title ?: "Nothing playing",
+                        color = Blz.ink, fontSize = 24.sp, fontWeight = FontWeight.Bold,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        track?.artist.orEmpty(), color = Blz.muted, fontSize = 14.5.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                // Beside the name rather than down with the rest: liking is
+                // about this song, and the row below is about the player.
+                if (track != null) {
+                    Round(
+                        if (PlayerState.currentLiked) Icons.Rounded.Favorite
+                        else Icons.Rounded.FavoriteBorder,
+                        "Like", PlayerState::toggleLike, 22.dp,
+                        tint = if (PlayerState.currentLiked) Blaze.Amber else null,
+                    )
+                }
+            }
+
+            Column(
+                Modifier.padding(top = 20.dp).widthIn(max = 560.dp).fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 ScrubBar(PlayerState.progress, PlayerState::seek, Modifier.fillMaxWidth(), thickness = 6.dp)
@@ -123,7 +185,7 @@ fun NowPlayingScreen(lyricsOpen: Boolean, onToggleLyrics: () -> Unit, onClose: (
             }
 
             Row(
-                Modifier.padding(top = 20.dp),
+                Modifier.padding(top = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -156,22 +218,102 @@ fun NowPlayingScreen(lyricsOpen: Boolean, onToggleLyrics: () -> Unit, onClose: (
                 )
             }
 
-            if (track != null) {
-                Row(
-                    Modifier.padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
+            // Everything that isn't transport, under the transport. Same order
+            // as the strip they replace, so the hand goes to the same place.
+            Row(
+                Modifier.padding(top = 22.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Round(
+                    Icons.Rounded.Lyrics, "Lyrics", onToggleLyrics, 20.dp,
+                    tint = if (lyricsOpen) Blaze.Amber else null,
+                )
+                Round(
+                    Icons.Rounded.QueueMusic, "Queue", onToggleQueue, 20.dp,
+                    tint = if (queueOpen) Blaze.Amber else null,
+                )
+                Round(
+                    Icons.Rounded.Bedtime, "Sleep timer", onOpenTimer, 20.dp,
+                    tint = if (timerOn) Blaze.Amber else null,
+                )
+                if (track != null) {
+                    Round(Icons.Rounded.PlaylistAdd, "Add to playlist", onAddToPlaylist, 20.dp)
+                    val kept = Downloads.has(track.id)
                     Round(
-                        if (PlayerState.currentLiked) Icons.Rounded.Favorite
-                        else Icons.Rounded.FavoriteBorder,
-                        "Like", PlayerState::toggleLike, 20.dp,
-                        tint = if (PlayerState.currentLiked) Blaze.Amber else null,
-                    )
-                    Round(
-                        Icons.Rounded.Lyrics, "Lyrics", onToggleLyrics, 20.dp,
-                        tint = if (lyricsOpen) Blaze.Amber else null,
+                        if (kept) Icons.Rounded.DownloadDone else Icons.Rounded.Download,
+                        if (kept) "Kept for offline" else "Keep for offline",
+                        PlayerState::downloadCurrent, 20.dp,
+                        tint = if (kept) Blaze.Amber else null,
                     )
                 }
+            }
+
+            // The volume, because with the strip hidden there is nowhere else
+            // to reach it without leaving the screen.
+            Row(
+                Modifier.padding(top = 16.dp).width(220.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Round(
+                    when {
+                        PlayerState.volume <= 0f -> Icons.Rounded.VolumeOff
+                        PlayerState.volume < 0.5f -> Icons.Rounded.VolumeDown
+                        else -> Icons.Rounded.VolumeUp
+                    },
+                    if (PlayerState.volume <= 0f) "Unmute" else "Mute",
+                    PlayerState::toggleMute, 18.dp,
+                    tint = if (PlayerState.volume <= 0f) Blaze.Amber else null,
+                )
+                ScrubBar(
+                    PlayerState.volume, PlayerState::changeVolume,
+                    Modifier.weight(1f), fill = Blz.muted, thickness = 3.dp,
+                )
+            }
+
+            Box(Modifier.size(20.dp))
+        }
+    }
+}
+
+/**
+ * How the player is dressed.
+ *
+ * The three grounds it can sit on, chosen here rather than only in the settings
+ * — this is the screen they change, and a look you have to leave the screen to
+ * try is a look nobody tries. More of these are coming; the menu is where they
+ * will go.
+ */
+@Composable
+private fun PlayerLookMenu(open: Boolean, onDismiss: () -> Unit) {
+    DropdownMenu(
+        expanded = open,
+        onDismissRequest = onDismiss,
+        modifier = Modifier.width(220.dp).background(Blz.bar),
+    ) {
+        Text(
+            "PLAYER LOOK", color = Blz.dim, fontSize = 10.sp,
+            fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+        PlayerBackground.entries.forEach { option ->
+            val on = option == Look.playerBackground
+            val (source, hovered) = rememberHovered()
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .hoverBackground(Blz.hover, hovered, source)
+                    .clickable { Look.choosePlayerBackground(option); onDismiss() }
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    option.label, color = if (on) Blaze.Amber else Blz.ink,
+                    fontSize = 13.sp, modifier = Modifier.weight(1f),
+                )
+                if (on) Icon(Icons.Rounded.Check, null, Modifier.size(15.dp), tint = Blaze.Amber)
             }
         }
     }

@@ -3,9 +3,11 @@ package com.blazify.desktop.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -97,7 +99,12 @@ fun AppShell() {
                 if (full) {
                     NowPlayingScreen(
                         lyricsOpen = lyricsOpen,
+                        queueOpen = queueOpen,
+                        timerOn = SleepTimer.running,
                         onToggleLyrics = { lyricsOpen = !lyricsOpen },
+                        onToggleQueue = { queueOpen = !queueOpen },
+                        onOpenTimer = { timerOpen = true },
+                        onAddToPlaylist = { addingOpen = true },
                         onClose = { full = false },
                     )
                 } else {
@@ -141,6 +148,16 @@ fun AppShell() {
             }
         }
 
+        // Gone while the full player is up, and slid rather than switched:
+        // every control down here has a larger twin on that screen, and two
+        // sets of the same buttons is a question about which to press. It
+        // leaves downward, the way it will come back.
+        AnimatedVisibility(
+            visible = !full,
+            enter = expandVertically(tween(220)) + fadeIn(tween(220)),
+            exit = shrinkVertically(tween(200)) + fadeOut(tween(140)),
+        ) {
+            Column {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Blz.line))
 
         PlayerBar(
@@ -180,6 +197,8 @@ fun AppShell() {
             queueOpen = queueOpen,
             timerOn = SleepTimer.running,
         )
+            }
+        }
     }
 
         // The whole window, rail and transport included. Full screen that left

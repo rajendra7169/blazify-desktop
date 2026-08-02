@@ -146,6 +146,7 @@ fun AddToPlaylistDialog(track: Track, onDismiss: () -> Unit) {
                             Choice(
                                 name = playlist.name,
                                 detail = playlist.count ?: "On your account",
+                                covers = listOfNotNull(playlist.thumbnail),
                                 inside = false,
                                 busy = working,
                             ) {
@@ -167,6 +168,7 @@ fun AddToPlaylistDialog(track: Track, onDismiss: () -> Unit) {
                             Choice(
                                 name = playlist.name,
                                 detail = "${playlist.tracks.size} songs",
+                                covers = playlist.covers,
                                 inside = Playlists.contains(playlist.id, track.id),
                                 busy = false,
                             ) {
@@ -252,6 +254,36 @@ fun AddToPlaylistDialog(track: Track, onDismiss: () -> Unit) {
     }
 }
 
+/**
+ * A playlist's face, at the size of a list row.
+ *
+ * One cover if that's all there is, four in a square if there are four — the
+ * same tile the library draws, because a playlist recognised in one place and
+ * anonymous in another is two different playlists as far as the eye is
+ * concerned. A note only when there's nothing in it yet.
+ */
+@Composable
+private fun PlaylistArt(covers: List<String>) {
+    Box(
+        Modifier.size(38.dp).clip(RoundedCornerShape(7.dp)).background(Blz.surfaceHigh),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            covers.size >= 4 -> Column {
+                repeat(2) { row ->
+                    Row {
+                        repeat(2) { column ->
+                            Artwork(covers[row * 2 + column], size = 19.dp, corner = 0.dp)
+                        }
+                    }
+                }
+            }
+            covers.isNotEmpty() -> Artwork(covers.first(), size = 38.dp, corner = 7.dp)
+            else -> Icon(Icons.Rounded.QueueMusic, null, Modifier.size(17.dp), tint = Blz.dim)
+        }
+    }
+}
+
 @Composable
 private fun Heading(text: String) {
     Text(
@@ -265,6 +297,7 @@ private fun Heading(text: String) {
 private fun Choice(
     name: String,
     detail: String,
+    covers: List<String>,
     inside: Boolean,
     busy: Boolean,
     onClick: () -> Unit,
@@ -280,7 +313,7 @@ private fun Choice(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(11.dp),
     ) {
-        Icon(Icons.Rounded.QueueMusic, null, Modifier.size(17.dp), tint = Blz.dim)
+        PlaylistArt(covers)
         Column(Modifier.weight(1f)) {
             Text(name, color = Blz.ink, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(detail, color = Blz.dim, fontSize = 11.5.sp)
