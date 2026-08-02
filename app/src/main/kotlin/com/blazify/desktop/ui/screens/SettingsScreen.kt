@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Info
@@ -278,72 +279,158 @@ private fun PageRow(page: SettingsPage, selected: Boolean, onClick: () -> Unit) 
     }
 }
 
+/**
+ * Signing in.
+ *
+ * The whole exchange happens on Google's own page in your own browser: this
+ * screen only shows the code to type there and waits. Nothing is typed into
+ * the application, and no password ever passes through it.
+ */
 @Composable
 private fun AccountSection() {
     var pasting by remember { mutableStateOf(false) }
     var pasted by remember { mutableStateOf("") }
+    val waiting = Account.pending
 
     Section("Account") {
-        if (Account.signedIn) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Account.picture?.let {
-                    Artwork(it, size = 40.dp, corner = 20.dp, modifier = Modifier.clip(CircleShape))
-                    Spacer(Modifier.size(12.dp))
+        when {
+            Account.signedIn -> {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Account.picture?.let {
+                        Artwork(it, size = 44.dp, corner = 22.dp, modifier = Modifier.clip(CircleShape))
+                        Spacer(Modifier.size(12.dp))
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            Account.name ?: if (Account.checking) "Checking…" else "Signed in",
+                            color = Blz.ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                        )
+                        Account.email?.let { Text(it, color = Blz.muted, fontSize = 12.5.sp) }
+                    }
+                    Button("Sign out", Account::signOut)
                 }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        Account.name ?: if (Account.checking) "Checking…" else "Signed in",
-                        color = Blz.ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                    )
-                    Account.email?.let { Text(it, color = Blz.muted, fontSize = 12.sp) }
-                }
-                Button("Sign out", Account::signOut)
-            }
-            Text(
-                "Your playlists, your history and a feed built out of what you actually listen to.",
-                color = Blz.dim, fontSize = 11.5.sp,
-            )
-        } else if (!pasting) {
-            Line("Signed in", "No — the feed is what's popular, not what's yours")
-            Button("Sign in") { pasting = true }
-        } else {
-            Text(
-                "Sign in at music.youtube.com in your browser, open its developer tools, " +
-                    "find any request to the site, and copy the whole Cookie header. Paste it here.",
-                color = Blz.muted, fontSize = 12.5.sp, lineHeight = 18.sp,
-            )
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Blz.surfaceHigh)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-            ) {
-                if (pasted.isEmpty()) {
-                    Text("Cookie: VISITOR_INFO1_LIVE=…; SAPISID=…", color = Blz.dim, fontSize = 12.sp)
-                }
-                BasicTextField(
-                    value = pasted,
-                    onValueChange = { pasted = it },
-                    textStyle = TextStyle(color = Blz.ink, fontSize = 12.sp),
-                    cursorBrush = SolidColor(Blaze.Amber),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onFocusChanged { Typing.active = it.isFocused },
+                Text(
+                    "Your playlists, your history and a feed built out of what you actually listen to.",
+                    color = Blz.dim, fontSize = 11.5.sp,
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button("Sign in") { Account.signIn(pasted); pasted = "" }
-                Button("Cancel") { pasting = false; pasted = "" }
+
+            waiting != null -> {
+                Text(
+                    "Enter this code on the page that opened in your browser:",
+                    color = Blz.muted, fontSize = 13.sp,
+                )
+                // Spaced and oversized: it exists to be read off a screen and
+                // typed into another one, which is a different job from any
+                // other text on this page.
+                Text(
+                    waiting.userCode,
+                    color = Blz.ink,
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 3.sp,
+                )
+                Text(waiting.url, color = Blz.muted, fontSize = 12.5.sp)
+                Text(
+                    "Waiting for you to approve it…",
+                    color = Blz.dim, fontSize = 11.5.sp,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button("Open the page again") { openInBrowser(waiting.url) }
+                    Button("Cancel", Account::cancelSignIn)
+                }
             }
-            Text(
-                "Kept on this machine only, and sent nowhere but the catalogue.",
-                color = Blz.dim, fontSize = 11.5.sp,
-            )
+
+            pasting -> {
+                Text(
+                    "If you'd rather not sign in, paste the Cookie header from a browser " +
+                        "already signed in at music.youtube.com.",
+                    color = Blz.muted, fontSize = 12.5.sp, lineHeight = 18.sp,
+                )
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Blz.surfaceHigh)
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                ) {
+                    if (pasted.isEmpty()) {
+                        Text("Cookie: VISITOR_INFO1_LIVE=…; SAPISID=…", color = Blz.dim, fontSize = 12.sp)
+                    }
+                    BasicTextField(
+                        value = pasted,
+                        onValueChange = { pasted = it },
+                        textStyle = TextStyle(color = Blz.ink, fontSize = 12.sp),
+                        cursorBrush = SolidColor(Blaze.Amber),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { Typing.active = it.isFocused },
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button("Use this session") { Account.signIn(pasted); pasted = "" }
+                    Button("Back") { pasting = false; pasted = "" }
+                }
+            }
+
+            else -> {
+                Line("Signed in", "No — the feed is what's popular, not what's yours")
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    GoogleButton {
+                        Account.signInWithGoogle { url -> openInBrowser(url) }
+                    }
+                    Button("Paste a session instead") { pasting = true }
+                }
+                Text(
+                    "Signing in opens Google's own page in your browser. Nothing is typed here, " +
+                        "and the account is kept on this machine only.",
+                    color = Blz.dim, fontSize = 11.5.sp,
+                )
+            }
         }
 
         Account.problem?.let { Text(it, color = Blaze.Ember, fontSize = 12.sp) }
     }
+}
+
+@Composable
+private fun GoogleButton(onClick: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(Icons.Rounded.AccountCircle, null, Modifier.size(18.dp), tint = Blaze.OnAmber)
+        Text(
+            "Sign in with Google",
+            color = Blaze.OnAmber, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+/**
+ * Hand a page to whatever the desktop uses for the web.
+ *
+ * Wrapped because the desktop toolkit refuses on some window managers, and a
+ * sign-in that dies on an exception rather than showing its code would be
+ * unrecoverable — the code is on screen either way, so it can still be typed
+ * in by hand.
+ */
+private fun openInBrowser(url: String) {
+    runCatching {
+        val desktop = java.awt.Desktop.getDesktop()
+        if (desktop.isSupported(java.awt.Desktop.Action.BROWSE)) {
+            desktop.browse(java.net.URI(url))
+            return
+        }
+    }
+    runCatching { ProcessBuilder("xdg-open", url).start() }
 }
 
 @Composable
