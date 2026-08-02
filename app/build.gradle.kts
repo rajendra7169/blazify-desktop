@@ -145,6 +145,12 @@ tasks.register<JavaExec>("feedProbe") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("picksProbe") {
+    group = "verification"
+    mainClass.set("com.blazify.desktop.tools.PicksProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("signInProbe") {
     group = "verification"
     mainClass.set("com.blazify.desktop.tools.SignInProbeKt")

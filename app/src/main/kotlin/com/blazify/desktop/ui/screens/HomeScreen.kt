@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.data.Catalogue
+import com.blazify.desktop.data.Library
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
@@ -52,6 +53,10 @@ fun HomeScreen(
     onPlayAll: (List<Catalogue.Card>, Int) -> Unit,
 ) {
     var shelves by remember { mutableStateOf<List<Catalogue.Shelf>>(emptyList()) }
+    // Songs first, built from what's been played rather than taken from the
+    // feed — the feed answers with albums and playlists, which are things to
+    // look at rather than things to put on.
+    var picks by remember { mutableStateOf<List<Catalogue.Shelf>>(emptyList()) }
     var more by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     var extending by remember { mutableStateOf(false) }
@@ -68,6 +73,13 @@ fun HomeScreen(
 
     // Re-fetched when the mood changes: it's a different feed, not a filter we
     // could apply to the one already here.
+    // Rebuilt on every visit, and shuffled each time, so the top of the screen
+    // is a different twenty songs whenever you come back to it.
+    LaunchedEffect(Unit) {
+        val seeds = (Library.history.take(2) + Library.liked.shuffled().take(2)).distinctBy { it.id }
+        picks = Catalogue.songShelves(seeds).getOrDefault(emptyList())
+    }
+
     LaunchedEffect(mood) {
         loading = true
         problem = null
@@ -142,6 +154,10 @@ fun HomeScreen(
         if (moods.isNotEmpty()) {
             item { MoodChips(moods, mood) { mood = it } }
         }
+
+        // Above everything, including while the feed is still arriving: the
+        // songs are the point of the screen and shouldn't wait on the shelves.
+        if (mood == null) items(picks) { shelf -> Shelf(shelf, onOpen, onPlayAll) }
 
         when {
             loading -> items(2) { SkeletonRail() }

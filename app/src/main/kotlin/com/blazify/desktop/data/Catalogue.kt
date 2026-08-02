@@ -5,6 +5,7 @@ import com.blazify.innertube.models.AlbumItem
 import com.blazify.innertube.models.ArtistItem
 import com.blazify.innertube.models.PlaylistItem
 import com.blazify.innertube.models.SongItem
+import com.blazify.innertube.models.WatchEndpoint
 import com.blazify.innertube.models.YouTubeClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -286,6 +287,77 @@ object Catalogue {
         thumbnail = thumbnail,
         durationSeconds = duration,
     )
+
+    /**
+     * Songs like a given song.
+     *
+     * Two steps, because the catalogue doesn't answer "what is like this" in
+     * one: the first asks what would play next after a track, which comes back
+     * carrying a pointer to its related page, and the second follows it.
+     */
+    suspend fun relatedTo(videoId: String): Result<List<Track>> = withContext(Dispatchers.IO) {
+        ensureIdentity()
+        runCatching {
+            val pointer = YouTube.next(WatchEndpoint(videoId = videoId)).getOrThrow().relatedEndpoint
+                ?: return@runCatching emptyList<Track>()
+            YouTube.related(pointer).getOrThrow().songs.map { it.asTrack() }
+        }
+    }
+
+    /**
+     * Shelves of songs to open the feed with.
+     *
+     * The catalogue's own feed answers with albums and playlists — things to
+     * look at rather than things to play — so the songs are built here instead,
+     * out of what has actually been listened to. Every shelf is shuffled, so
+     * opening the app twice doesn't show the same twenty songs twice.
+     *
+     * With nothing to go on it borrows a seed from the catalogue rather than
+     * showing nothing: a first run should still open onto music.
+     */
+    suspend fun songShelves(seeds: List<Track>): Result<List<Shelf>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val starting = seeds.ifEmpty {
+                search(coldStart.random()).getOrNull().orEmpty().take(3)
+            }
+            if (starting.isEmpty()) return@runCatching emptyList<Shelf>()
+
+            val built = mutableListOf<Shelf>()
+            val used = mutableSetOf<String>()
+
+            starting.take(3).forEachIndexed { at, seed ->
+                val songs = relatedTo(seed.id).getOrNull().orEmpty()
+                    .filterNot { it.id in used || it.id == seed.id }
+                    .shuffled()
+                    .take(16)
+                if (songs.size < 4) return@forEachIndexed
+                used += songs.map { it.id }
+                built += Shelf(
+                    // The first is whatever was played last, so it reads as a
+                    // continuation rather than as a fresh recommendation.
+                    title = if (at == 0) "Quick picks" else seed.title,
+                    label = if (at == 0) null else "BECAUSE YOU PLAYED",
+                    cards = songs.map {
+                        Card(it.id, it.title, it.artist, it.thumbnail, Kind.Song, it.durationSeconds)
+                    },
+                    rows = 4,
+                )
+            }
+            built
+        }
+    }
+
+    /**
+     * Somewhere to start when there is no history at all.
+     *
+     * Picked at random so a first launch isn't the same screen for everyone,
+     * and so a second launch differs from the first.
+     */
+    private val coldStart = listOf(
+        "top hits", "nepali songs", "bollywood hits", "arijit singh",
+        "lo-fi beats", "punjabi hits", "top songs this week",
+    )
+
 
     /**
      * Seeds for the feed once the catalogue's own shelves run out.
