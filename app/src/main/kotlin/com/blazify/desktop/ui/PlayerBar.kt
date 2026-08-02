@@ -48,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -116,6 +117,18 @@ fun PlayerBar(
             // the bar being too small for its own contents.
             .height(88.dp)
             .background(Blz.bar)
+            // A wash of whatever is playing, laid over the bar's own colour
+            // rather than replacing it — enough that the strip belongs to the
+            // song, not so much that the controls have to fight it.
+            .background(
+                Brush.horizontalGradient(
+                    listOf(
+                        Blaze.Amber.copy(alpha = if (now == null) 0f else 0.13f),
+                        Blaze.Ember.copy(alpha = if (now == null) 0f else 0.05f),
+                        Color.Transparent,
+                    ),
+                ),
+            )
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
