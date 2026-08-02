@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.Typing
 import com.blazify.desktop.data.Account
+import com.blazify.desktop.data.BrowserSession
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LocalMusic
@@ -375,19 +376,35 @@ private fun AccountSection() {
             }
 
             else -> {
+                val browsers = remember { BrowserSession.installed() }
+
                 Line("Signed in", "No — the feed is what's popular, not what's yours")
                 Text(
-                    "Sign in through your browser, then bring the session across. " +
-                        "The phone app does the same thing — it just shows the Google page inside itself, " +
-                        "which nothing on the desktop can do without shipping a whole browser.",
+                    "Sign in to YouTube Music in your browser, then bring that session across. " +
+                        "The phone app does the same thing — it just shows the Google page inside " +
+                        "itself, which nothing here can do without shipping a whole browser.",
                     color = Blz.muted, fontSize = 12.5.sp, lineHeight = 18.sp,
                 )
+
+                if (browsers.isNotEmpty()) {
+                    Text(
+                        "FROM A BROWSER ON THIS MACHINE", color = Blz.dim, fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        browsers.forEach { browser ->
+                            Button(browser.label) { Account.importFrom(browser) }
+                        }
+                    }
+                }
+
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     GoogleButton { openInBrowser("https://music.youtube.com") }
-                    Button("I'm signed in — bring it across") { pasting = true }
+                    Button("Paste it instead") { pasting = true }
                 }
                 Text(
-                    "Kept on this machine only, and sent nowhere but the catalogue.",
+                    "Only the catalogue's own cookies are read, and only when you press one of " +
+                        "these. They stay on this machine and go nowhere but the catalogue.",
                     color = Blz.dim, fontSize = 11.5.sp,
                 )
             }

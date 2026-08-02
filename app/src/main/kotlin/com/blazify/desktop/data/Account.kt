@@ -106,6 +106,23 @@ object Account {
         }
     }
 
+    /**
+     * Take the session out of a browser that's already signed in.
+     *
+     * The same credential the paste route asks for, fetched rather than typed.
+     */
+    fun importFrom(browser: BrowserSession.Browser) {
+        problem = null
+        checking = true
+        scope.launch {
+            BrowserSession.sessionFrom(browser).fold(
+                onSuccess = { signIn(it) },
+                onFailure = { problem = it.message ?: "Couldn't read ${browser.label}'s session" },
+            )
+            checking = false
+        }
+    }
+
     fun cancelSignIn() {
         pending = null
         checking = false
