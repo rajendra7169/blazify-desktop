@@ -230,7 +230,10 @@ private fun Content(destination: Destination) {
             },
             onPlayAll = PlayerState::playAll,
         )
-        Destination.Explore -> ExploreScreen(onOpen = Navigator::open)
+        Destination.Explore -> ExploreScreen(
+            onOpen = Navigator::open,
+            onPlayAll = PlayerState::playAll,
+        )
 
         Destination.Library -> LibraryScreen(
             onOpen = Navigator::open,

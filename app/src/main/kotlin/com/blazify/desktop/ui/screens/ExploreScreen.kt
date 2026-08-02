@@ -8,10 +8,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -21,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -35,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -70,8 +76,14 @@ import kotlinx.coroutines.delay
  * before you read its name.
  */
 @Composable
-fun ExploreScreen(onOpen: (Catalogue.Card) -> Unit) {
+fun ExploreScreen(
+    onOpen: (Catalogue.Card) -> Unit,
+    onPlayAll: (List<Catalogue.Card>, Int) -> Unit,
+) {
     var query by remember { mutableStateOf("") }
+    var browse by remember { mutableStateOf<Catalogue.Explore?>(null) }
+    var genre by remember { mutableStateOf<Catalogue.Genre?>(null) }
+    var genreShelves by remember { mutableStateOf<List<Catalogue.Shelf>>(emptyList()) }
     var scope by remember { mutableStateOf(Catalogue.Scope.Songs) }
     var results by remember { mutableStateOf<List<Catalogue.Card>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
@@ -100,20 +112,37 @@ fun ExploreScreen(onOpen: (Catalogue.Card) -> Unit) {
         searching = false
     }
 
+    // Fetched once and kept: the browse tab is the same for everyone and
+    // doesn't change between one visit to this screen and the next.
+    LaunchedEffect(Unit) {
+        if (browse == null) browse = Catalogue.explore().getOrNull()
+    }
+
+    LaunchedEffect(genre) {
+        genreShelves = emptyList()
+        genre?.let { genreShelves = Catalogue.genre(it).getOrDefault(emptyList()) }
+    }
+
+    // A genre takes over the screen: you asked to look at one thing, and the
+    // search field above it would only be an invitation to leave.
+    genre?.let { picked ->
+        GenreScreen(picked, genreShelves, onOpen, onPlayAll) { genre = null }
+        return
+    }
+
     Column(
         Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SearchField(query) { query = it }
-        ScopeChips(scope) { scope = it }
+        if (query.trim().length >= 2) ScopeChips(scope) { scope = it }
 
         when {
+            // Nothing typed: the browse tab, which is what this screen is for
+            // when you don't already know what you're after.
+            query.trim().length < 2 -> BrowseTab(browse, onOpen) { genre = it }
             searching && results.isEmpty() -> SkeletonRows(count = 8)
             message != null -> Text(message!!, color = Blz.muted, fontSize = 13.sp)
-            results.isEmpty() -> Text(
-                "Search for a song, an artist, anything.",
-                color = Blz.dim, fontSize = 13.sp,
-            )
             scope == Catalogue.Scope.Songs || scope == Catalogue.Scope.Videos -> {
                 LazyColumn(Modifier.fillMaxSize()) {
                     itemsIndexed(results, key = { _, card -> card.id }) { at, card ->
@@ -138,6 +167,122 @@ fun ExploreScreen(onOpen: (Catalogue.Card) -> Unit) {
                     ResultTile(card, onOpen)
                 }
             }
+        }
+    }
+}
+
+/**
+ * What the catalogue is offering, when you haven't asked for anything.
+ *
+ * New releases as artwork, then the genre tiles — which are coloured by the
+ * catalogue itself, so they're drawn in the colour it sent rather than in ours.
+ */
+@Composable
+private fun BrowseTab(
+    browse: Catalogue.Explore?,
+    onOpen: (Catalogue.Card) -> Unit,
+    onGenre: (Catalogue.Genre) -> Unit,
+) {
+    if (browse == null) {
+        SkeletonRows(count = 6)
+        return
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(22.dp),
+    ) {
+        if (browse.releases.isNotEmpty()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "New releases", color = Blz.ink, fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        items(browse.releases, key = { it.id }) { card ->
+                            Box(Modifier.width(172.dp)) { ResultTile(card, onOpen) }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Text("Moods and genres", color = Blz.ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        }
+
+        items(browse.genres.chunked(3)) { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                row.forEach { entry ->
+                    Box(Modifier.weight(1f)) { GenreTile(entry, onGenre) }
+                }
+                // Keeps the last row's tiles the same width as every other
+                // row's, rather than letting two stretch to fill three places.
+                repeat(3 - row.size) { Box(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GenreTile(genre: Catalogue.Genre, onOpen: (Catalogue.Genre) -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Blz.surface)
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable { onOpen(genre) },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // The stripe is the catalogue's own colour for the genre. Drawing it as
+        // an edge rather than a fill keeps the text readable whatever colour
+        // arrives, including the ones that fight both themes.
+        Box(Modifier.width(5.dp).height(52.dp).background(Color(genre.colour)))
+        Text(
+            genre.title, color = Blz.ink, fontSize = 13.5.sp, fontWeight = FontWeight.Medium,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 14.dp),
+        )
+    }
+}
+
+@Composable
+private fun GenreScreen(
+    genre: Catalogue.Genre,
+    shelves: List<Catalogue.Shelf>,
+    onOpen: (Catalogue.Card) -> Unit,
+    onPlayAll: (List<Catalogue.Card>, Int) -> Unit,
+    onBack: () -> Unit,
+) {
+    LazyColumn(
+        Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp),
+    ) {
+        item {
+            val (source, hovered) = rememberHovered()
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .hoverBackground(Blz.hover, hovered, source)
+                    .clickable(onClick = onBack)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                Icon(Icons.Rounded.ArrowBack, "Back", Modifier.size(17.dp), tint = Blz.muted)
+                Text("Explore", color = Blz.muted, fontSize = 13.sp)
+            }
+        }
+        item {
+            Text(genre.title, color = Blz.ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        }
+        if (shelves.isEmpty()) {
+            item { SkeletonRows(count = 5) }
+        } else {
+            items(shelves) { shelf -> Shelf(shelf, onOpen, onPlayAll) }
         }
     }
 }
