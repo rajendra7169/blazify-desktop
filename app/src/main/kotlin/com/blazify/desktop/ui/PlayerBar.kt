@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -93,6 +94,10 @@ fun PlayerBar(
     onPrevious: () -> Unit,
     onToggleLyrics: () -> Unit,
     onToggleQueue: () -> Unit,
+    onToggleShuffle: () -> Unit,
+    onCycleRepeat: () -> Unit,
+    shuffling: Boolean,
+    repeat: Int,
     lyricsOpen: Boolean,
     queueOpen: Boolean,
     modifier: Modifier = Modifier,
@@ -114,7 +119,11 @@ fun PlayerBar(
         // window instead of stranding it at one width on a wide screen. The
         // side columns match each other, which keeps the play button centred
         // on the window rather than on whatever space a long title left over.
-        Transport(now, onPlayPause, onSeek, onNext, onPrevious, Modifier.weight(1.6f))
+        Transport(
+            now, onPlayPause, onSeek, onNext, onPrevious,
+            onToggleShuffle, onCycleRepeat, shuffling, repeat,
+            Modifier.weight(1.6f),
+        )
 
         Row(
             Modifier.weight(1f),
@@ -178,6 +187,10 @@ private fun Transport(
     onSeek: (Float) -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    onToggleShuffle: () -> Unit,
+    onCycleRepeat: () -> Unit,
+    shuffling: Boolean,
+    repeat: Int,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -189,11 +202,27 @@ private fun Transport(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            TransportButton(Icons.Rounded.Shuffle, "Shuffle", 17.dp)
+            TransportButton(
+                Icons.Rounded.Shuffle, if (shuffling) "Stop shuffling" else "Shuffle", 17.dp,
+                onClick = onToggleShuffle,
+                tint = if (shuffling) Blaze.Amber else null,
+            )
             TransportButton(Icons.Rounded.SkipPrevious, "Previous", 22.dp, onClick = onPrevious)
             PlayButton(now?.playing == true, onPlayPause)
             TransportButton(Icons.Rounded.SkipNext, "Next", 22.dp, onClick = onNext)
-            TransportButton(Icons.Rounded.Repeat, "Repeat", 17.dp)
+            // One icon for three states: repeating a single track gets its own
+            // drawing, since "on" alone can't say which kind of on it is.
+            TransportButton(
+                if (repeat == 2) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                when (repeat) {
+                    1 -> "Repeating the queue"
+                    2 -> "Repeating this track"
+                    else -> "Repeat"
+                },
+                17.dp,
+                onClick = onCycleRepeat,
+                tint = if (repeat > 0) Blaze.Amber else null,
+            )
         }
 
         Row(

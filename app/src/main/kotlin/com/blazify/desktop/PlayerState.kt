@@ -125,8 +125,62 @@ object PlayerState {
 
     fun play(tracks: List<Track>, startAt: Int = 0) {
         queue = tracks
+        ordered = tracks
         index = startAt.coerceIn(0, (tracks.size - 1).coerceAtLeast(0))
+        if (shuffling) reshuffle()
         start()
+    }
+
+    /**
+     * What repeating at the end of the queue does.
+     *
+     * [One] is about the track, the others about the list — which is why they
+     * are one setting rather than two: no one means "repeat this song, and also
+     * loop the album afterwards".
+     */
+    enum class Repeat { Off, All, One }
+
+    var repeat by mutableStateOf(Repeat.Off)
+        private set
+
+    fun cycleRepeat() {
+        repeat = when (repeat) {
+            Repeat.Off -> Repeat.All
+            Repeat.All -> Repeat.One
+            Repeat.One -> Repeat.Off
+        }
+    }
+
+    var shuffling by mutableStateOf(false)
+        private set
+
+    /** The queue as it was handed over, so shuffling can be undone. */
+    private var ordered: List<Track> = emptyList()
+
+    /**
+     * Shuffle, or put it back.
+     *
+     * Turning it on leaves the song that's playing exactly where it is and
+     * shuffles what hasn't been reached — jumping to a different track the
+     * moment you press shuffle is a jarring thing to do to someone mid-song.
+     * Turning it off restores the order it arrived in and finds the current
+     * track's place in that.
+     */
+    fun toggleShuffle() {
+        shuffling = !shuffling
+        if (queue.isEmpty()) return
+        if (shuffling) reshuffle() else {
+            val playing = current
+            queue = ordered
+            playing?.let { index = queue.indexOf(it).coerceAtLeast(0) }
+        }
+    }
+
+    private fun reshuffle() {
+        val playing = current ?: return
+        val rest = queue.filterNot { it === playing }.shuffled()
+        queue = listOf(playing) + rest
+        index = 0
     }
 
     fun toggle() {
@@ -211,7 +265,22 @@ object PlayerState {
     init {
         // Nothing else is watching the engine, so the queue would stall on the
         // first track without this.
-        AudioEngine.onFinished = { next() }
+        AudioEngine.onFinished = { advance() }
+    }
+
+    /**
+     * What happens when a track runs out on its own.
+     *
+     * Distinct from pressing next: reaching the end of a song is when repeat
+     * gets a say, and pressing skip on the last track should still stop rather
+     * than silently start the album again.
+     */
+    private fun advance() {
+        when {
+            repeat == Repeat.One -> start()
+            index + 1 in queue.indices -> next()
+            repeat == Repeat.All && queue.isNotEmpty() -> { index = 0; start() }
+        }
     }
 
     private fun start() {
