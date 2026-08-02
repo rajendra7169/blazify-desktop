@@ -33,6 +33,9 @@ object ArtworkColour {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    private const val AGENT =
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+
     /** What the current artwork came out as, or null before one has been read. */
     var accent by mutableStateOf<Accent?>(null)
         private set
@@ -62,10 +65,11 @@ object ArtworkColour {
             // Another track may have started while this was being read, and its
             // colour should win over one for a cover nobody is looking at.
             if (lastUrl != url) return@launch
-            if (found != null) {
-                cache[url] = found
-                accent = found
-            }
+            // Cleared on failure rather than left alone: keeping the last
+            // song's colour would say this song is that colour, which is worse
+            // than falling back to the accent that was chosen.
+            accent = found
+            if (found != null) cache[url] = found
         }
     }
 
@@ -77,8 +81,15 @@ object ArtworkColour {
      * Weighting by how saturated a pixel is finds the colour someone would
      * point at if asked what colour the cover is.
      */
-    private fun extract(url: String): Accent? {
-        val image = ImageIO.read(URI(url.atSize(160)).toURL()) ?: return null
+    fun extract(url: String): Accent? {
+        // Fetched by hand rather than handed to the image reader as a URL: the
+        // artwork host answers a bare request with a refusal, and the reader
+        // has nowhere to put a header.
+        val connection = URI(url.atSize(160)).toURL().openConnection()
+        connection.setRequestProperty("User-Agent", AGENT)
+        connection.connectTimeout = 8000
+        connection.readTimeout = 8000
+        val image = connection.getInputStream().use { ImageIO.read(it) } ?: return null
         val small = scaled(image, 48)
 
         var bestScore = 0f
