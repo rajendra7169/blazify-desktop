@@ -105,8 +105,13 @@ fun LyricsPanel(
             Column(Modifier.weight(1f)) {
                 Text("Lyrics", color = Blz.ink, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 track?.let {
+                    // Named, because with several sources in play "these words
+                    // are wrong" is answerable — you know which one to move
+                    // down the list.
+                    val credit = LyricsSource.creditFor(it.id)
                     Text(
-                        it.title, color = Blz.dim, fontSize = 13.sp,
+                        if (credit != null) "${it.title} · $credit" else it.title,
+                        color = Blz.dim, fontSize = 13.sp,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }

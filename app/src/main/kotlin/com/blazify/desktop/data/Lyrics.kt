@@ -61,20 +61,26 @@ object LyricsSource {
 
     private val cache = mutableMapOf<String, Lyrics>()
 
-    /** Which source answered for the song now showing, for the panel to name. */
-    var attribution: String? = null
-        private set
+    /**
+     * Which source answered, per song.
+     *
+     * Kept beside the words rather than as "the last one that answered": two
+     * panels and a change of track would otherwise credit whichever lookup
+     * finished most recently, which is how a page ends up naming a source it
+     * never used.
+     */
+    private val credits = mutableMapOf<String, String>()
+
+    fun creditFor(id: String): String? = credits[id]
 
     /** Forget one song, so the next look asks again. */
     fun forget(id: String) {
         cache.remove(id)
+        credits.remove(id)
     }
 
     suspend fun of(track: Track): Lyrics = withContext(Dispatchers.IO) {
-        cache[track.id]?.let {
-            attribution = null
-            return@withContext it
-        }
+        cache[track.id]?.let { return@withContext it }
 
         var flat: Lyrics? = null
         var flatFrom: String? = null
@@ -104,7 +110,7 @@ object LyricsSource {
             from = flatFrom
         }
 
-        attribution = from
+        from?.let { credits[track.id] = it }
         cache[track.id] = found
         found
     }
