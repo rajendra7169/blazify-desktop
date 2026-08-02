@@ -215,6 +215,15 @@ tasks.register<JavaExec>("probe") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+// Ask every lyrics source for one song and print what each answered.
+//   ./gradlew :app:sourceProbe --args="Kesariya|Arijit Singh|268"
+tasks.register<JavaExec>("sourceProbe") {
+    group = "verification"
+    description = "Ask every lyrics source for one song, from the terminal"
+    mainClass.set("com.blazify.desktop.tools.lyrics.SourceProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("playProbe") {
     group = "verification"
     description = "Resolve a stream and try to play it, printing what the engine reports"

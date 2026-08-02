@@ -47,7 +47,7 @@ sealed interface LyricsProvider {
 /** Everything the app knows how to ask, in the order it asks by default. */
 object LyricsProviders {
 
-    val all: List<LyricsProvider> = listOf(LrcLib, LyricsPlus, KuGou, YouTubeMusic)
+    val all: List<LyricsProvider> = listOf(Paxsenix, LrcLib, LyricsPlus, KuGou, YouTubeMusic)
 
     fun byName(name: String): LyricsProvider? = all.firstOrNull { it.name == name }
 
