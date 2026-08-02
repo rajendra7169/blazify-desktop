@@ -71,6 +71,32 @@ object Catalogue {
         }
     }
 
+    /**
+     * What kind of thing a search is looking for.
+     *
+     * The catalogue answers a different question for each — asking for songs
+     * and hoping albums turn up in the same list gets neither properly.
+     */
+    enum class Scope(val label: String) {
+        Songs("Songs"),
+        Albums("Albums"),
+        Artists("Artists"),
+        Playlists("Playlists"),
+        Videos("Videos"),
+    }
+
+    suspend fun search(query: String, scope: Scope): Result<List<Card>> = withContext(Dispatchers.IO) {
+        ensureIdentity()
+        val filter = when (scope) {
+            Scope.Songs -> YouTube.SearchFilter.FILTER_SONG
+            Scope.Albums -> YouTube.SearchFilter.FILTER_ALBUM
+            Scope.Artists -> YouTube.SearchFilter.FILTER_ARTIST
+            Scope.Playlists -> YouTube.SearchFilter.FILTER_COMMUNITY_PLAYLIST
+            Scope.Videos -> YouTube.SearchFilter.FILTER_VIDEO
+        }
+        YouTube.search(query, filter).map { result -> result.items.mapNotNull { it.asCard() } }
+    }
+
     /** What a card on a shelf stands for, which decides what opening it does. */
     @Serializable
     enum class Kind { Song, Album, Playlist, Artist }
