@@ -113,97 +113,97 @@ tasks.matching { it.name == "packageDeb" }.configureEach { finalizedBy(declareAu
 tasks.register<JavaExec>("probe") {
     group = "verification"
     description = "Search the catalogue and resolve a stream, from the terminal"
-    mainClass.set("com.blazify.desktop.tools.ProbeKt")
+    mainClass.set("com.blazify.desktop.tools.stream.ProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("playProbe") {
     group = "verification"
     description = "Resolve a stream and try to play it, printing what the engine reports"
-    mainClass.set("com.blazify.desktop.tools.PlayProbeKt")
+    mainClass.set("com.blazify.desktop.tools.stream.PlayProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("localPlayProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.LocalPlayProbeKt")
+    mainClass.set("com.blazify.desktop.tools.localplay.LocalPlayProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("homeProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.HomeProbeKt")
+    mainClass.set("com.blazify.desktop.tools.home.HomeProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("openProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.OpenProbeKt")
+    mainClass.set("com.blazify.desktop.tools.open.OpenProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("feedProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.FeedProbeKt")
+    mainClass.set("com.blazify.desktop.tools.feed.FeedProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("accountProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.AccountProbeKt")
+    mainClass.set("com.blazify.desktop.tools.account.AccountProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("picksProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.PicksProbeKt")
+    mainClass.set("com.blazify.desktop.tools.picks.PicksProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("colourProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.ColourProbeKt")
+    mainClass.set("com.blazify.desktop.tools.colour.ColourProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("exploreProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.ExploreProbeKt")
+    mainClass.set("com.blazify.desktop.tools.explore.ExploreProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("moodProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.MoodProbeKt")
+    mainClass.set("com.blazify.desktop.tools.mood.MoodProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("searchProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.SearchProbeKt")
+    mainClass.set("com.blazify.desktop.tools.search.SearchProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("downloadProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.DownloadProbeKt")
+    mainClass.set("com.blazify.desktop.tools.download.DownloadProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("localScanProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.LocalScanProbeKt")
+    mainClass.set("com.blazify.desktop.tools.localscan.LocalScanProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("lyricsProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.LyricsProbeKt")
+    mainClass.set("com.blazify.desktop.tools.lyrics.LyricsProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.register<JavaExec>("discoverProbe") {
     group = "verification"
-    mainClass.set("com.blazify.desktop.tools.DiscoverProbeKt")
+    mainClass.set("com.blazify.desktop.tools.discover.DiscoverProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }

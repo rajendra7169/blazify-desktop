@@ -128,11 +128,10 @@ object BrowserSession {
             when {
                 found.rows == 0 ->
                     error("${browser.label} has no YouTube cookies — sign in to music.youtube.com there")
-                found.cookies.isEmpty() && !onWindows && !canReadKeyring() ->
+                found.cookies.isEmpty() && !onWindows && secret == null && !canReadKeyring() ->
                     error(
-                        "${browser.label} locks its cookies with this machine's keyring, and the " +
-                            "reader for it isn't installed. One command fixes it:\n" +
-                            "sudo apt install libsecret-tools",
+                        "${browser.label} locks its cookies with this machine's keyring, and " +
+                            "nothing here can read it. Paste the session instead.",
                     )
                 found.cookies.isEmpty() ->
                     error(
@@ -242,21 +241,73 @@ object BrowserSession {
         }.getOrNull()
     }
 
+    /**
+     * The desktop's password store, asked directly.
+     *
+     * The command-line tool for this is a separate package that plenty of
+     * machines don't have, but the library behind it ships with the desktop
+     * itself — so it's asked straight, and the tool is only a fallback for the
+     * rare setup where the library is missing instead.
+     */
+    private interface Secret : com.sun.jna.Library {
+        /**
+         * A description of what's being looked for.
+         *
+         * Built rather than named, and told not to insist the name matches, so
+         * a browser that files its key under a slightly different heading is
+         * still found by what the entry actually says about itself.
+         */
+        fun secret_schema_new(name: String, flags: Int, vararg attributes: Any?): com.sun.jna.Pointer?
+
+        fun secret_password_lookup_sync(
+            schema: com.sun.jna.Pointer?,
+            cancellable: com.sun.jna.Pointer?,
+            error: com.sun.jna.ptr.PointerByReference?,
+            vararg attributes: Any?,
+        ): String?
+    }
+
+    /** Match on the attributes alone, whatever the entry calls its schema. */
+    private const val IGNORE_SCHEMA_NAME = 2
+
+    /** A plain string, which is what the attribute we search on holds. */
+    private const val STRING_ATTRIBUTE = 0
+
+    private val secret: Secret? by lazy {
+        runCatching { com.sun.jna.Native.load("secret-1", Secret::class.java) }.getOrNull()
+    }
+
+    /** Ask the store for one browser's key, by the name it filed it under. */
+    private fun keyringPassword(application: String): String? = runCatching {
+        val library = secret ?: return null
+        val schema = library.secret_schema_new(
+            "chrome_libsecret_os_crypt_password_v2",
+            IGNORE_SCHEMA_NAME,
+            "application", STRING_ATTRIBUTE,
+            null,
+        ) ?: return null
+        library.secret_password_lookup_sync(schema, null, null, "application", application, null)
+    }.getOrNull()?.takeIf { it.isNotBlank() }
+
     private fun linuxKeys(browser: Browser): List<SecretKeySpec> {
         // Every plausible source, keyring first: a wrong key produces garbage
         // that fails its own padding check, so trying several costs nothing but
         // a few microseconds and saves guessing which one a browser used.
         val passwords = mutableListOf<String>()
-        listOf(
-            listOf("lookup", "application", browser.keyringName),
-            listOf("lookup", "application", browser.label.lowercase()),
-            listOf("lookup", "xdg:schema", "chrome_libsecret_os_crypt_password_v2"),
-            listOf("lookup", "xdg:schema", "chrome_libsecret_os_crypt_password_v1"),
-        ).forEach { arguments ->
-            runCatching {
-                val process = ProcessBuilder(listOf("secret-tool") + arguments).start()
-                val stored = process.inputStream.bufferedReader().readText().trim()
-                if (process.waitFor() == 0 && stored.isNotBlank()) passwords += stored
+
+        // Straight to the library first — no extra package needed.
+        listOf(browser.keyringName, browser.label.lowercase()).distinct().forEach { name ->
+            keyringPassword(name)?.let { passwords += it }
+        }
+
+        // Then the command-line tool, for a desktop whose library is elsewhere.
+        if (passwords.isEmpty()) {
+            listOf(browser.keyringName, browser.label.lowercase()).distinct().forEach { name ->
+                runCatching {
+                    val process = ProcessBuilder("secret-tool", "lookup", "application", name).start()
+                    val stored = process.inputStream.bufferedReader().readText().trim()
+                    if (process.waitFor() == 0 && stored.isNotBlank()) passwords += stored
+                }
             }
         }
         // The fallback a browser uses when the desktop has no password store.
@@ -265,8 +316,8 @@ object BrowserSession {
         // Nothing came back and there's no tool to ask with: worth saying
         // plainly, because it's one package away from working and otherwise
         // looks like the browser is at fault.
-        if (passwords.size == 1 && !canReadKeyring()) {
-            error("the keyring reader isn't installed — sudo apt install libsecret-tools")
+        if (passwords.size == 1 && secret == null && !canReadKeyring()) {
+            error("this desktop has no password store to ask — paste the session instead")
         }
 
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1")
@@ -297,17 +348,22 @@ object BrowserSession {
             // Padding is however many bytes the last one says.
             val padding = plain.lastOrNull()?.toInt() ?: 0
             if (padding !in 1..16 || padding > plain.size) continue
-            var text = plain.copyOfRange(0, plain.size - padding)
+            val text = plain.copyOfRange(0, plain.size - padding)
 
-            // Newer versions put a hash of the domain in front of the value.
-            // It isn't text, which is how it can be told apart from one.
-            if (text.size > 32 && text.take(32).any { it < 0x20 }) {
-                text = text.copyOfRange(32, text.size)
-            }
-
-            val decoded = text.toString(Charsets.UTF_8)
-            if (decoded.isNotBlank() && decoded.all { it.code in 0x20..0x7E }) return decoded
+            // Some versions put a hash of the domain in front of the value and
+            // some don't, and nothing in the file says which. Taking the value
+            // whole is tried first: chopping thirty-two bytes off a value that
+            // never had a prefix silently corrupts every cookie, which is far
+            // worse than leaving a prefix on and being told the session is bad.
+            readable(text)?.let { return it }
+            if (text.size > 32) readable(text.copyOfRange(32, text.size))?.let { return it }
         }
         return null
+    }
+
+    /** Text if it's text, null if it's the wrong key or the wrong offset. */
+    private fun readable(bytes: ByteArray): String? {
+        val text = bytes.toString(Charsets.UTF_8)
+        return text.takeIf { it.isNotBlank() && it.all { c -> c.code in 0x20..0x7E } }
     }
 }

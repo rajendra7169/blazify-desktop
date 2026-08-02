@@ -1,4 +1,4 @@
-package com.blazify.desktop.tools
+package com.blazify.desktop.tools.download
 
 import com.blazify.desktop.audio.AudioEngine
 import com.blazify.desktop.data.Catalogue
@@ -12,7 +12,7 @@ import kotlinx.coroutines.runBlocking
  */
 
 /** Keep a song for offline, then play the kept copy with the network unused. */
-fun main(args: Array<String>) = runBlocking {
+fun main(args: Array<String>): Unit = runBlocking {
     val query = if (args.isEmpty()) "passenger let her go" else args.joinToString(" ")
     val track = Catalogue.search(query).getOrNull()?.firstOrNull()
         ?: run { println("no results for \"$query\""); return@runBlocking }

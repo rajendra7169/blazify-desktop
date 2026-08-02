@@ -1,4 +1,4 @@
-package com.blazify.desktop.tools
+package com.blazify.desktop.tools.search
 
 import com.blazify.desktop.data.Catalogue
 import kotlinx.coroutines.runBlocking
@@ -9,7 +9,7 @@ import kotlinx.coroutines.runBlocking
  */
 
 /** Run one query through every kind of search and print what each returns. */
-fun main(args: Array<String>) = runBlocking {
+fun main(args: Array<String>): Unit = runBlocking {
     val query = if (args.isEmpty()) "arijit singh" else args.joinToString(" ")
     println("query: $query")
     Catalogue.Scope.entries.forEach { scope ->

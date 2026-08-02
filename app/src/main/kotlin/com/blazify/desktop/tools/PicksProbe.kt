@@ -1,4 +1,4 @@
-package com.blazify.desktop.tools
+package com.blazify.desktop.tools.picks
 
 import com.blazify.desktop.data.Catalogue
 import kotlinx.coroutines.runBlocking
@@ -9,7 +9,7 @@ import kotlinx.coroutines.runBlocking
  */
 
 /** Build the song shelves twice, to check they differ between refreshes. */
-fun main() = runBlocking {
+fun main(): Unit = runBlocking {
     repeat(2) { round ->
         println("--- refresh ${round + 1} ---")
         Catalogue.songShelves(emptyList(), emptyList()).fold(

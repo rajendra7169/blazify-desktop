@@ -1,4 +1,4 @@
-package com.blazify.desktop.tools
+package com.blazify.desktop.tools.account
 
 import com.blazify.desktop.data.Account
 import com.blazify.desktop.data.BrowserSession
@@ -17,7 +17,7 @@ import kotlinx.coroutines.runBlocking
  * Prints which browsers were found and whether each carried a session, but
  * never the session itself.
  */
-fun main() = runBlocking {
+fun main(): Unit = runBlocking {
     val browsers = BrowserSession.installed()
     println("browsers found: " + browsers.joinToString { it.label }.ifBlank { "none" })
     browsers.forEach { browser ->
@@ -38,8 +38,12 @@ fun main() = runBlocking {
     Account.name?.let { println("account   : $it  ${Account.email ?: ""}") }
     Account.problem?.let { println("problem   : $it") }
 
-    if (!Account.signedIn) return@runBlocking
-    Catalogue.mine().onSuccess { println("library   : ${it.size} playlists") }
+    // Asked regardless: the account page and the music pages are different
+    // endpoints, and one refusing says nothing about the other.
+    Catalogue.mine().fold(
+        onSuccess = { println("library   : ${it.size} playlists") },
+        onFailure = { println("library   : ${it.message}") },
+    )
     Catalogue.home().onSuccess { feed ->
         println("feed      : ${feed.shelves.size} shelves")
         feed.shelves.take(5).forEach { println("   ${it.title}  (${it.cards.size}, rows=${it.rows})") }

@@ -1,4 +1,4 @@
-package com.blazify.desktop.tools
+package com.blazify.desktop.tools.explore
 
 import com.blazify.desktop.data.Catalogue
 import kotlinx.coroutines.runBlocking
@@ -9,7 +9,7 @@ import kotlinx.coroutines.runBlocking
  */
 
 /** Print the browse tab, then open the first genre and show what's inside. */
-fun main() = runBlocking {
+fun main(): Unit = runBlocking {
     val explore = Catalogue.explore().getOrElse {
         println("couldn't reach the catalogue: ${it.message}")
         return@runBlocking

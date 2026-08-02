@@ -1,4 +1,4 @@
-package com.blazify.desktop.tools
+package com.blazify.desktop.tools.stream
 
 import com.blazify.desktop.data.Catalogue
 import kotlinx.coroutines.runBlocking
@@ -9,7 +9,7 @@ import kotlinx.coroutines.runBlocking
  */
 
 /** Searches, then resolves the first hit, printing what came back. */
-fun main(args: Array<String>) = runBlocking {
+fun main(args: Array<String>): Unit = runBlocking {
     val queries = if (args.isEmpty()) listOf("sushant kc dashain tihar") else listOf(args.joinToString(" "))
 
     queries.forEach { query ->

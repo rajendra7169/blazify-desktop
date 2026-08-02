@@ -1,10 +1,10 @@
-package com.blazify.desktop.tools
+package com.blazify.desktop.tools.feed
 
 import com.blazify.desktop.data.Catalogue
 import kotlinx.coroutines.runBlocking
 
 /** Blazify Project (C) 2026 · Licensed under GPL-3.0 */
-fun main() = runBlocking {
+fun main(): Unit = runBlocking {
     var token: String? = null
     val seen = mutableSetOf<String>()
     var total = 0

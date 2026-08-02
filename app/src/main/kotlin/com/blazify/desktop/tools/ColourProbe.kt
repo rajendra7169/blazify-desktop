@@ -1,4 +1,4 @@
-package com.blazify.desktop.tools
+package com.blazify.desktop.tools.colour
 
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.ui.ArtworkColour
@@ -10,7 +10,7 @@ import kotlinx.coroutines.runBlocking
  */
 
 /** Pull the accent out of a few real covers and print what came back. */
-fun main(args: Array<String>) = runBlocking {
+fun main(args: Array<String>): Unit = runBlocking {
     val query = if (args.isEmpty()) "arijit singh" else args.joinToString(" ")
     val tracks = Catalogue.search(query).getOrNull().orEmpty().take(5)
     if (tracks.isEmpty()) { println("no results"); return@runBlocking }

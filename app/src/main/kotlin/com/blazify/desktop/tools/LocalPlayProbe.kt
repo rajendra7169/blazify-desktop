@@ -1,4 +1,4 @@
-package com.blazify.desktop.tools
+package com.blazify.desktop.tools.localplay
 
 import com.blazify.desktop.audio.AudioEngine
 import com.blazify.desktop.audio.StreamFetcher
@@ -16,7 +16,7 @@ import java.io.File
  * Plays a track for a few seconds, first straight from the network and then
  * from a downloaded copy, reporting which route works.
  */
-fun main(args: Array<String>) = runBlocking {
+fun main(args: Array<String>): Unit = runBlocking {
     val query = if (args.isEmpty()) "passenger let her go" else args.joinToString(" ")
 
     if (!AudioEngine.available()) {

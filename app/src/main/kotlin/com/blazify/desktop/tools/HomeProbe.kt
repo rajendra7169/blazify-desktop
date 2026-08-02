@@ -1,10 +1,10 @@
-package com.blazify.desktop.tools
+package com.blazify.desktop.tools.home
 
 import com.blazify.innertube.YouTube
 import kotlinx.coroutines.runBlocking
 
 /** Blazify Project (C) 2026 · Licensed under GPL-3.0 */
-fun main() = runBlocking {
+fun main(): Unit = runBlocking {
     YouTube.visitorData().getOrNull()?.let { YouTube.visitorData = it }
     println("identity: ${YouTube.visitorData?.take(18)}…")
 

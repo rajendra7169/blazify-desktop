@@ -1,4 +1,4 @@
-package com.blazify.desktop.tools
+package com.blazify.desktop.tools.lyrics
 
 import com.blazify.desktop.data.LyricsSource
 import com.blazify.desktop.data.Track
@@ -10,7 +10,7 @@ import kotlinx.coroutines.runBlocking
  */
 
 /** Look a song's words up and print what came back, timings included. */
-fun main(args: Array<String>) = runBlocking {
+fun main(args: Array<String>): Unit = runBlocking {
     val title = args.getOrNull(0) ?: "Kesariya"
     val artist = args.getOrNull(1) ?: "Arijit Singh"
     val seconds = args.getOrNull(2)?.toIntOrNull()

@@ -1,4 +1,4 @@
-package com.blazify.desktop.tools
+package com.blazify.desktop.tools.localscan
 
 import com.blazify.desktop.audio.AudioEngine
 import com.blazify.desktop.data.LocalMusic
@@ -12,7 +12,7 @@ import java.io.File
  */
 
 /** Scan a folder, print what the library made of it, and play the first find. */
-fun main(args: Array<String>) = runBlocking {
+fun main(args: Array<String>): Unit = runBlocking {
     val folder = File(args.firstOrNull() ?: (System.getProperty("user.home") + "/Music"))
     println("scanning ${folder.absolutePath}")
     LocalMusic.add(folder)

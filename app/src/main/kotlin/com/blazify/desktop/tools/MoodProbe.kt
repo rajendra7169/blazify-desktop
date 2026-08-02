@@ -1,4 +1,4 @@
-package com.blazify.desktop.tools
+package com.blazify.desktop.tools.mood
 
 import com.blazify.desktop.data.Catalogue
 import kotlinx.coroutines.runBlocking
@@ -9,7 +9,7 @@ import kotlinx.coroutines.runBlocking
  */
 
 /** Print the moods the feed offers, then fetch one and show what changed. */
-fun main() = runBlocking {
+fun main(): Unit = runBlocking {
     val feed = Catalogue.home().getOrElse {
         println("couldn't reach the catalogue: ${it.message}")
         return@runBlocking
