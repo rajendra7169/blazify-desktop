@@ -100,31 +100,33 @@ fun HomeHero(
             // instead of one continuous surface.
 
             hero?.let { picture ->
-                // Full width at its own proportions. That makes it taller than
-                // the hero, which is the point — the crowd is cut off at the
-                // knees rather than shrunk to fit, so the figures stay the size
-                // they want to be and the list clips the rest.
-                val tall = pane * (picture.height.toFloat() / picture.width)
-
-                Canvas(
-                    Modifier
-                        .align(Alignment.TopStart)
-                        // Its own proportions, and the box above clips
-                        // whatever hangs below the hero.
-                        .fillMaxWidth()
-                        .height(tall),
-                ) {
-                    // The picture is cut out on black. Painted normally that
-                    // black is a rectangle sitting on the page; added to what's
-                    // underneath instead, black contributes nothing at all and
-                    // only the figures land — no edge, nothing to hide, and it
-                    // works on whatever colour the artwork has tinted the
-                    // window.
+                Canvas(Modifier.matchParentSize()) {
+                    // Scaled to cover the hero rather than to match its width.
+                    // Sizing off the width alone made the crowd a thin band on
+                    // a narrow window and an enormous one on a wide screen —
+                    // the same picture, a completely different size, which is
+                    // the opposite of responsive. Covering keeps the figures
+                    // the same size relative to the hero at every width; what
+                    // changes is how many of them fit.
+                    val scale = maxOf(
+                        size.width / picture.width,
+                        size.height / picture.height,
+                    )
+                    val drawn = IntSize(
+                        (picture.width * scale).toInt(),
+                        (picture.height * scale).toInt(),
+                    )
                     drawImage(
                         image = picture,
-                        dstOffset = IntOffset.Zero,
-                        dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+                        // Anchored right and top: the words live on the left,
+                        // and heads matter more than feet.
+                        dstOffset = IntOffset(size.width.toInt() - drawn.width, 0),
+                        dstSize = drawn,
                         alpha = if (dark) 0.95f else 0.8f,
+                        // The picture is cut out on black. Added to what's
+                        // underneath, black contributes nothing and only the
+                        // figures land — no rectangle, and it sits correctly on
+                        // whatever colour the artwork has tinted the window.
                         blendMode = BlendMode.Screen,
                     )
                 }
