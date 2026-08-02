@@ -258,7 +258,7 @@ object Catalogue {
      * is no library without an account for it to belong to.
      */
     suspend fun mine(): Result<List<Card>> = withContext(Dispatchers.IO) {
-        if (!Account.signedIn) return@withContext Result.success(emptyList())
+        if (!Account.hasCredential) return@withContext Result.success(emptyList())
         ensureIdentity()
         YouTube.library("FEmusic_liked_playlists").map { page ->
             page.items.mapNotNull { it.asCard() }
@@ -267,7 +267,7 @@ object Catalogue {
 
     /** Songs the account has liked, which the catalogue keeps as a playlist. */
     suspend fun myLikedSongs(): Result<List<Track>> = withContext(Dispatchers.IO) {
-        if (!Account.signedIn) return@withContext Result.success(emptyList())
+        if (!Account.hasCredential) return@withContext Result.success(emptyList())
         ensureIdentity()
         YouTube.playlist("LM").map { page -> page.songs.map { it.asTrack() } }
     }

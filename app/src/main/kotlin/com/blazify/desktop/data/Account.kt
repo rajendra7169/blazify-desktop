@@ -62,7 +62,21 @@ object Account {
 
     private var refreshToken: String? = null
 
-    val signedIn: Boolean get() = !cookie.isNullOrBlank() || refreshToken != null
+    /**
+     * Whether the catalogue actually answered as somebody.
+     *
+     * Holding a credential and being signed in are different things: a token
+     * the catalogue ignores looks identical from here until it's used, and
+     * saying "signed in" while the feed stays anonymous is the app telling
+     * someone their playlists are on the way when they aren't.
+     */
+    var verified by mutableStateOf(false)
+        private set
+
+    val signedIn: Boolean get() = verified
+
+    /** A credential is present, whether or not it has been accepted. */
+    val hasCredential: Boolean get() = !cookie.isNullOrBlank() || refreshToken != null
 
     /**
      * Start a sign-in and see it through.
@@ -162,6 +176,7 @@ object Account {
     }
 
     fun signOut() {
+        verified = false
         refreshToken = null
         pending = null
         YouTube.accessToken = null
@@ -178,7 +193,7 @@ object Account {
 
     /** Ask the catalogue who this session belongs to. */
     fun refresh() {
-        if (!signedIn) return
+        if (!hasCredential) return
         checking = true
         problem = null
         scope.launch {
@@ -187,11 +202,14 @@ object Account {
                     name = it.name
                     email = it.email
                     picture = it.thumbnailUrl
+                    verified = true
                 },
                 onFailure = {
-                    // A session that no longer works should say so rather than
-                    // leave someone wondering why their playlists are missing.
-                    problem = "That session isn't being accepted — sign in again"
+                    // A credential that isn't accepted should say so rather
+                    // than leave someone wondering why their playlists never
+                    // turn up.
+                    verified = false
+                    problem = "That sign-in wasn't accepted by the catalogue"
                 },
             )
             checking = false
