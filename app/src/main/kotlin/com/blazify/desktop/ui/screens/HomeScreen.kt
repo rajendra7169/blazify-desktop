@@ -57,6 +57,7 @@ fun HomeScreen(
     // feed — the feed answers with albums and playlists, which are things to
     // look at rather than things to put on.
     var picks by remember { mutableStateOf<List<Catalogue.Shelf>>(emptyList()) }
+    var building by remember { mutableStateOf(true) }
     var more by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     var extending by remember { mutableStateOf(false) }
@@ -76,7 +77,9 @@ fun HomeScreen(
     // Rebuilt on every visit, and shuffled each time, so the top of the screen
     // is a different twenty songs whenever you come back to it.
     LaunchedEffect(Unit) {
+        building = true
         picks = Catalogue.songShelves(Library.history, Library.liked).getOrDefault(emptyList())
+        building = false
     }
 
     LaunchedEffect(mood) {
@@ -154,9 +157,14 @@ fun HomeScreen(
             item { MoodChips(moods, mood) { mood = it } }
         }
 
-        // Above everything, including while the feed is still arriving: the
-        // songs are the point of the screen and shouldn't wait on the shelves.
-        if (mood == null) items(picks) { shelf -> Shelf(shelf, onOpen, onPlayAll) }
+        if (mood == null) {
+            // The songs hold the top of the screen even before they arrive.
+            // Building them takes several requests while the feed takes one, so
+            // without this the albums would win the race every time and be the
+            // first thing on the page — which is exactly backwards.
+            if (building && picks.isEmpty()) items(3) { SkeletonRail() }
+            items(picks) { shelf -> Shelf(shelf, onOpen, onPlayAll) }
+        }
 
         when {
             loading -> items(2) { SkeletonRail() }
@@ -164,7 +172,10 @@ fun HomeScreen(
             shelves.isEmpty() -> item {
                 Text("Nothing in the feed right now", color = Blz.dim, fontSize = 13.sp)
             }
-            else -> items(shelves) { shelf -> Shelf(shelf, onOpen, onPlayAll) }
+            // Interleaved rather than tipped in as a block: a run of eight
+            // album shelves reads as a shop, so a song shelf is dealt back in
+            // between them and the page keeps alternating.
+            else -> items(interleave(shelves, picks)) { shelf -> Shelf(shelf, onOpen, onPlayAll) }
         }
 
         if (extending) item { SkeletonRail(count = 5) }
@@ -207,6 +218,31 @@ private fun MoodChips(
             }
         }
     }
+}
+
+/**
+ * Deal the second list back through the first.
+ *
+ * The catalogue's shelves are albums and playlists almost to a fault, and a
+ * dozen of them in a row is a wall of covers. Every third one is swapped for a
+ * song shelf that hasn't been used at the top, so the page keeps changing
+ * rhythm as you scroll rather than settling into one.
+ */
+private fun interleave(
+    shelves: List<Catalogue.Shelf>,
+    songs: List<Catalogue.Shelf>,
+): List<Catalogue.Shelf> {
+    // The first few song shelves are already at the top of the page; only the
+    // ones past that are free to be dealt back in.
+    val spare = songs.drop(3).toMutableList()
+    if (spare.isEmpty()) return shelves
+
+    val out = mutableListOf<Catalogue.Shelf>()
+    shelves.forEachIndexed { at, shelf ->
+        out += shelf
+        if (at % 3 == 2 && spare.isNotEmpty()) out += spare.removeAt(0)
+    }
+    return out + spare
 }
 
 private fun greeting(): String = when (LocalTime.now().hour) {
