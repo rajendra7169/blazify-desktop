@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -88,12 +90,13 @@ fun HomeHero(
         Box(
             Modifier
                 .offset(x = -bleed)
-                // Over-extended on purpose. Reaching exactly as far as the
-                // margin left the hero a margin short on the right, which read
-                // as a dark gap; the list clips whatever spills past, so asking
-                // for more than the window has costs nothing and guarantees the
-                // picture meets the edge.
-                .width(pane + bleed * 4)
+                // Required, not merely asked for. A plain width is still capped
+                // by what the parent offers, so every attempt to reach past the
+                // margin was quietly trimmed back to it — which is where the
+                // dark strip on the right came from, and why the picture came
+                // out stretched: its height was worked out from a width it was
+                // never actually given.
+                .requiredWidth(pane + bleed * 2)
                 .height(height),
         ) {
             // The picture goes down first and everything else is laid over the
@@ -107,17 +110,17 @@ fun HomeHero(
                 // the hero, which is the point — the crowd is cut off at the
                 // knees rather than shrunk to fit, so the figures stay the size
                 // they want to be and the list clips the rest.
-                val wide = pane + bleed * 4
+                val wide = pane + bleed * 2
                 val tall = wide * (picture.height.toFloat() / picture.width)
 
                 Canvas(
                     Modifier
                         .align(Alignment.TopStart)
-                        // Both sides stated, so the drawing keeps the picture's
-                        // own proportions instead of inheriting whatever the
-                        // parent happens to offer.
-                        .width(wide)
-                        .height(tall),
+                        // Both sides required, so the drawing keeps the
+                        // picture's own proportions instead of being squeezed
+                        // into whatever the parent happens to offer.
+                        .requiredWidth(wide)
+                        .requiredHeight(tall),
                 ) {
                     // The picture is cut out on black. Painted normally that
                     // black is a rectangle sitting on the page; added to what's
