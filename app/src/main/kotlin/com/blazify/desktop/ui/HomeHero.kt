@@ -75,7 +75,10 @@ fun HomeHero(
     val dark = Blz.dark
     val measurer = rememberTextMeasurer()
     // Read here rather than inside the drawing, which isn't a composable place.
-    val markColour = Blz.ink.copy(alpha = if (dark) 0.20f else 0.14f)
+    // Strong enough to survive being painted over. The fades that blend the
+    // crowd into the page go down after this, and a faint mark simply did not
+    // come through them.
+    val markColour = Blz.ink.copy(alpha = if (dark) 0.34f else 0.22f)
     val hero = remember {
         runCatching { useResource("blazify_people.png") { loadImageBitmap(it) } }.getOrNull()
     }
@@ -118,7 +121,11 @@ fun HomeHero(
                     // fraction knows about. Measuring once at any size gives
                     // the exact ratio to scale by, so it fills the width it is
                     // given and never exceeds it.
-                    val target = size.width * 0.92f
+                    // Kept clear of the left of the hero, which is held at full
+                    // page colour so the greeting has something quiet to sit
+                    // on. A centred word put its first letters straight into
+                    // that and lost them.
+                    val target = size.width * 0.56f
                     val probe = measurer.measure(
                         "Blazify",
                         TextStyle(fontSize = 200.sp, fontWeight = FontWeight.Bold, letterSpacing = 14.sp),
@@ -136,8 +143,8 @@ fun HomeHero(
                         textLayoutResult = mark,
                         color = markColour,
                         topLeft = Offset(
-                            (size.width - mark.size.width) / 2f,
-                            size.height * 0.30f,
+                            size.width * 0.40f,
+                            size.height * 0.26f,
                         ),
                     )
 
