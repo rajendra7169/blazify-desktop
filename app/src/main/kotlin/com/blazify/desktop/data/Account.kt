@@ -20,23 +20,22 @@ import java.io.File
  *
  * Signed out the catalogue answers with what's popular; signed in it answers
  * with what's yours — your playlists, your history, the shelves built out of
- * songs rather than promotional tiles. Everything below exists to carry that
- * one difference into the app.
+ * songs rather than promotional tiles.
  *
- * The credential is the browser's own session, pasted in. There is no embedded
- * browser to sign in through, and no reasonable way to add one — but a session
- * you already have is a session you can copy, and it costs nothing to keep.
- * It is stored on this machine only and never sent anywhere but the catalogue.
+ * There is exactly one credential: the session from a browser you are already
+ * signed in to. Google's own sign-in token was tried, and the catalogue
+ * ignores it outright — it renews perfectly and buys nothing — so it isn't
+ * offered. The phone works the same way; it simply shows the Google page
+ * inside itself, which is the one thing a window without a browser engine
+ * can't do.
  */
 object Account {
 
     private const val FILE = "account"
-    private const val REFRESH_FILE = "account-refresh"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val store: File get() = File(Store.folder, FILE)
-    private val refreshStore: File get() = File(Store.folder, REFRESH_FILE)
 
     var cookie by mutableStateOf<String?>(null)
         private set
@@ -56,17 +55,10 @@ object Account {
     var problem by mutableStateOf<String?>(null)
         private set
 
-    /** Where we are in a sign-in that's under way, if one is. */
-    var pending by mutableStateOf<GoogleSignIn.Request?>(null)
-        private set
-
-    private var refreshToken: String? = null
-
     /**
      * Whether the catalogue actually answered as somebody.
      *
-     * Holding a credential and being signed in are different things: a token
-     * the catalogue ignores looks identical from here until it's used, and
+     * Holding a credential and being signed in are different things, and
      * saying "signed in" while the feed stays anonymous is the app telling
      * someone their playlists are on the way when they aren't.
      */
@@ -75,90 +67,14 @@ object Account {
 
     val signedIn: Boolean get() = verified
 
-    /** A credential is present, whether or not it has been accepted. */
-    val hasCredential: Boolean get() = !cookie.isNullOrBlank() || refreshToken != null
+    val hasCredential: Boolean get() = !cookie.isNullOrBlank()
 
-    /**
-     * Start a sign-in and see it through.
-     *
-     * The code and the address are published as soon as Google hands them over,
-     * so they can be shown while the waiting happens — the person has to go and
-     * do something with them, and making them wait for a spinner first would be
-     * making them wait for nothing.
-     */
-    fun signInWithGoogle(openBrowser: (String) -> Unit) {
-        problem = null
-        checking = true
-        scope.launch {
-            GoogleSignIn.request().fold(
-                onSuccess = { request ->
-                    pending = request
-                    openBrowser(request.url)
-                    GoogleSignIn.await(request).fold(
-                        onSuccess = { keep(it) },
-                        onFailure = { problem = it.message ?: "That didn't go through" },
-                    )
-                },
-                onFailure = { problem = "Couldn't reach Google to start signing in" },
-            )
-            pending = null
-            checking = false
-        }
-    }
-
-    /**
-     * Take the session out of a browser that's already signed in.
-     *
-     * The same credential the paste route asks for, fetched rather than typed.
-     */
-    fun importFrom(browser: BrowserSession.Browser) {
-        problem = null
-        checking = true
-        scope.launch {
-            BrowserSession.sessionFrom(browser).fold(
-                onSuccess = { signIn(it) },
-                onFailure = { problem = it.message ?: "Couldn't read ${browser.label}'s session" },
-            )
-            checking = false
-        }
-    }
-
-    fun cancelSignIn() {
-        pending = null
-        checking = false
-    }
-
-    private fun keep(tokens: GoogleSignIn.Tokens) {
-        refreshToken = tokens.refresh.ifBlank { refreshToken }
-        YouTube.accessToken = tokens.access
-        runCatching { refreshToken?.let { refreshStore.writeText(it) } }
-        refresh()
-    }
-
-    /**
-     * Put the stored session back on the client.
-     *
-     * Called once at startup rather than left to happen on first use: the very
-     * first fetch decides whether the feed is yours or everybody's, and by then
-     * it is too late to sign in.
-     */
+    /** Put the stored session back on the client, before anything is fetched. */
     fun restore() {
-        // A signed-in account is preferred to a pasted session when both are
-        // on disk: it's the stronger of the two and the one that can renew.
-        val stored = runCatching {
-            refreshStore.takeIf { it.exists() }?.readText()?.trim()?.ifBlank { null }
-        }.getOrNull()
-
-        if (stored != null) {
-            refreshToken = stored
-            scope.launch {
-                GoogleSignIn.refresh(stored).fold(
-                    onSuccess = { YouTube.accessToken = it.access; refresh() },
-                    onFailure = { problem = "Signed out by Google — sign in again" },
-                )
-            }
-            return
-        }
+        // A token from the sign-in that used to be offered would be read as a
+        // credential and silently outrank the session, leaving someone signed
+        // in to nothing at all. Nothing reads it now, so it goes.
+        runCatching { File(Store.folder, "account-refresh").delete() }
 
         runCatching { store.takeIf { it.exists() }?.readText()?.trim()?.ifBlank { null } }
             .getOrNull()
@@ -169,35 +85,55 @@ object Account {
     }
 
     /**
-     * Sign in with a session copied from a browser.
+     * Sign in by taking the session out of a browser.
      *
-     * The whole `Cookie:` header is expected — the parts that matter are
-     * `SAPISID` and friends, and picking them out by hand is exactly the sort
-     * of instruction people get wrong, so the whole line is taken and the
-     * client keeps what it needs.
+     * Every browser on the machine is tried in turn and the first signed-in
+     * one wins — "which browser" is a question the machine can answer for
+     * itself, so it shouldn't be asked.
      */
+    fun signInFromBrowser() {
+        problem = null
+        checking = true
+        scope.launch {
+            val browsers = BrowserSession.installed()
+            if (browsers.isEmpty()) {
+                problem = "No browser found on this machine"
+                checking = false
+                return@launch
+            }
+
+            val reasons = mutableListOf<String>()
+            for (browser in browsers) {
+                BrowserSession.sessionFrom(browser).fold(
+                    onSuccess = {
+                        attach(it)
+                        runCatching { store.writeText(it) }
+                        refreshAndReport(browser.label)
+                        return@launch
+                    },
+                    onFailure = { reasons += "${browser.label}: ${it.message}" },
+                )
+            }
+            problem = "No signed-in browser found.\n" + reasons.joinToString("\n")
+            checking = false
+        }
+    }
+
+    /** The same credential, typed rather than fetched. */
     fun signIn(pasted: String) {
         val cleaned = pasted.trim().removePrefix("Cookie:").trim()
-        if (cleaned.isBlank()) {
-            problem = "That looked empty"
-            return
-        }
         if ("SAPISID" !in cleaned) {
             problem = "That isn't a signed-in session — it has no SAPISID in it"
             return
         }
-
         attach(cleaned)
         runCatching { store.writeText(cleaned) }
-        refresh()
+        checking = true
+        scope.launch { refreshAndReport(null) }
     }
 
     fun signOut() {
         verified = false
-        refreshToken = null
-        pending = null
-        YouTube.accessToken = null
-        runCatching { refreshStore.delete() }
         cookie = null
         name = null
         email = null
@@ -213,24 +149,30 @@ object Account {
         if (!hasCredential) return
         checking = true
         problem = null
-        scope.launch {
-            YouTube.accountInfo().fold(
-                onSuccess = {
-                    name = it.name
-                    email = it.email
-                    picture = it.thumbnailUrl
-                    verified = true
-                },
-                onFailure = {
-                    // A credential that isn't accepted should say so rather
-                    // than leave someone wondering why their playlists never
-                    // turn up.
-                    verified = false
-                    problem = "That sign-in wasn't accepted by the catalogue"
-                },
-            )
-            checking = false
-        }
+        scope.launch { refreshAndReport(null) }
+    }
+
+    private suspend fun refreshAndReport(from: String?) {
+        YouTube.accountInfo().fold(
+            onSuccess = {
+                name = it.name
+                email = it.email
+                picture = it.thumbnailUrl
+                verified = true
+                problem = null
+            },
+            onFailure = {
+                verified = false
+                // Named when it came from a browser: knowing which one was
+                // tried is the difference between "sign in there" and a shrug.
+                problem = if (from != null) {
+                    "$from is not signed in to YouTube Music — sign in there, then try again"
+                } else {
+                    "That session wasn't accepted by the catalogue"
+                }
+            },
+        )
+        checking = false
     }
 
     private fun attach(value: String) {

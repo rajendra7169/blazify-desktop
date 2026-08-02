@@ -1,11 +1,10 @@
 package com.blazify.desktop.tools
 
+import com.blazify.desktop.data.Account
+import com.blazify.desktop.data.BrowserSession
 import com.blazify.desktop.data.Catalogue
-import com.blazify.desktop.data.GoogleSignIn
-import com.blazify.desktop.data.Store
-import com.blazify.innertube.YouTube
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import java.io.File
 
 /**
  * Blazify Project (C) 2026
@@ -13,42 +12,36 @@ import java.io.File
  */
 
 /**
- * Check that a signed-in account is actually accepted.
+ * Sign in from a browser and report what the catalogue then says.
  *
- * Uses the token already on this machine rather than signing in again, and
- * prints nothing from it beyond whether it worked and whose it is.
+ * Prints which browsers were found and whether each carried a session, but
+ * never the session itself.
  */
 fun main() = runBlocking {
-    val stored = File(Store.folder, "account-refresh").takeIf { it.exists() }?.readText()?.trim()
-    if (stored.isNullOrBlank()) {
-        println("nobody is signed in on this machine")
-        return@runBlocking
+    val browsers = BrowserSession.installed()
+    println("browsers found: " + browsers.joinToString { it.label }.ifBlank { "none" })
+    browsers.forEach { browser ->
+        val outcome = BrowserSession.sessionFrom(browser)
+        println(
+            "  %-9s %s".format(
+                browser.label,
+                outcome.fold({ "carries a session (${it.count { c -> c == ';' } + 1} cookies)" },
+                    { "no — ${it.message}" }),
+            ),
+        )
     }
 
-    val tokens = GoogleSignIn.refresh(stored).getOrElse {
-        println("couldn't renew the token: ${it.message}")
-        return@runBlocking
+    Account.signInFromBrowser()
+    repeat(40) { if (Account.checking) delay(500) }
+
+    println("signed in : ${Account.signedIn}")
+    Account.name?.let { println("account   : $it  ${Account.email ?: ""}") }
+    Account.problem?.let { println("problem   : $it") }
+
+    if (!Account.signedIn) return@runBlocking
+    Catalogue.mine().onSuccess { println("library   : ${it.size} playlists") }
+    Catalogue.home().onSuccess { feed ->
+        println("feed      : ${feed.shelves.size} shelves")
+        feed.shelves.take(5).forEach { println("   ${it.title}  (${it.cards.size}, rows=${it.rows})") }
     }
-    println("token renewed, good for ${tokens.expiresInSeconds}s")
-    YouTube.accessToken = tokens.access
-
-    YouTube.accountInfo().fold(
-        onSuccess = { println("account : ${it.name}  ${it.email ?: ""}") },
-        onFailure = { println("account : REFUSED — ${it.message}") },
-    )
-
-    Catalogue.mine().fold(
-        onSuccess = { println("library : ${it.size} playlists") },
-        onFailure = { println("library : REFUSED — ${it.message}") },
-    )
-
-    Catalogue.home().fold(
-        onSuccess = { feed ->
-            println("feed    : ${feed.shelves.size} shelves")
-            feed.shelves.take(6).forEach {
-                println("   ${it.title}  (${it.cards.size}, rows=${it.rows})")
-            }
-        },
-        onFailure = { println("feed    : REFUSED — ${it.message}") },
-    )
 }

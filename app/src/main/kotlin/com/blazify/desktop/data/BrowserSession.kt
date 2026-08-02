@@ -32,7 +32,18 @@ object BrowserSession {
     /** How a browser stores what it knows. */
     enum class Kind { Chromium, Firefox }
 
-    data class Browser(val label: String, val store: File, val kind: Kind)
+    data class Browser(
+        val label: String,
+        val store: File,
+        val kind: Kind,
+        /**
+         * What this browser calls itself in the desktop's password store.
+         *
+         * Each one files its key under its own name, and they don't all match
+         * the name people know it by.
+         */
+        val keyringName: String = "",
+    )
 
     /** Only the ones that carry the cookies we need. */
     private val WANTED = setOf(
@@ -56,22 +67,22 @@ object BrowserSession {
 
         val chromium = if (windows) {
             listOf(
-                "Chrome" to "$appData\\Google\\Chrome\\User Data\\Default\\Network\\Cookies",
-                "Edge" to "$appData\\Microsoft\\Edge\\User Data\\Default\\Network\\Cookies",
-                "Brave" to "$appData\\BraveSoftware\\Brave-Browser\\User Data\\Default\\Network\\Cookies",
+                Triple("Chrome", "$appData\\Google\\Chrome\\User Data\\Default\\Network\\Cookies", "chrome"),
+                Triple("Edge", "$appData\\Microsoft\\Edge\\User Data\\Default\\Network\\Cookies", "chromium"),
+                Triple("Brave", "$appData\\BraveSoftware\\Brave-Browser\\User Data\\Default\\Network\\Cookies", "brave"),
             )
         } else {
             listOf(
-                "Chrome" to "$home/.config/google-chrome/Default/Cookies",
-                "Chromium" to "$home/.config/chromium/Default/Cookies",
-                "Brave" to "$home/.config/BraveSoftware/Brave-Browser/Default/Cookies",
-                "Edge" to "$home/.config/microsoft-edge/Default/Cookies",
-                "Vivaldi" to "$home/.config/vivaldi/Default/Cookies",
+                Triple("Chrome", "$home/.config/google-chrome/Default/Cookies", "chrome"),
+                Triple("Chromium", "$home/.config/chromium/Default/Cookies", "chromium"),
+                Triple("Brave", "$home/.config/BraveSoftware/Brave-Browser/Default/Cookies", "brave"),
+                Triple("Edge", "$home/.config/microsoft-edge/Default/Cookies", "chromium"),
+                Triple("Vivaldi", "$home/.config/vivaldi/Default/Cookies", "vivaldi"),
             )
         }
 
-        val found = chromium.mapNotNull { (label, path) ->
-            File(path).takeIf { it.isFile }?.let { Browser(label, it, Kind.Chromium) }
+        val found = chromium.mapNotNull { (label, path, keyring) ->
+            File(path).takeIf { it.isFile }?.let { Browser(label, it, Kind.Chromium, keyring) }
         }.toMutableList()
 
         // Firefox keeps a folder per profile with no fixed name, so the one
@@ -102,18 +113,43 @@ object BrowserSession {
             val copy = File.createTempFile("blazify-cookies", ".db").apply { deleteOnExit() }
             browser.store.copyTo(copy, overwrite = true)
 
-            val cookies = when (browser.kind) {
+            val found = when (browser.kind) {
                 Kind.Firefox -> readFirefox(copy)
                 Kind.Chromium -> readChromium(copy, browser)
             }
             copy.delete()
 
-            if ("SAPISID" !in cookies) error("${browser.label} isn't signed in to YouTube Music")
-            cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
+            // Three different things go wrong here and they need different
+            // answers, so they get told apart rather than lumped into one
+            // unhelpful "not signed in".
+            if ("SAPISID" in found.cookies) {
+                return@runCatching found.cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
+            }
+            when {
+                found.rows == 0 ->
+                    error("${browser.label} has no YouTube cookies — sign in to music.youtube.com there")
+                found.cookies.isEmpty() && !canReadKeyring() ->
+                    error(
+                        "${browser.label} locks its cookies with this machine's keyring, and the " +
+                            "reader for it isn't installed. One command fixes it:\n" +
+                            "sudo apt install libsecret-tools",
+                    )
+                found.cookies.isEmpty() ->
+                    error(
+                        "${browser.label} has ${found.rows} YouTube cookies locked with " +
+                            "${found.lock}, and the keyring didn't give up the key",
+                    )
+                else ->
+                    error("${browser.label} is signed out — it has cookies but no SAPISID")
+            }
         }
     }
 
-    private fun readFirefox(file: File): Map<String, String> {
+    /** What a store turned out to hold, told apart from what could be read. */
+    private data class Found(val rows: Int, val cookies: Map<String, String>, val lock: String = "")
+
+    private fun readFirefox(file: File): Found {
+        var rows = 0
         val out = linkedMapOf<String, String>()
         DriverManager.getConnection("jdbc:sqlite:${file.absolutePath}").use { db ->
             db.createStatement().executeQuery(
@@ -125,11 +161,13 @@ object BrowserSession {
                 }
             }
         }
-        return out
+        return Found(out.size, out)
     }
 
-    private fun readChromium(file: File, browser: Browser): Map<String, String> {
+    private fun readChromium(file: File, browser: Browser): Found {
         val key = chromiumKey(browser)
+        var seen = 0
+        var lock = "an unknown scheme"
         val out = linkedMapOf<String, String>()
         DriverManager.getConnection("jdbc:sqlite:${file.absolutePath}").use { db ->
             db.createStatement().executeQuery(
@@ -138,11 +176,18 @@ object BrowserSession {
                 while (rows.next()) {
                     val name = rows.getString(1)
                     if (name !in WANTED) continue
-                    decrypt(rows.getBytes(2), key)?.let { out[name] = it }
+                    seen += 1
+                    val raw = rows.getBytes(2)
+                    // The first three bytes name the scheme it was locked with,
+                    // which is the one fact worth reporting when it won't open.
+                    if (raw != null && raw.size > 3) {
+                        lock = String(raw, 0, 3, Charsets.US_ASCII)
+                    }
+                    decrypt(raw, key)?.let { out[name] = it }
                 }
             }
         }
-        return out
+        return Found(seen, out, lock)
     }
 
     /**
@@ -153,16 +198,30 @@ object BrowserSession {
      * there's no way to know in advance which was used.
      */
     private fun chromiumKey(browser: Browser): List<SecretKeySpec> {
-        val passwords = mutableListOf("peanuts")
-        // The keyring entry is named after the browser, and reading it needs
-        // the desktop's own tool — absent on a machine with no keyring, which
-        // is exactly when the fallback applies.
-        runCatching {
-            val process = ProcessBuilder(
-                "secret-tool", "lookup", "application", browser.label.lowercase(),
-            ).start()
-            val stored = process.inputStream.bufferedReader().readText().trim()
-            if (process.waitFor() == 0 && stored.isNotBlank()) passwords.add(0, stored)
+        // Every plausible source, keyring first: a wrong key produces garbage
+        // that fails its own padding check, so trying several costs nothing but
+        // a few microseconds and saves guessing which one a browser used.
+        val passwords = mutableListOf<String>()
+        listOf(
+            listOf("lookup", "application", browser.keyringName),
+            listOf("lookup", "application", browser.label.lowercase()),
+            listOf("lookup", "xdg:schema", "chrome_libsecret_os_crypt_password_v2"),
+            listOf("lookup", "xdg:schema", "chrome_libsecret_os_crypt_password_v1"),
+        ).forEach { arguments ->
+            runCatching {
+                val process = ProcessBuilder(listOf("secret-tool") + arguments).start()
+                val stored = process.inputStream.bufferedReader().readText().trim()
+                if (process.waitFor() == 0 && stored.isNotBlank()) passwords += stored
+            }
+        }
+        // The fallback a browser uses when the desktop has no password store.
+        passwords += "peanuts"
+
+        // Nothing came back and there's no tool to ask with: worth saying
+        // plainly, because it's one package away from working and otherwise
+        // looks like the browser is at fault.
+        if (passwords.size == 1 && !canReadKeyring()) {
+            error("the keyring reader isn't installed — sudo apt install libsecret-tools")
         }
 
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1")
@@ -170,6 +229,11 @@ object BrowserSession {
             SecretKeySpec(factory.generateSecret(PBEKeySpec(it.toCharArray(), SALT, 1, 128)).encoded, "AES")
         }
     }
+
+    /** Whether the desktop's password store can be queried at all. */
+    private fun canReadKeyring(): Boolean = runCatching {
+        ProcessBuilder("secret-tool", "--version").start().waitFor() == 0
+    }.getOrDefault(false)
 
     private val SALT = "saltysalt".toByteArray()
     private val IV = ByteArray(16) { ' '.code.toByte() }

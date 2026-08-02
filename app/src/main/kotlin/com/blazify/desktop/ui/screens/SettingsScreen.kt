@@ -287,135 +287,104 @@ private fun PageRow(page: SettingsPage, selected: Boolean, onClick: () -> Unit) 
  * screen only shows the code to type there and waits. Nothing is typed into
  * the application, and no password ever passes through it.
  */
+/**
+ * Signing in.
+ *
+ * One button. You sign in to YouTube Music in whatever browser you already
+ * use, and this brings that session across — the machine works out which
+ * browser for itself rather than asking a question it can answer. Pasting the
+ * session by hand is kept for when that fails, and only then.
+ */
 @Composable
 private fun AccountSection() {
     var pasting by remember { mutableStateOf(false) }
     var pasted by remember { mutableStateOf("") }
-    val waiting = Account.pending
 
     Section("Account") {
-        when {
-            Account.signedIn -> {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Account.picture?.let {
-                        Artwork(it, size = 44.dp, corner = 22.dp, modifier = Modifier.clip(CircleShape))
-                        Spacer(Modifier.size(12.dp))
-                    }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            Account.name ?: if (Account.checking) "Checking…" else "Signed in",
-                            color = Blz.ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                        )
-                        Account.email?.let { Text(it, color = Blz.muted, fontSize = 12.5.sp) }
-                    }
-                    Button("Sign out", Account::signOut)
+        if (Account.signedIn) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Account.picture?.let {
+                    Artwork(it, size = 44.dp, corner = 22.dp, modifier = Modifier.clip(CircleShape))
+                    Spacer(Modifier.size(12.dp))
                 }
-                Text(
-                    "Your playlists, your history and a feed built out of what you actually listen to.",
-                    color = Blz.dim, fontSize = 11.5.sp,
-                )
-            }
-
-            waiting != null -> {
-                Text(
-                    "Enter this code on the page that opened in your browser:",
-                    color = Blz.muted, fontSize = 13.sp,
-                )
-                // Spaced and oversized: it exists to be read off a screen and
-                // typed into another one, which is a different job from any
-                // other text on this page.
-                Text(
-                    waiting.userCode,
-                    color = Blz.ink,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 3.sp,
-                )
-                Text(waiting.url, color = Blz.muted, fontSize = 12.5.sp)
-                Text(
-                    "Waiting for you to approve it…",
-                    color = Blz.dim, fontSize = 11.5.sp,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button("Open the page again") { openInBrowser(waiting.url) }
-                    Button("Cancel", Account::cancelSignIn)
-                }
-            }
-
-            pasting -> {
-                Text(
-                    "In the browser tab where you're signed in: press F12, open the Network tab, " +
-                        "reload the page, click any request to music.youtube.com, find the Cookie " +
-                        "line under Request Headers, and copy the whole thing.",
-                    color = Blz.muted, fontSize = 12.5.sp, lineHeight = 18.sp,
-                )
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Blz.surfaceHigh)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                ) {
-                    if (pasted.isEmpty()) {
-                        Text("Cookie: VISITOR_INFO1_LIVE=…; SAPISID=…", color = Blz.dim, fontSize = 12.sp)
-                    }
-                    BasicTextField(
-                        value = pasted,
-                        onValueChange = { pasted = it },
-                        textStyle = TextStyle(color = Blz.ink, fontSize = 12.sp),
-                        cursorBrush = SolidColor(Blaze.Amber),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onFocusChanged { Typing.active = it.isFocused },
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button("Use this session") { Account.signIn(pasted); pasted = "" }
-                    Button("Back") { pasting = false; pasted = "" }
-                }
-            }
-
-            else -> {
-                val browsers = remember { BrowserSession.installed() }
-
-                Line("Signed in", "No — the feed is what's popular, not what's yours")
-                Text(
-                    "Sign in to YouTube Music in your browser, then bring that session across. " +
-                        "The phone app does the same thing — it just shows the Google page inside " +
-                        "itself, which nothing here can do without shipping a whole browser.",
-                    color = Blz.muted, fontSize = 12.5.sp, lineHeight = 18.sp,
-                )
-
-                if (browsers.isNotEmpty()) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        "FROM A BROWSER ON THIS MACHINE", color = Blz.dim, fontSize = 10.5.sp,
-                        fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
+                        Account.name ?: "Signed in",
+                        color = Blz.ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        browsers.forEach { browser ->
-                            Button(browser.label) { Account.importFrom(browser) }
-                        }
-                    }
+                    Account.email?.let { Text(it, color = Blz.muted, fontSize = 12.5.sp) }
                 }
+                Button("Sign out", Account::signOut)
+            }
+            Text(
+                "Your playlists, your history and a feed built out of what you actually listen to.",
+                color = Blz.dim, fontSize = 11.5.sp,
+            )
+            return@Section
+        }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GoogleButton { openInBrowser("https://music.youtube.com") }
-                    Button("Paste it instead") { pasting = true }
-                }
-                Text(
-                    "Only the catalogue's own cookies are read, and only when you press one of " +
-                        "these. They stay on this machine and go nowhere but the catalogue.",
-                    color = Blz.dim, fontSize = 11.5.sp,
-                )
+        Text(
+            "Sign in to music.youtube.com in your browser, then press this.",
+            color = Blz.muted, fontSize = 13.sp,
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            GoogleButton(
+                if (Account.checking) "Looking…" else "Use my browser's sign-in",
+            ) { Account.signInFromBrowser() }
+            Button("Open YouTube Music") { openInBrowser("https://music.youtube.com") }
+        }
+
+        Account.problem?.let { trouble ->
+            Text(trouble, color = Blaze.Ember, fontSize = 12.sp, lineHeight = 17.sp)
+
+            // Offered only once the easy way has actually failed, so nobody is
+            // made to choose between two ways of doing the same thing.
+            if (!pasting) {
+                Button("Paste the session by hand instead") { pasting = true }
             }
         }
 
-        Account.problem?.let { Text(it, color = Blaze.Ember, fontSize = 12.sp) }
+        if (pasting) {
+            Text(
+                "In the browser tab where you're signed in: press F12, open Network, reload, " +
+                    "click any request to music.youtube.com, and copy the whole Cookie line " +
+                    "from Request Headers.",
+                color = Blz.muted, fontSize = 12.5.sp, lineHeight = 18.sp,
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Blz.surfaceHigh)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            ) {
+                if (pasted.isEmpty()) {
+                    Text("Cookie: VISITOR_INFO1_LIVE=…; SAPISID=…", color = Blz.dim, fontSize = 12.sp)
+                }
+                BasicTextField(
+                    value = pasted,
+                    onValueChange = { pasted = it },
+                    textStyle = TextStyle(color = Blz.ink, fontSize = 12.sp),
+                    cursorBrush = SolidColor(Blaze.Amber),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { Typing.active = it.isFocused },
+                )
+            }
+            Button("Use this session") { Account.signIn(pasted); pasted = "" }
+        }
+
+        Text(
+            "Only the catalogue's own cookies are read, and only when you press the button. " +
+                "They stay on this machine.",
+            color = Blz.dim, fontSize = 11.5.sp,
+        )
     }
 }
 
 @Composable
-private fun GoogleButton(onClick: () -> Unit) {
+private fun GoogleButton(label: String, onClick: () -> Unit) {
     val (source, hovered) = rememberHovered()
     Row(
         Modifier
@@ -429,7 +398,7 @@ private fun GoogleButton(onClick: () -> Unit) {
     ) {
         Icon(Icons.Rounded.AccountCircle, null, Modifier.size(18.dp), tint = Blaze.OnAmber)
         Text(
-            "Open YouTube Music and sign in",
+            label,
             color = Blaze.OnAmber, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
         )
     }

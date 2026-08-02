@@ -66,7 +66,7 @@ compose.desktop {
 
 
 /**
- * Declare the native audio library the finished package needs.
+ * Declare what the finished package needs but doesn't link against.
  *
  * The packager works out dependencies by looking at what the bundled files link
  * against, and the audio library is opened by name at runtime rather than
@@ -94,11 +94,11 @@ val declareAudioDependency by tasks.registering {
         val control = File(work, "DEBIAN/control")
         control.writeText(
             control.readLines().joinToString("\n") { line ->
-                if (line.startsWith("Depends:")) "$line, libvlc5, vlc-plugin-base" else line
+                if (line.startsWith("Depends:")) "$line, libvlc5, vlc-plugin-base, libsecret-tools" else line
             } + "\n",
         )
         shell("dpkg-deb", "-b", work.absolutePath, deb.absolutePath)
-        println("declared libvlc5 and vlc-plugin-base in ${deb.name}")
+        println("declared libvlc5, vlc-plugin-base and libsecret-tools in ${deb.name}")
     }
 }
 
@@ -157,12 +157,6 @@ tasks.register<JavaExec>("accountProbe") {
 tasks.register<JavaExec>("picksProbe") {
     group = "verification"
     mainClass.set("com.blazify.desktop.tools.PicksProbeKt")
-    classpath = sourceSets["main"].runtimeClasspath
-}
-
-tasks.register<JavaExec>("signInProbe") {
-    group = "verification"
-    mainClass.set("com.blazify.desktop.tools.SignInProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
