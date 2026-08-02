@@ -20,13 +20,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CloseFullscreen
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.DownloadDone
-import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Pause
@@ -119,6 +117,7 @@ fun PlayerBar(
             horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            BarToggle(Icons.Rounded.CloseFullscreen, "Mini", false, WindowMode::toggleMini)
             BarToggle(Icons.Rounded.Lyrics, "Lyrics", lyricsOpen, onToggleLyrics)
             BarToggle(Icons.Rounded.QueueMusic, "Queue", queueOpen, onToggleQueue)
             // The icon is the mute button, and it says which state you're in —

@@ -26,6 +26,7 @@ import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.BlazifyTheme
 import com.blazify.desktop.ui.MiniPlayer
 import com.blazify.desktop.ui.ThemeState
+import com.blazify.desktop.ui.WindowMode
 
 /**
  * Blazify Project (C) 2026
@@ -58,9 +59,6 @@ fun main() = application {
     // window is dismissed makes people afraid to tidy their desktop.
     var showing by remember { mutableStateOf(true) }
 
-    // The small window replaces the big one rather than joining it. Two windows
-    // of the same player, both live, is a confusion — which one is in charge?
-    var mini by remember { mutableStateOf(false) }
 
     Tray(
         icon = Tinted(rememberVectorPainter(Icons.Rounded.LocalFireDepartment), Blaze.Amber),
@@ -71,11 +69,15 @@ fun main() = application {
             Item("Next", onClick = PlayerState::next)
             Item("Previous", onClick = PlayerState::previous)
             Separator()
-            Item(if (mini) "Full window" else "Mini player", onClick = { mini = !mini })
+            Item(if (WindowMode.mini) "Full window" else "Mini player", onClick = WindowMode::toggleMini)
             Item(if (showing) "Hide window" else "Show window", onClick = { showing = !showing })
             Item("Quit Blazify", onClick = ::exitApplication)
         },
     )
+
+    // The small window replaces the big one rather than joining it. Two windows
+    // of the same player, both live, is a confusion — which one is in charge?
+    val mini = WindowMode.mini
 
     val miniState = rememberWindowState(
         size = DpSize(430.dp, 118.dp),
@@ -84,7 +86,7 @@ fun main() = application {
 
     if (mini) {
         Window(
-            onCloseRequest = { mini = false },
+            onCloseRequest = WindowMode::full,
             state = miniState,
             title = "Blazify",
             resizable = false,
@@ -92,7 +94,7 @@ fun main() = application {
             onKeyEvent = { Shortcuts.handle(it, typing = false) },
         ) {
             BlazifyTheme(dark = ThemeState.isDark()) {
-                MiniPlayer(onExpand = { mini = false; showing = true })
+                MiniPlayer(onExpand = { WindowMode.full(); showing = true })
             }
         }
     }
