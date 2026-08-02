@@ -343,8 +343,9 @@ private fun AccountSection() {
 
             pasting -> {
                 Text(
-                    "If you'd rather not sign in, paste the Cookie header from a browser " +
-                        "already signed in at music.youtube.com.",
+                    "In the browser tab where you're signed in: press F12, open the Network tab, " +
+                        "reload the page, click any request to music.youtube.com, find the Cookie " +
+                        "line under Request Headers, and copy the whole thing.",
                     color = Blz.muted, fontSize = 12.5.sp, lineHeight = 18.sp,
                 )
                 Box(
@@ -375,15 +376,18 @@ private fun AccountSection() {
 
             else -> {
                 Line("Signed in", "No — the feed is what's popular, not what's yours")
+                Text(
+                    "Sign in through your browser, then bring the session across. " +
+                        "The phone app does the same thing — it just shows the Google page inside itself, " +
+                        "which nothing on the desktop can do without shipping a whole browser.",
+                    color = Blz.muted, fontSize = 12.5.sp, lineHeight = 18.sp,
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GoogleButton {
-                        Account.signInWithGoogle { url -> openInBrowser(url) }
-                    }
-                    Button("Paste a session instead") { pasting = true }
+                    GoogleButton { openInBrowser("https://music.youtube.com") }
+                    Button("I'm signed in — bring it across") { pasting = true }
                 }
                 Text(
-                    "Signing in opens Google's own page in your browser. Nothing is typed here, " +
-                        "and the account is kept on this machine only.",
+                    "Kept on this machine only, and sent nowhere but the catalogue.",
                     color = Blz.dim, fontSize = 11.5.sp,
                 )
             }
@@ -408,7 +412,7 @@ private fun GoogleButton(onClick: () -> Unit) {
     ) {
         Icon(Icons.Rounded.AccountCircle, null, Modifier.size(18.dp), tint = Blaze.OnAmber)
         Text(
-            "Sign in with Google",
+            "Open YouTube Music and sign in",
             color = Blaze.OnAmber, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
         )
     }
