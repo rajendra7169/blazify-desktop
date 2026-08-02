@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -110,67 +112,96 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
             Box(Modifier.fillMaxHeight().width(1.dp).background(Blz.line))
 
             Column(
-                Modifier.weight(1f).fillMaxHeight().padding(20.dp),
+                Modifier.weight(1f).fillMaxHeight().padding(18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
             ) {
-                // Crossfaded rather than swapped, so moving down the list reads
-                // as one thing changing rather than five things flickering.
-                Crossfade(previewing, animationSpec = tween(220), label = "themePreview") { theme ->
-                    if (theme == PlayerTheme.FullArt) {
-                        // Full art has no centrepiece — it *is* the page. Showing
-                        // a square of the cover here would preview the classic
-                        // look under a different name, so this draws the whole
-                        // screen in miniature instead: cover, scrim and all.
-                        FullArtPreview(track?.thumbnail)
-                    } else {
-                        Box(Modifier.size(228.dp), contentAlignment = Alignment.Center) {
-                            PlayerStage(
-                                theme = theme,
-                                artwork = track?.thumbnail,
-                                side = 200.dp,
-                                playing = PlayerState.playing,
-                                progress = PlayerState.progress,
-                            )
+                // One frame, the same size for every look, filled by whichever
+                // is being shown. Letting each preview size itself made the
+                // pane grow and shrink as the pointer moved down the list —
+                // the whole card jumped, which read as a glitch rather than as
+                // a choice. The frame is fixed; only its contents change.
+                Box(
+                    Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // Crossfaded rather than swapped, so moving down the list
+                    // reads as one thing changing rather than five flickering.
+                    Crossfade(
+                        previewing,
+                        animationSpec = tween(220),
+                        label = "themePreview",
+                        modifier = Modifier.fillMaxSize(),
+                    ) { theme ->
+                        if (theme == PlayerTheme.FullArt) {
+                            // Full art has no centrepiece — it *is* the page. A
+                            // square of the cover here would preview Classic
+                            // under a different name, so this fills the frame
+                            // with the whole screen in miniature.
+                            FullArtPreview(track?.thumbnail)
+                        } else {
+                            Column(
+                                Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                PlayerStage(
+                                    theme = theme,
+                                    artwork = track?.thumbnail,
+                                    side = 190.dp,
+                                    playing = PlayerState.playing,
+                                    progress = PlayerState.progress,
+                                )
+                                // Drawn but not live — the preview is about the
+                                // artwork, and a play button that worked here
+                                // would move the song while you looked at it.
+                                Row(
+                                    Modifier.padding(top = 18.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.SkipPrevious, null,
+                                        Modifier.size(20.dp), tint = Blz.dim,
+                                    )
+                                    Box(
+                                        Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)),
+                                            ),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            if (PlayerState.playing) Icons.Rounded.Pause
+                                            else Icons.Rounded.PlayArrow,
+                                            null, Modifier.size(22.dp), tint = Blaze.OnAmber,
+                                        )
+                                    }
+                                    Icon(
+                                        Icons.Rounded.SkipNext, null,
+                                        Modifier.size(20.dp), tint = Blz.dim,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
 
+                // Below the frame and outside the crossfade, so the words stay
+                // put while the picture above them changes.
                 Text(
                     track?.title ?: "Nothing playing",
-                    color = Blz.ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                    color = Blz.ink, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 14.dp),
                 )
                 Text(
                     previewing.blurb, color = Blz.dim, fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2, lineHeight = 16.sp,
                     modifier = Modifier.padding(top = 4.dp),
                 )
-
-                // The transport, drawn but not live — the preview is about the
-                // artwork, and a play button that worked here would move the
-                // song while you were looking at it. Full art draws its own
-                // inside the card, so it is left out rather than shown twice.
-                if (previewing != PlayerTheme.FullArt) Row(
-                    Modifier.padding(top = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    Icon(Icons.Rounded.SkipPrevious, null, Modifier.size(22.dp), tint = Blz.dim)
-                    Box(
-                        Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            if (PlayerState.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            null, Modifier.size(24.dp), tint = Blaze.OnAmber,
-                        )
-                    }
-                    Icon(Icons.Rounded.SkipNext, null, Modifier.size(22.dp), tint = Blz.dim)
-                }
             }
         }
     }
@@ -186,11 +217,7 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
 @Composable
 private fun FullArtPreview(artwork: String?) {
     Box(
-        Modifier
-            .width(260.dp)
-            .height(228.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Blz.page),
+        Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(Blz.page),
     ) {
         Backdrop(artwork, Modifier.fillMaxSize())
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.34f)))
@@ -272,7 +299,13 @@ private fun ThemeRow(
     onPick: () -> Unit,
 ) {
     val (source, hovered) = rememberHovered()
-    if (hovered.value) onHover()
+    // In an effect, not in the composition. Calling onHover() straight from the
+    // body writes state while that state is being read, which Compose answers
+    // by recomposing again — the flicker between two rows was this loop, not
+    // the crossfade.
+    LaunchedEffect(hovered.value) {
+        if (hovered.value) onHover()
+    }
 
     Row(
         Modifier
