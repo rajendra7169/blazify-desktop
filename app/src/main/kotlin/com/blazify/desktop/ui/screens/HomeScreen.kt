@@ -40,6 +40,7 @@ import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.GreetingCard
 import com.blazify.desktop.ui.Look
 import com.blazify.desktop.ui.SkeletonRail
 import com.blazify.desktop.ui.hoverBackground
@@ -99,14 +100,8 @@ fun HomeScreen(
         state = listState,
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        if (Look.showGreeting) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(greeting(), color = Blz.ink, fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Picking up where you left off", color = Blz.muted, fontSize = 13.sp)
-                }
-            }
-        }
+        // The same card the phone opens with, so the two look like one app.
+        if (Look.showGreeting) item { GreetingCard() }
         if (HomeState.moods.isNotEmpty()) {
             item {
                 MoodChips(HomeState.moods, mood) { picked ->
