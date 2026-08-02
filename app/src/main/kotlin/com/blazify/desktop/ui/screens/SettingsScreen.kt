@@ -12,11 +12,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Keyboard
+import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.blazify.desktop.data.Playlists
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -60,92 +76,185 @@ import com.blazify.desktop.ui.rememberHovered
  * switches that toggle nothing is worse than a short one — it teaches people
  * their choices don't matter.
  */
+/**
+ * Which part of the settings you're looking at.
+ *
+ * The list is long enough that one scroll buries things — someone hunting for
+ * the equaliser shouldn't have to pass the whole of Look and Feel to reach it.
+ * Named after what you'd be trying to change rather than after where the code
+ * happens to live.
+ */
+private enum class SettingsPage(val label: String, val icon: ImageVector) {
+    Account("Account", Icons.Rounded.Person),
+    LookAndFeel("Look and feel", Icons.Rounded.Palette),
+    PlayerAudio("Player and audio", Icons.Rounded.GraphicEq),
+    Lyrics("Lyrics", Icons.Rounded.Lyrics),
+    Content("Content", Icons.Rounded.LibraryMusic),
+    Storage("Storage", Icons.Rounded.Storage),
+    Privacy("Privacy", Icons.Rounded.Shield),
+    Keyboard("Keyboard", Icons.Rounded.Keyboard),
+    About("About", Icons.Rounded.Info),
+}
+
+/**
+ * The settings, with their own rail.
+ *
+ * Every row here changes behaviour you can see. A settings screen padded with
+ * switches that toggle nothing is worse than a short one — it teaches people
+ * their choices don't matter.
+ */
 @Composable
 fun SettingsScreen() {
-    LazyColumn(
-        Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
-        verticalArrangement = Arrangement.spacedBy(26.dp),
-    ) {
-        item {
-            Text("Settings", color = Blz.ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-        }
+    var page by remember { mutableStateOf(SettingsPage.Account) }
 
-        item { AccountSection() }
-
-        item {
-            Section("Appearance") {
-                Choice(
-                    label = "Theme",
-                    note = "System follows the dark-first default until the desktop can be asked",
-                    options = ThemeMode.entries.map { it.name },
-                    selected = ThemeState.mode.name,
-                    onSelect = { ThemeState.set(ThemeMode.valueOf(it)) },
-                )
+    Row(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .width(228.dp)
+                .fillMaxHeight()
+                .padding(horizontal = 12.dp, vertical = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                "Settings", color = Blz.ink, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 10.dp, bottom = 14.dp),
+            )
+            SettingsPage.entries.forEach { entry ->
+                PageRow(entry, entry == page) { page = entry }
             }
         }
 
-        // Everything with a preview lives together, so choosing an accent and
-        // seeing what it does to a slider is one glance rather than two screens.
-        item {
-            LookAndFeelSection { title, content -> Section(title) { content() } }
-        }
+        Box(Modifier.fillMaxHeight().width(1.dp).background(Blz.line))
 
-        item {
-            EqualiserSection { title, content -> Section(title) { content() } }
-        }
+        LazyColumn(
+            Modifier.weight(1f).fillMaxHeight().padding(horizontal = 26.dp, vertical = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            item {
+                Text(page.label, color = Blz.ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            }
 
-        item {
-            Section("Storage") {
-                Line("Where everything is kept", Store.folder.absolutePath)
-                Line("Downloaded songs", "${Downloads.items.size}  ·  ${size(Downloads.bytes)}")
-                Line("Music folders watched", "${LocalMusic.folders.size}")
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (Downloads.items.isNotEmpty()) {
-                        Button("Remove downloads", Downloads::removeAll)
+            when (page) {
+                SettingsPage.Account -> item { AccountSection() }
+
+                SettingsPage.LookAndFeel -> {
+                    item {
+                        Section("Appearance") {
+                            Choice(
+                                label = "Theme",
+                                note = "System follows the dark-first default until the desktop can be asked",
+                                options = ThemeMode.entries.map { it.name },
+                                selected = ThemeState.mode.name,
+                                onSelect = { ThemeState.set(ThemeMode.valueOf(it)) },
+                            )
+                        }
                     }
-                    if (Library.history.isNotEmpty()) {
-                        Button("Clear history", Library::clearHistory)
+                    item { LookAndFeelSection { title, content -> Section(title) { content() } } }
+                }
+
+                SettingsPage.PlayerAudio -> {
+                    item { EqualiserSection { title, content -> Section(title) { content() } } }
+                }
+
+                SettingsPage.Lyrics -> item {
+                    LyricsSettingsSection { title, content -> Section(title) { content() } }
+                }
+
+                SettingsPage.Content -> item {
+                    Section("Where your music comes from") {
+                        Line("Songs on this computer", "${LocalMusic.tracks.size}")
+                        Line("Music folders watched", "${LocalMusic.folders.size}")
+                        Line("Playlists made here", "${Playlists.all.size}")
+                        Text(
+                            "Folders are added from On this computer, in the rail.",
+                            color = Blz.dim, fontSize = 11.5.sp,
+                        )
                     }
                 }
-            }
-        }
 
-        item {
-            Section("Library") {
-                Line("Liked songs", "${Library.liked.size}")
-                Line("Saved albums and playlists", "${Library.saved.size}")
-                Line("Songs on this computer", "${LocalMusic.tracks.size}")
-            }
-        }
+                SettingsPage.Storage -> item {
+                    Section("Storage") {
+                        Line("Where everything is kept", Store.folder.absolutePath)
+                        Line("Downloaded songs", "${Downloads.items.size}  ·  ${size(Downloads.bytes)}")
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            if (Downloads.items.isNotEmpty()) {
+                                Button("Remove downloads", Downloads::removeAll)
+                            }
+                        }
+                    }
+                }
 
-        item {
-            Section("Keyboard") {
-                Line("Play or pause", "Space  ·  K")
-                Line("Back and forward five seconds", "← →  ·  J  L")
-                Line("Previous and next track", "P  ·  N")
-                Line("Volume", "↑ ↓")
-                Line("Mute", "M")
-                Line("Media keys", "Play, pause, next, previous")
-            }
-        }
+                SettingsPage.Privacy -> item {
+                    Section("What's remembered") {
+                        Line("Liked songs", "${Library.liked.size}")
+                        Line("History", "${Library.history.size}")
+                        Line("Saved albums and playlists", "${Library.saved.size}")
+                        Text(
+                            "All of it stays on this machine. Nothing is sent anywhere but the catalogue, " +
+                                "and only to fetch what you asked for.",
+                            color = Blz.dim, fontSize = 11.5.sp,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            if (Library.history.isNotEmpty()) {
+                                Button("Clear history", Library::clearHistory)
+                            }
+                        }
+                    }
+                }
 
-        item {
-            Section("About") {
-                Line("Blazify", "Version 1.0.0")
+                SettingsPage.Keyboard -> item {
+                    Section("Keyboard") {
+                        Line("Play or pause", "Space  ·  K")
+                        Line("Back and forward five seconds", "← →  ·  J  L")
+                        Line("Previous and next track", "P  ·  N")
+                        Line("Volume", "↑ ↓")
+                        Line("Mute", "M")
+                        Line("Media keys", "Play, pause, next, previous")
+                        Text(
+                            "The letter shortcuts stand down while you're typing. The media keys never do.",
+                            color = Blz.dim, fontSize = 11.5.sp,
+                        )
+                    }
+                }
+
+                SettingsPage.About -> item {
+                    Section("About") {
+                        Line("Blazify", "Version 1.0.0")
+                        Line("A music player", "for Linux and Windows")
+                    }
+                }
             }
         }
     }
 }
 
-/**
- * Signing in.
- *
- * There is no browser to sign in through here, so the session is pasted from
- * one you already have. That asks something of the person, so the steps are
- * spelled out rather than assumed — and the field is only shown when they've
- * asked for it, because a box demanding a secret is an alarming thing to meet
- * on a settings screen you opened to change the theme.
- */
+@Composable
+private fun PageRow(page: SettingsPage, selected: Boolean, onClick: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    val tint = when {
+        selected -> Blaze.Amber
+        hovered.value -> Blz.ink
+        else -> Blz.muted
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) Blaze.Amber.copy(alpha = 0.13f) else Color.Transparent)
+            .then(if (selected) Modifier else Modifier.hoverBackground(Blz.hover, hovered, source))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(page.icon, page.label, Modifier.size(18.dp), tint = tint)
+        Text(
+            page.label, color = tint, fontSize = 13.5.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+        )
+    }
+}
+
 @Composable
 private fun AccountSection() {
     var pasting by remember { mutableStateOf(false) }

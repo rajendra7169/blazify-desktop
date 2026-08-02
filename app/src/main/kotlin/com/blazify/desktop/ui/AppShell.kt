@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,12 +64,20 @@ fun AppShell() {
     var addingOpen by remember { mutableStateOf(false) }
     var full by remember { mutableStateOf(false) }
 
+    // The accent follows the cover when asked to. Watched here because this is
+    // the one place that outlives every screen — a colour that reset each time
+    // you changed page would be worse than no colour at all.
+    LaunchedEffect(PlayerState.current?.thumbnail, Look.dynamicColour) {
+        ArtworkColour.follow(PlayerState.current?.thumbnail.takeIf { Look.dynamicColour })
+    }
+
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(Blz.page)) {
         Row(Modifier.weight(1f)) {
             Sidebar(
                 current = Navigator.destination,
                 collapsed = railCollapsed,
+                settingsOpen = Navigator.settingsOpen,
                 onSelect = Navigator::go,
                 onOpenSettings = Navigator::openSettings,
             )

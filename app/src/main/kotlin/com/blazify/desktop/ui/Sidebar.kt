@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.sp
 fun Sidebar(
     current: Destination,
     collapsed: Boolean,
+    settingsOpen: Boolean,
     onSelect: (Destination) -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
@@ -74,14 +76,14 @@ fun Sidebar(
             }
             RailItem(
                 destination = destination,
-                selected = destination == current,
+                selected = destination == current && !settingsOpen,
                 collapsed = collapsed,
                 onClick = { onSelect(destination) },
             )
         }
 
         Spacer(Modifier.weight(1f))
-        RailFooter(collapsed, onOpenSettings)
+        RailFooter(collapsed, settingsOpen, onOpenSettings)
     }
 }
 
@@ -155,28 +157,46 @@ private fun RailItem(
     }
 }
 
+/**
+ * The way into the settings, at the foot of the rail.
+ *
+ * One control rather than the two lines of text that were here. Those spelled
+ * out what was inside — "Settings · Equaliser", "Appearance · Dark" — which
+ * meant the rail carried a running commentary on a screen nobody was looking
+ * at, and still only led to one place. A gear leads there and says nothing it
+ * doesn't need to.
+ */
 @Composable
-private fun RailFooter(collapsed: Boolean, onOpenSettings: () -> Unit) {
+private fun RailFooter(collapsed: Boolean, selected: Boolean, onOpenSettings: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    val tint by animateColorAsState(
+        when {
+            selected -> Blaze.Amber
+            hovered.value -> Blz.ink
+            else -> Blz.muted
+        },
+        tween(140), label = "footerTint",
+    )
+
     Row(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) Blaze.Amber.copy(alpha = 0.13f) else Color.Transparent)
+            .then(if (selected) Modifier else Modifier.hoverBackground(Blz.hover, hovered, source))
             .clickable(onClick = onOpenSettings)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(if (collapsed) "⚙" else "Settings · Equaliser", color = Blz.dim, fontSize = 12.sp)
-    }
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .clickable { ThemeState.cycle() }
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-    ) {
-        Text(
-            if (collapsed) "◐" else "Appearance · ${ThemeState.mode.name}",
-            color = Blz.dim,
-            fontSize = 12.sp,
-        )
+        Icon(Icons.Rounded.Settings, "Settings", Modifier.size(19.dp), tint = tint)
+        if (!collapsed) {
+            Text(
+                "Settings",
+                color = tint,
+                fontSize = 14.5.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            )
+        }
     }
 }

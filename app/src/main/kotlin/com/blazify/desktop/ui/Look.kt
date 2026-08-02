@@ -11,33 +11,6 @@ import java.util.prefs.Preferences
  * Licensed under GPL-3.0
  */
 
-/** The accents on offer. Blaze amber is the default and the fallback. */
-enum class Accent(val label: String, val head: Long, val tail: Long) {
-    Blaze("Blaze", 0xFFFFA726, 0xFFFF7043),
-    Ocean("Ocean", 0xFF29B6F6, 0xFF3F51B5),
-    Forest("Forest", 0xFF66BB6A, 0xFF00897B),
-    Rose("Rose", 0xFFF06292, 0xFFD81B60),
-    Violet("Violet", 0xFFAB47BC, 0xFF6A1B9A),
-    Sand("Sand", 0xFFD7CCC8, 0xFF8D6E63);
-
-    val start: Color get() = Color(head)
-    val end: Color get() = Color(tail)
-
-    /**
-     * Ink that stays readable on the accent itself.
-     *
-     * Decided by how bright the colour is rather than fixed, because a pale
-     * accent with white text on it is unreadable and a dark one with black is
-     * just as bad.
-     */
-    val ink: Color
-        get() {
-            val c = Color(head)
-            val luminance = 0.2126f * c.red + 0.7152f * c.green + 0.0722f * c.blue
-            return if (luminance > 0.6f) Color(0xFF1A1005) else Color(0xFFFFFFFF)
-        }
-}
-
 /** How the bar you drag is drawn. */
 enum class SliderStyle(val label: String) {
     Capsule("Capsule"),
@@ -72,8 +45,24 @@ enum class GridSize(val label: String, val art: Int) { Small("Small", 140), Big(
 object Look {
     private val store = Preferences.userRoot().node("com/blazify/desktop/look")
 
-    var accent by mutableStateOf(read("accent", Accent.Blaze) { Accent.valueOf(it) })
+    private var chosen by mutableStateOf(Accent.named(store.get("accent", Accent.Blaze.label)))
+
+    /**
+     * Whether the accent follows the artwork.
+     *
+     * The chosen colour is kept underneath rather than overwritten, so turning
+     * this off puts back the one that was picked instead of leaving whatever
+     * the last cover happened to be.
+     */
+    var dynamicColour by mutableStateOf(store.getBoolean("dynamic", false))
         private set
+
+    /** The accent in force: the artwork's when it's following one, else yours. */
+    val accent: Accent
+        get() = if (dynamicColour) ArtworkColour.accent ?: chosen else chosen
+
+    /** What was picked by hand, whatever the artwork is currently saying. */
+    val picked: Accent get() = chosen
 
     var sliderStyle by mutableStateOf(read("slider", SliderStyle.Capsule) { SliderStyle.valueOf(it) })
         private set
@@ -106,7 +95,12 @@ object Look {
     var startTab by mutableStateOf(read("startTab", Destination.Home) { Destination.valueOf(it) })
         private set
 
-    fun chooseAccent(value: Accent) { accent = value; put("accent", value.name) }
+    fun chooseAccent(value: Accent) { chosen = value; put("accent", value.label) }
+
+    fun chooseDynamicColour(value: Boolean) {
+        dynamicColour = value
+        runCatching { store.putBoolean("dynamic", value) }
+    }
     fun chooseSliderStyle(value: SliderStyle) { sliderStyle = value; put("slider", value.name) }
     fun choosePlayerBackground(value: PlayerBackground) { playerBackground = value; put("playerBg", value.name) }
     fun chooseLyricsAlign(value: LyricsAlign) { lyricsAlign = value; put("lyricsAlign", value.name) }
@@ -126,6 +120,7 @@ object Look {
     /** Back to how it shipped, for anyone who has painted themselves into a corner. */
     fun reset() {
         chooseAccent(Accent.Blaze)
+        chooseDynamicColour(false)
         chooseSliderStyle(SliderStyle.Capsule)
         choosePlayerBackground(PlayerBackground.Gradient)
         chooseLyricsAlign(LyricsAlign.Left)

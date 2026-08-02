@@ -61,8 +61,8 @@ fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> 
     section("Accent") {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Accent.entries.forEach { accent ->
-                    val on = accent == Look.accent
+                Accent.offered.forEach { accent ->
+                    val on = accent == Look.picked && !Look.dynamicColour
                     val (source, hovered) = rememberHovered()
                     Box(
                         Modifier
@@ -82,8 +82,10 @@ fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> 
                     }
                 }
             }
+            Switch("Take the colour from the artwork", Look.dynamicColour, Look::chooseDynamicColour)
             Text(
-                "${Look.accent.label} — used for whatever is playing, and nothing else",
+                if (Look.dynamicColour) "Following the cover of whatever is playing"
+                else "${Look.picked.label} — used for whatever is playing, and nothing else",
                 color = Blz.dim, fontSize = 11.5.sp,
             )
         }
@@ -114,16 +116,6 @@ fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> 
         }
     }
 
-    section("Lyrics") {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Choices(
-                LyricsAlign.entries.map { it.label },
-                Look.lyricsAlign.label,
-            ) { picked -> Look.chooseLyricsAlign(LyricsAlign.entries.first { it.label == picked }) }
-            LyricsPreview()
-        }
-    }
-
     section("Shelves") {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Choices(
@@ -147,6 +139,21 @@ fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> 
             Reset()
         }
     }
+}
+
+/** The lyrics settings, which live on their own page. */
+@Composable
+fun LyricsSettingsSection(section: @Composable (String, @Composable () -> Unit) -> Unit) {
+    section("Where the words sit") {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Choices(
+                LyricsAlign.entries.map { it.label },
+                Look.lyricsAlign.label,
+            ) { picked -> Look.chooseLyricsAlign(LyricsAlign.entries.first { it.label == picked }) }
+            LyricsPreview()
+        }
+    }
+
 }
 
 @Composable
