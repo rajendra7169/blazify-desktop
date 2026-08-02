@@ -45,12 +45,22 @@ object BrowserSession {
         val keyringName: String = "",
     )
 
-    /** Only the ones that carry the cookies we need. */
+    /**
+     * The cookies that make up a signed-in session.
+     *
+     * Every one of them, not a chosen few: the timestamped pair at the end is
+     * required by anything recent and leaving it out gets the whole session
+     * treated as anonymous — which looks exactly like a wrong password and
+     * isn't. Nothing outside this list is read.
+     */
     private val WANTED = setOf(
-        "SAPISID", "__Secure-1PAPISID", "__Secure-3PAPISID",
-        "SID", "__Secure-1PSID", "__Secure-3PSID",
-        "HSID", "SSID", "APISID", "LOGIN_INFO",
-        "VISITOR_INFO1_LIVE", "PREF", "SIDCC", "__Secure-1PSIDCC", "__Secure-3PSIDCC",
+        "SAPISID", "APISID", "HSID", "SSID", "SID",
+        "__Secure-1PAPISID", "__Secure-3PAPISID",
+        "__Secure-1PSID", "__Secure-3PSID",
+        "__Secure-1PSIDCC", "__Secure-3PSIDCC", "SIDCC",
+        // Timestamps that recent sign-ins carry, and refuse to work without.
+        "__Secure-1PSIDTS", "__Secure-3PSIDTS",
+        "LOGIN_INFO", "VISITOR_INFO1_LIVE", "PREF", "YSC", "SOCS", "__Secure-YEC",
     )
 
     /**
@@ -152,7 +162,8 @@ object BrowserSession {
         val out = linkedMapOf<String, String>()
         DriverManager.getConnection("jdbc:sqlite:${file.absolutePath}").use { db ->
             db.createStatement().executeQuery(
-                "SELECT name, value FROM moz_cookies WHERE host LIKE '%youtube.com'",
+                "SELECT name, value FROM moz_cookies " +
+                    "WHERE host LIKE '%youtube.com' OR host LIKE '%google.com'",
             ).use { rows ->
                 while (rows.next()) {
                     val name = rows.getString(1)
@@ -170,7 +181,11 @@ object BrowserSession {
         val out = linkedMapOf<String, String>()
         DriverManager.getConnection("jdbc:sqlite:${file.absolutePath}").use { db ->
             db.createStatement().executeQuery(
-                "SELECT name, encrypted_value FROM cookies WHERE host_key LIKE '%youtube.com'",
+                // Google's own domain too: the sign-in itself lives there, and
+                // a session made of only the video site's half of it is no
+                // session at all.
+                "SELECT name, encrypted_value FROM cookies " +
+                    "WHERE host_key LIKE '%youtube.com' OR host_key LIKE '%google.com'",
             ).use { rows ->
                 while (rows.next()) {
                     val name = rows.getString(1)

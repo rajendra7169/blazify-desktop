@@ -141,6 +141,7 @@ object Account {
         problem = null
         YouTube.cookie = null
         YouTube.dataSyncId = null
+        YouTube.useLoginForBrowse = false
         runCatching { store.delete() }
     }
 
@@ -178,5 +179,9 @@ object Account {
     private fun attach(value: String) {
         cookie = value
         YouTube.cookie = value
+        // Browsing signed in is what turns the feed from what's popular into
+        // what's yours. Without it the session is carried but never used for
+        // the one request the whole home screen is built from.
+        YouTube.useLoginForBrowse = true
     }
 }
