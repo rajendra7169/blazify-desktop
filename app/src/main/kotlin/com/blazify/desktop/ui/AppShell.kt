@@ -262,6 +262,7 @@ private fun Content(destination: Destination) {
 
         Destination.Liked -> TrackListScreen(
             title = "Liked songs",
+            kind = "Your likes",
             tracks = Library.liked,
             empty = "Songs you like will collect here",
             emptyIcon = Icons.Rounded.Favorite,
@@ -273,6 +274,7 @@ private fun Content(destination: Destination) {
 
         Destination.History -> TrackListScreen(
             title = "History",
+            kind = "Recently played",
             tracks = Library.history,
             empty = "Nothing played yet",
             emptyIcon = Icons.Rounded.History,

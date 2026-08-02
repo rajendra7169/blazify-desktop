@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -66,6 +67,7 @@ fun TrackListScreen(
     onShuffle: (List<Track>) -> Unit,
     action: Pair<String, () -> Unit>? = null,
     onBack: (() -> Unit)? = null,
+    kind: String = "Playlist",
 ) {
     if (tracks.isEmpty()) {
         Column(Modifier.fillMaxSize()) {
@@ -113,28 +115,40 @@ fun TrackListScreen(
         }
 
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(title, color = Blz.ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            if (tracks.isEmpty()) empty else "${tracks.size} songs",
-                            color = Blz.muted, fontSize = 13.sp,
-                        )
-                    }
-                    action?.let { (label, onClick) ->
-                        if (tracks.isNotEmpty()) TextAction(label, onClick)
-                    }
-                }
+            androidx.compose.foundation.layout.Row(
+                Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Collage(tracks)
 
-                if (tracks.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    Modifier.weight(1f).padding(bottom = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        kind.uppercase(), color = Blz.muted, fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp,
+                    )
+                    Text(
+                        title, color = Blz.ink, fontSize = 38.sp, fontWeight = FontWeight.Bold,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        listOfNotNull(
+                            "${tracks.size} songs",
+                            length(tracks),
+                        ).joinToString("  ·  "),
+                        color = Blz.muted, fontSize = 13.sp,
+                    )
+
+                    androidx.compose.foundation.layout.Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Pill(Icons.Rounded.PlayArrow, "Play", filled = true) { onPlay(tracks, 0) }
                         Pill(Icons.Rounded.Shuffle, "Shuffle", filled = false) { onShuffle(tracks) }
+                        action?.let { (label, onClick) -> TextAction(label, onClick) }
                     }
                 }
             }
@@ -144,6 +158,50 @@ fun TrackListScreen(
             SongMenu(track) { Row(track, at + 1) { onPlay(tracks, at) } }
         }
     }
+}
+
+/**
+ * Cover art for a list that has none of its own.
+ *
+ * A playlist is only ever the songs in it, so the first four of them stand in.
+ * Four rather than one because a single cover claims the list is that record —
+ * a grid says at a glance that it's a collection, before a word is read.
+ */
+@Composable
+private fun Collage(tracks: List<Track>) {
+    val covers = tracks.mapNotNull { it.thumbnail }.take(4)
+
+    Box(
+        Modifier
+            .size(210.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Blz.surfaceHigh),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            covers.size >= 4 -> Column {
+                androidx.compose.foundation.layout.Row {
+                    Artwork(covers[0], size = 105.dp, corner = 0.dp)
+                    Artwork(covers[1], size = 105.dp, corner = 0.dp)
+                }
+                androidx.compose.foundation.layout.Row {
+                    Artwork(covers[2], size = 105.dp, corner = 0.dp)
+                    Artwork(covers[3], size = 105.dp, corner = 0.dp)
+                }
+            }
+            covers.isNotEmpty() -> Artwork(covers.first(), size = 210.dp, corner = 0.dp)
+            else -> Icon(Icons.Rounded.QueueMusic, null, Modifier.size(46.dp), tint = Blz.dim)
+        }
+    }
+}
+
+/** How long the whole thing runs, when every song has said. */
+private fun length(tracks: List<Track>): String? {
+    val seconds = tracks.sumOf { it.durationSeconds ?: 0 }
+    if (seconds <= 0) return null
+    val hours = seconds / 3600
+    val minutes = (seconds % 3600) / 60
+    return if (hours > 0) "$hours hr $minutes min" else "$minutes min"
 }
 
 @Composable
