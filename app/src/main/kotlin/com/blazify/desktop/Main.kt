@@ -12,16 +12,19 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.blazify.desktop.ui.AppShell
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.BlazifyTheme
+import com.blazify.desktop.ui.MiniPlayer
 import com.blazify.desktop.ui.ThemeState
 
 /**
@@ -55,6 +58,10 @@ fun main() = application {
     // window is dismissed makes people afraid to tidy their desktop.
     var showing by remember { mutableStateOf(true) }
 
+    // The small window replaces the big one rather than joining it. Two windows
+    // of the same player, both live, is a confusion — which one is in charge?
+    var mini by remember { mutableStateOf(false) }
+
     Tray(
         icon = Tinted(rememberVectorPainter(Icons.Rounded.LocalFireDepartment), Blaze.Amber),
         tooltip = PlayerState.current?.let { "${it.title} — ${it.artist}" } ?: "Blazify",
@@ -64,15 +71,36 @@ fun main() = application {
             Item("Next", onClick = PlayerState::next)
             Item("Previous", onClick = PlayerState::previous)
             Separator()
+            Item(if (mini) "Full window" else "Mini player", onClick = { mini = !mini })
             Item(if (showing) "Hide window" else "Show window", onClick = { showing = !showing })
             Item("Quit Blazify", onClick = ::exitApplication)
         },
     )
 
+    val miniState = rememberWindowState(
+        size = DpSize(430.dp, 118.dp),
+        position = WindowPosition.Aligned(Alignment.BottomEnd),
+    )
+
+    if (mini) {
+        Window(
+            onCloseRequest = { mini = false },
+            state = miniState,
+            title = "Blazify",
+            resizable = false,
+            alwaysOnTop = true,
+            onKeyEvent = { Shortcuts.handle(it, typing = false) },
+        ) {
+            BlazifyTheme(dark = ThemeState.isDark()) {
+                MiniPlayer(onExpand = { mini = false; showing = true })
+            }
+        }
+    }
+
     Window(
         onCloseRequest = { showing = false },
         state = state,
-        visible = showing,
+        visible = showing && !mini,
         title = "Blazify",
         // Claimed at the window rather than on any one control, so the keys
         // work wherever you happen to be looking.
