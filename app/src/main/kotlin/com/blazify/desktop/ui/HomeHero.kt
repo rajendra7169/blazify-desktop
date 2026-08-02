@@ -76,11 +76,11 @@ fun HomeHero(
         // short of it with a strip of background showing.
         val bleed = 26.dp
 
-        // Proportional rather than fixed. On a narrow window a tall hero eats
-        // the whole screen before a single song is visible; on a wide one a
-        // short one looks like a stripe. Bounded at both ends so neither
-        // extreme can happen.
-        val height = (pane * 0.30f).coerceIn(240.dp, 400.dp)
+        // Proportional rather than fixed, and deliberately shallow: this is a
+        // greeting, and a greeting that pushes the music off the screen has
+        // its priorities the wrong way round. Bounded at both ends so it can't
+        // become a stripe on a wide window or a wall on a narrow one.
+        val height = (pane * 0.17f).coerceIn(178.dp, 236.dp)
 
         Box(
             Modifier
@@ -172,25 +172,25 @@ fun HomeHero(
                     color = Blz.ink,
                     // Sized off the window, so it stays the largest thing on the
                     // screen without running off a small one.
-                    fontSize = (pane.value * 0.028f).coerceIn(28f, 46f).sp,
+                    fontSize = (pane.value * 0.022f).coerceIn(26f, 36f).sp,
                     fontWeight = FontWeight.Bold,
-                    lineHeight = (pane.value * 0.031f).coerceIn(32f, 51f).sp,
+                    lineHeight = (pane.value * 0.025f).coerceIn(30f, 40f).sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
                 Text(
                     "Pick up where you left off, or let it choose for you.",
                     color = Blz.muted,
-                    fontSize = 14.5.sp,
-                    lineHeight = 21.sp,
-                    maxLines = 2,
+                    fontSize = 13.5.sp,
+                    lineHeight = 19.sp,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 10.dp),
+                    modifier = Modifier.padding(top = 6.dp),
                 )
 
                 Row(
-                    Modifier.padding(top = 22.dp),
+                    Modifier.padding(top = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     HeroButton(Icons.Rounded.PlayArrow, "Play", filled = true, onClick = onPlay)
@@ -228,7 +228,7 @@ private fun HeroButton(
                 else Modifier.hoverBackground(Blz.hover, hovered, source),
             )
             .clickable(onClick = onClick)
-            .padding(start = 22.dp, end = 28.dp, top = 13.dp, bottom = 13.dp),
+            .padding(start = 18.dp, end = 24.dp, top = 11.dp, bottom = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
