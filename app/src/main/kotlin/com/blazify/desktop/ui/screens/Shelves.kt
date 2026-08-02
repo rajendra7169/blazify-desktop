@@ -47,9 +47,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.data.Catalogue
+import com.blazify.desktop.data.asTrack
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.SongMenu
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverLift
 import com.blazify.desktop.ui.rememberHovered
@@ -228,7 +230,9 @@ private fun SongGrid(
             verticalArrangement = Arrangement.spacedBy(LineGap),
         ) {
             itemsIndexed(shelf.cards, key = { _, card -> card.kind.name + card.id }) { at, card ->
-                SongLine(card, lineWidth) { onPlayAll(shelf.cards, at) }
+                SongMenu(card.asTrack()) {
+                    SongLine(card, lineWidth) { onPlayAll(shelf.cards, at) }
+                }
             }
         }
     }

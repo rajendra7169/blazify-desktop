@@ -37,6 +37,7 @@ import com.blazify.desktop.data.Track
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.SongMenu
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.rememberHovered
 
@@ -113,7 +114,7 @@ fun TrackListScreen(
         }
 
         itemsIndexed(tracks, key = { at, track -> "$at-${track.id}" }) { at, track ->
-            Row(track, at + 1) { onPlay(tracks, at) }
+            SongMenu(track) { Row(track, at + 1) { onPlay(tracks, at) } }
         }
     }
 }

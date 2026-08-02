@@ -166,8 +166,10 @@ fun AppShell() {
         // Over everything, including the transport — a dialog that the bar
         // could be clicked through is not a dialog.
         if (timerOpen) SleepTimerDialog(onDismiss = { timerOpen = false })
-        PlayerState.current?.takeIf { addingOpen }?.let {
-            AddToPlaylistDialog(it, onDismiss = { addingOpen = false })
+        // Either the bar asked for the song that's playing, or a row asked for
+        // one of its own.
+        (Dialogs.addingTo ?: PlayerState.current?.takeIf { addingOpen })?.let {
+            AddToPlaylistDialog(it, onDismiss = { addingOpen = false; Dialogs.dismiss() })
         }
     }
 }

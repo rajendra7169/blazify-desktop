@@ -50,6 +50,7 @@ import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.SkeletonRows
+import com.blazify.desktop.ui.SongMenu
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverLift
 import com.blazify.desktop.ui.rememberHovered
@@ -116,12 +117,14 @@ fun ExploreScreen(onOpen: (Catalogue.Card) -> Unit) {
             scope == Catalogue.Scope.Songs || scope == Catalogue.Scope.Videos -> {
                 LazyColumn(Modifier.fillMaxSize()) {
                     itemsIndexed(results, key = { _, card -> card.id }) { at, card ->
+                        SongMenu(card.asTrack()) {
                         TrackRow(
                             position = at + 1,
                             card = card,
                             playing = PlayerState.current?.id == card.id,
                             onPlay = { PlayerState.play(results.map { it.asTrack() }, at) },
                         )
+                        }
                     }
                 }
             }
