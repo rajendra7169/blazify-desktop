@@ -128,7 +128,7 @@ object BrowserSession {
             when {
                 found.rows == 0 ->
                     error("${browser.label} has no YouTube cookies — sign in to music.youtube.com there")
-                found.cookies.isEmpty() && !canReadKeyring() ->
+                found.cookies.isEmpty() && !onWindows && !canReadKeyring() ->
                     error(
                         "${browser.label} locks its cookies with this machine's keyring, and the " +
                             "reader for it isn't installed. One command fixes it:\n" +
@@ -165,7 +165,7 @@ object BrowserSession {
     }
 
     private fun readChromium(file: File, browser: Browser): Found {
-        val key = chromiumKey(browser)
+        val key = if (onWindows) windowsKey(browser) else linuxKeys(browser)
         var seen = 0
         var lock = "an unknown scheme"
         val out = linkedMapOf<String, String>()
@@ -183,7 +183,9 @@ object BrowserSession {
                     if (raw != null && raw.size > 3) {
                         lock = String(raw, 0, 3, Charsets.US_ASCII)
                     }
-                    decrypt(raw, key)?.let { out[name] = it }
+                    val opened =
+                        if (onWindows) unlockWindows(raw, key.firstOrNull()) else unlockLinux(raw, key)
+                    opened?.let { out[name] = it }
                 }
             }
         }
@@ -197,7 +199,50 @@ object BrowserSession {
      * fixed word when there isn't one — so both cases have to be tried, and
      * there's no way to know in advance which was used.
      */
-    private fun chromiumKey(browser: Browser): List<SecretKeySpec> {
+    private val onWindows: Boolean
+        get() = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
+
+    /**
+     * The key a Chromium browser uses on Windows.
+     *
+     * Kept in the browser's own settings file, wrapped by the operating
+     * system's data protection so only this account can unwrap it — which is
+     * why it can be read at all: the app is running as that account.
+     */
+    private fun windowsKey(browser: Browser): List<SecretKeySpec> = runCatching {
+        // The settings file sits two folders above the cookie store.
+        val state = File(browser.store.parentFile.parentFile.parentFile, "Local State")
+        val text = state.readText()
+        val marker = "\"encrypted_key\":\""
+        val start = text.indexOf(marker) + marker.length
+        val encoded = text.substring(start, text.indexOf('"', start))
+
+        val wrapped = java.util.Base64.getDecoder().decode(encoded)
+        // The first five bytes say who wrapped it, and aren't part of the key.
+        val body = wrapped.copyOfRange(5, wrapped.size)
+        val unwrapped = com.sun.jna.platform.win32.Crypt32Util.cryptUnprotectData(body)
+        listOf(SecretKeySpec(unwrapped, "AES"))
+    }.getOrDefault(emptyList())
+
+    /**
+     * Unwrap one value on Windows.
+     *
+     * A different cipher from the one used elsewhere: the scheme marker, then
+     * a twelve-byte nonce, the value, and a tag on the end that proves it
+     * wasn't tampered with.
+     */
+    private fun unlockWindows(value: ByteArray?, key: SecretKeySpec?): String? {
+        if (value == null || key == null || value.size < 32) return null
+        return runCatching {
+            val nonce = value.copyOfRange(3, 15)
+            val body = value.copyOfRange(15, value.size)
+            Cipher.getInstance("AES/GCM/NoPadding").apply {
+                init(Cipher.DECRYPT_MODE, key, javax.crypto.spec.GCMParameterSpec(128, nonce))
+            }.doFinal(body).toString(Charsets.UTF_8)
+        }.getOrNull()
+    }
+
+    private fun linuxKeys(browser: Browser): List<SecretKeySpec> {
         // Every plausible source, keyring first: a wrong key produces garbage
         // that fails its own padding check, so trying several costs nothing but
         // a few microseconds and saves guessing which one a browser used.
@@ -238,7 +283,7 @@ object BrowserSession {
     private val SALT = "saltysalt".toByteArray()
     private val IV = ByteArray(16) { ' '.code.toByte() }
 
-    private fun decrypt(value: ByteArray?, keys: List<SecretKeySpec>): String? {
+    private fun unlockLinux(value: ByteArray?, keys: List<SecretKeySpec>): String? {
         if (value == null || value.size < 4) return null
         val body = value.copyOfRange(3, value.size)
 
