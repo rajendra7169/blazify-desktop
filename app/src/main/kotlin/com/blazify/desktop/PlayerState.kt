@@ -126,7 +126,7 @@ object PlayerState {
      */
     fun startRadio(track: Track) {
         failure = null
-        play(listOf(track))
+        play(listOf(track), 0, "${track.title} radio")
         scope.launch {
             Catalogue.relatedTo(track.id).onSuccess { rest ->
                 val more = rest.filterNot { it.id == track.id }
@@ -142,7 +142,20 @@ object PlayerState {
         play(tracks.shuffled())
     }
 
-    fun play(tracks: List<Track>, startAt: Int = 0) {
+    /**
+     * Where the queue came from — an album, a playlist, a radio.
+     *
+     * Worth keeping because a queue with no name is a list of songs you have to
+     * read to recognise. "Playing from Ahista Ahista Mix" is the difference
+     * between knowing what you put on and working it out from track four.
+     */
+    var playingFrom by mutableStateOf<String?>(null)
+        private set
+
+    fun play(tracks: List<Track>, startAt: Int = 0) = play(tracks, startAt, null)
+
+    fun play(tracks: List<Track>, startAt: Int, from: String?) {
+        playingFrom = from
         queue = tracks
         ordered = tracks
         index = startAt.coerceIn(0, (tracks.size - 1).coerceAtLeast(0))

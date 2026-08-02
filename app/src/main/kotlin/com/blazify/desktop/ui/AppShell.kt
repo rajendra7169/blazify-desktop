@@ -102,8 +102,13 @@ fun AppShell() {
                     current = Navigator.destination,
                     collapsed = railCollapsed,
                     settingsOpen = false,
-                    onSelect = Navigator::go,
-                    onOpenSettings = Navigator::openSettings,
+                    // Same for the rail: picking a place to go means going
+                    // there, not queuing it up behind the player.
+                    onSelect = { full = false; Navigator.go(it) },
+                    // Out of the full player first. Settings opened behind a
+                    // screen that covers the whole window is settings that
+                    // didn't open, as far as anyone watching can tell.
+                    onOpenSettings = { full = false; Navigator.openSettings() },
                 )
             }
 
