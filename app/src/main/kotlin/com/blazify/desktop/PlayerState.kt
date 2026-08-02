@@ -276,6 +276,9 @@ object PlayerState {
      * than silently start the album again.
      */
     private fun advance() {
+        // Asked before anything else: a timer set to end here means the queue
+        // stops, whatever repeat would otherwise have done.
+        if (SleepTimer.consumeTrackEnd()) return
         when {
             repeat == Repeat.One -> start()
             index + 1 in queue.indices -> next()
