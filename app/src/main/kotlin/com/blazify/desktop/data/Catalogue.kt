@@ -29,6 +29,15 @@ data class Track(
     val artist: String,
     val thumbnail: String?,
     val durationSeconds: Int?,
+    /**
+     * Where the song came from, when the catalogue said.
+     *
+     * Carried so a menu can offer to go there. Without these the only honest
+     * option is to search for the artist by name and hope, which finds the
+     * wrong person often enough to be worse than not offering it.
+     */
+    val artistId: String? = null,
+    val albumId: String? = null,
 ) {
     val duration: String
         get() = durationSeconds?.let { "%d:%02d".format(it / 60, it % 60) } ?: ""
@@ -303,6 +312,8 @@ object Catalogue {
         artist = artists.joinToString(", ") { it.name },
         thumbnail = thumbnail,
         durationSeconds = duration,
+        artistId = artists.firstNotNullOfOrNull { it.id },
+        albumId = album?.id,
     )
 
     /**

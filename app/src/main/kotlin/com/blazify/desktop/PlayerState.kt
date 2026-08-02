@@ -116,6 +116,24 @@ object PlayerState {
         play(songs.map { it.asTrack() }, startAt)
     }
 
+    /**
+     * Play a song and keep going with what it leads to.
+     *
+     * The song first, then everything the catalogue says is like it — so a
+     * radio starts with the thing you asked for rather than with something
+     * chosen on its behalf.
+     */
+    fun startRadio(track: Track) {
+        failure = null
+        play(listOf(track))
+        scope.launch {
+            Catalogue.relatedTo(track.id).onSuccess { rest ->
+                val more = rest.filterNot { it.id == track.id }
+                if (more.isNotEmpty() && current?.id == track.id) queue = queue + more
+            }
+        }
+    }
+
     /** The same songs in a different order, starting from the top of it. */
     fun shuffle(tracks: List<Track>) {
         if (tracks.isEmpty()) return

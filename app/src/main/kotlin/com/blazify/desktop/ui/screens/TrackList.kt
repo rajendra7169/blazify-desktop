@@ -40,6 +40,7 @@ import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.EmptyState
 import com.blazify.desktop.ui.SongMenu
+import com.blazify.desktop.ui.SongSheetButton
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverGlow
 import com.blazify.desktop.ui.rememberHovered
@@ -244,6 +245,7 @@ private fun Row(track: Track, number: Int, onPlay: () -> Unit) {
         if (track.duration.isNotEmpty()) {
             Text(track.duration, color = Blz.dim, fontSize = 12.sp)
         }
+        SongSheetButton(track, hovered.value)
     }
 }
 

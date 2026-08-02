@@ -58,6 +58,7 @@ import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.SkeletonRows
 import com.blazify.desktop.ui.SongMenu
+import com.blazify.desktop.ui.SongSheetButton
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverGlow
 import com.blazify.desktop.ui.hoverLift
@@ -431,5 +432,6 @@ private fun TrackRow(position: Int, card: Catalogue.Card, playing: Boolean, onPl
         if (card.duration.isNotEmpty()) {
             Text(card.duration, color = Blz.dim, fontSize = 12.sp)
         }
+        SongSheetButton(card.asTrack(), hovered.value)
     }
 }
