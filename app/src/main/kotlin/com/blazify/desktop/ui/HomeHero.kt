@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -37,7 +38,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.res.useResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -69,6 +73,9 @@ fun HomeHero(
     modifier: Modifier = Modifier,
 ) {
     val dark = Blz.dark
+    val measurer = rememberTextMeasurer()
+    // Read here rather than inside the drawing, which isn't a composable place.
+    val markColour = Blz.ink.copy(alpha = if (dark) 0.20f else 0.14f)
     val hero = remember {
         runCatching { useResource("blazify_people.png") { loadImageBitmap(it) } }.getOrNull()
     }
@@ -99,31 +106,41 @@ fun HomeHero(
             // put a seam down the middle: two gradients meeting at an edge
             // instead of one continuous surface.
 
-            // The name straight across, edge to edge, at a size that stops
-            // being a word and becomes the surface the rest of it sits on.
-            Text(
-                "Blazify",
-                // Over the picture rather than under it. Underneath, the
-                // Behind the crowd, which is drawn by adding light — so it gets
-                // lifted wherever a figure passes over it and has to start
-                // stronger than it looks to end up right.
-                color = Blz.ink.copy(alpha = if (dark) 0.20f else 0.14f),
-                fontSize = (pane.value * 0.15f).sp,
-                fontWeight = FontWeight.Bold,
-                // Opened right out. At this size the letters are a texture
-                // rather than a word, and the gaps between them are most of
-                // what makes it read as one.
-                letterSpacing = (pane.value * 0.012f).sp,
-                maxLines = 1,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    // Pushed off centre, away from the greeting on the left,
-                    // and raised so the crowd stands on it rather than in it.
-                    .padding(start = pane * 0.14f, bottom = height * 0.16f),
-            )
 
             hero?.let { picture ->
                 Canvas(Modifier.matchParentSize()) {
+                    // The name, measured rather than guessed.
+                    //
+                    // Choosing a size as a fraction of the window and hoping it
+                    // fits is what cut the B off one end and the y off the
+                    // other: how wide seven letters come out depends on the
+                    // font, the weight and the spacing, none of which a
+                    // fraction knows about. Measuring once at any size gives
+                    // the exact ratio to scale by, so it fills the width it is
+                    // given and never exceeds it.
+                    val target = size.width * 0.92f
+                    val probe = measurer.measure(
+                        "Blazify",
+                        TextStyle(fontSize = 200.sp, fontWeight = FontWeight.Bold, letterSpacing = 14.sp),
+                    )
+                    val fit = target / probe.size.width
+                    val mark = measurer.measure(
+                        "Blazify",
+                        TextStyle(
+                            fontSize = (200 * fit).sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (14 * fit).sp,
+                        ),
+                    )
+                    drawText(
+                        textLayoutResult = mark,
+                        color = markColour,
+                        topLeft = Offset(
+                            (size.width - mark.size.width) / 2f,
+                            size.height * 0.30f,
+                        ),
+                    )
+
                     // Scaled to cover the hero rather than to match its width.
                     // Sizing off the width alone made the crowd a thin band on
                     // a narrow window and an enormous one on a wide screen —
