@@ -117,17 +117,22 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                 // Crossfaded rather than swapped, so moving down the list reads
                 // as one thing changing rather than five things flickering.
                 Crossfade(previewing, animationSpec = tween(220), label = "themePreview") { theme ->
-                    Box(
-                        Modifier.size(228.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        PlayerStage(
-                            theme = theme,
-                            artwork = track?.thumbnail,
-                            side = 200.dp,
-                            playing = PlayerState.playing,
-                            progress = PlayerState.progress,
-                        )
+                    if (theme == PlayerTheme.FullArt) {
+                        // Full art has no centrepiece — it *is* the page. Showing
+                        // a square of the cover here would preview the classic
+                        // look under a different name, so this draws the whole
+                        // screen in miniature instead: cover, scrim and all.
+                        FullArtPreview(track?.thumbnail)
+                    } else {
+                        Box(Modifier.size(228.dp), contentAlignment = Alignment.Center) {
+                            PlayerStage(
+                                theme = theme,
+                                artwork = track?.thumbnail,
+                                side = 200.dp,
+                                playing = PlayerState.playing,
+                                progress = PlayerState.progress,
+                            )
+                        }
                     }
                 }
 
@@ -144,8 +149,9 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
 
                 // The transport, drawn but not live — the preview is about the
                 // artwork, and a play button that worked here would move the
-                // song while you were looking at it.
-                Row(
+                // song while you were looking at it. Full art draws its own
+                // inside the card, so it is left out rather than shown twice.
+                if (previewing != PlayerTheme.FullArt) Row(
                     Modifier.padding(top = 18.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -164,6 +170,93 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                         )
                     }
                     Icon(Icons.Rounded.SkipNext, null, Modifier.size(22.dp), tint = Blz.dim)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The whole window, shrunk to a card.
+ *
+ * The same cover, the same two scrims and a suggestion of the text and controls
+ * where they will actually sit — so what is being chosen is legible from the
+ * proportions rather than having to be imagined from a square.
+ */
+@Composable
+private fun FullArtPreview(artwork: String?) {
+    Box(
+        Modifier
+            .width(260.dp)
+            .height(228.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Blz.page),
+    ) {
+        Backdrop(artwork, Modifier.fillMaxSize())
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.34f)))
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    0f to Color.Black.copy(alpha = 0.52f),
+                    0.30f to Color.Black.copy(alpha = 0.12f),
+                    0.52f to Color.Black.copy(alpha = 0.34f),
+                    0.74f to Color.Black.copy(alpha = 0.70f),
+                    1f to Color.Black.copy(alpha = 0.92f),
+                ),
+            ),
+        )
+        Column(
+            Modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                "NOW PLAYING", color = Color.White.copy(alpha = 0.85f), fontSize = 8.sp,
+                fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
+            )
+            Column(
+                Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Box(
+                    Modifier.fillMaxWidth(0.6f).height(7.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color.White.copy(alpha = 0.75f)),
+                )
+                Box(
+                    Modifier.fillMaxWidth(0.35f).height(5.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color.White.copy(alpha = 0.35f)),
+                )
+                Box(
+                    Modifier.padding(top = 4.dp).fillMaxWidth().height(3.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color.White.copy(alpha = 0.22f)),
+                ) {
+                    Box(
+                        Modifier.fillMaxWidth(0.4f).height(3.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))),
+                    )
+                }
+                Row(
+                    Modifier.padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(Icons.Rounded.SkipPrevious, null, Modifier.size(14.dp), tint = Color.White)
+                    Box(
+                        Modifier.size(26.dp).clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            if (PlayerState.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            null, Modifier.size(15.dp), tint = Blaze.OnAmber,
+                        )
+                    }
+                    Icon(Icons.Rounded.SkipNext, null, Modifier.size(14.dp), tint = Color.White)
                 }
             }
         }

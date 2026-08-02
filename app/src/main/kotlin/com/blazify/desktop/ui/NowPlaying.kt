@@ -172,29 +172,10 @@ fun NowPlayingScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-    if (Look.playerTheme == PlayerTheme.FullArt) {
-        // The cover behind the lot. Scrimmed rather than blurred — a blur is a
-        // pass over a large bitmap every frame, and what's wanted here is the
-        // colour, not softness.
-        //
-        // The scrim is light at the top where the picture is and heavier at the
-        // bottom where the words and controls are. Even coverage was the first
-        // attempt and it hid the artwork completely, which rather defeats a
-        // look called Full art.
-        Backdrop(track?.thumbnail, Modifier.fillMaxSize())
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(
-                    0f to Color.Black.copy(alpha = 0.40f),
-                    0.35f to Color.Transparent,
-                    0.60f to Color.Black.copy(alpha = 0.55f),
-                    0.80f to Color.Black.copy(alpha = 0.80f),
-                    1f to Color.Black.copy(alpha = 0.95f),
-                ),
-            ),
-        )
-    }
-    Column(
+    // Everything that is the player goes inside this one layer, so the drag
+    // takes the whole screen with it. It used to sit on the column alone, which
+    // is why the buttons slid away and left the cover behind them.
+    Box(
         Modifier
             .fillMaxSize()
             .onSizeChanged { tall = it.height.toFloat().coerceAtLeast(1f) }
@@ -207,7 +188,39 @@ fun NowPlayingScreen(
                 scaleX = shrink
                 scaleY = shrink
                 alpha = 1f - gone * 0.35f
-            }
+            },
+    ) {
+    if (Look.playerTheme == PlayerTheme.FullArt) {
+        // The cover behind the lot. Scrimmed rather than blurred — a blur is a
+        // pass over a large bitmap every frame, and what's wanted here is the
+        // colour, not softness.
+        //
+        // The scrim is light at the top where the picture is and heavier at the
+        // bottom where the words and controls are. Even coverage was the first
+        // attempt and it hid the artwork completely, which rather defeats a
+        // look called Full art.
+        Backdrop(track?.thumbnail, Modifier.fillMaxSize())
+        // Two passes. The flat one guarantees a floor of contrast whatever the
+        // cover is doing — a pale sleeve with white type on it is unreadable
+        // however cleverly the gradient is shaped. The gradient on top of it
+        // then does the shaping: darkest where the words and controls are,
+        // lightest across the middle where the picture is worth seeing.
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.34f)))
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    0f to Color.Black.copy(alpha = 0.52f),
+                    0.30f to Color.Black.copy(alpha = 0.12f),
+                    0.52f to Color.Black.copy(alpha = 0.34f),
+                    0.74f to Color.Black.copy(alpha = 0.70f),
+                    1f to Color.Black.copy(alpha = 0.92f),
+                ),
+            ),
+        )
+    }
+    Column(
+        Modifier
+            .fillMaxSize()
             .then(background)
             // Pull it down to put it away. The gesture
             // only reaches here when the page underneath has no scrolling left
@@ -420,6 +433,8 @@ fun NowPlayingScreen(
 
             Box(Modifier.size(20.dp))
         }
+    }
+
     }
 
     if (themeOpen) PlayerThemeSheet { themeOpen = false }
