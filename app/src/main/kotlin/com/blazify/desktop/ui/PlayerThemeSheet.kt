@@ -137,7 +137,7 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                             // square of the cover here would preview Classic
                             // under a different name, so this fills the frame
                             // with the whole screen in miniature.
-                            FullArtPreview(track?.thumbnail)
+                            FullArtPreview(track)
                         } else {
                             Column(
                                 Modifier.fillMaxSize(),
@@ -191,7 +191,11 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                 // Below the frame and outside the crossfade, so the words stay
                 // put while the picture above them changes.
                 Text(
-                    track?.title ?: "Nothing playing",
+                    // Full art already names the song inside the card, so this
+                    // line names the look instead. Same line either way, so
+                    // nothing moves as the pointer travels down the list.
+                    if (previewing == PlayerTheme.FullArt) previewing.label
+                    else track?.title ?: "Nothing playing",
                     color = Blz.ink, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 14.dp),
@@ -210,16 +214,16 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
 /**
  * The whole window, shrunk to a card.
  *
- * The same cover, the same two scrims and a suggestion of the text and controls
- * where they will actually sit — so what is being chosen is legible from the
- * proportions rather than having to be imagined from a square.
+ * The real song, the real position, the real accent — placeholder bars told you
+ * where things would sit but nothing about whether your covers work under white
+ * type, which is the only question this preview exists to answer.
  */
 @Composable
-private fun FullArtPreview(artwork: String?) {
+private fun FullArtPreview(track: com.blazify.desktop.data.Track?) {
     Box(
         Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(Blz.page),
     ) {
-        Backdrop(artwork, Modifier.fillMaxSize())
+        Backdrop(track?.thumbnail, Modifier.fillMaxSize())
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.34f)))
         Box(
             Modifier.fillMaxSize().background(
@@ -233,7 +237,7 @@ private fun FullArtPreview(artwork: String?) {
             ),
         )
         Column(
-            Modifier.fillMaxSize().padding(16.dp),
+            Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -241,49 +245,74 @@ private fun FullArtPreview(artwork: String?) {
                 "NOW PLAYING", color = Color.White.copy(alpha = 0.85f), fontSize = 8.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
             )
+
             Column(
                 Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                Box(
-                    Modifier.fillMaxWidth(0.6f).height(7.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(Color.White.copy(alpha = 0.75f)),
+                Text(
+                    track?.title ?: "Nothing playing",
+                    color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
                 )
-                Box(
-                    Modifier.fillMaxWidth(0.35f).height(5.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(Color.White.copy(alpha = 0.35f)),
+                Text(
+                    track?.artist.orEmpty(),
+                    color = Color.White.copy(alpha = 0.72f), fontSize = 11.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
                 )
+
+                // The bar sits where it sits, at the position the song is
+                // actually at — drawn rather than the real ScrubBar, since a
+                // preview you could scrub would move the music while you were
+                // looking at how it looks.
                 Box(
-                    Modifier.padding(top = 4.dp).fillMaxWidth().height(3.dp)
+                    Modifier
+                        .padding(top = 8.dp)
+                        .fillMaxWidth()
+                        .height(4.dp)
                         .clip(RoundedCornerShape(999.dp))
-                        .background(Color.White.copy(alpha = 0.22f)),
+                        .background(Color.White.copy(alpha = 0.26f)),
                 ) {
                     Box(
-                        Modifier.fillMaxWidth(0.4f).height(3.dp)
+                        Modifier
+                            .fillMaxWidth(PlayerState.progress.coerceIn(0f, 1f))
+                            .height(4.dp)
                             .clip(RoundedCornerShape(999.dp))
                             .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))),
                     )
                 }
+                Row(Modifier.fillMaxWidth().padding(top = 3.dp)) {
+                    Text(
+                        PlayerState.elapsed,
+                        color = Color.White.copy(alpha = 0.55f), fontSize = 8.5.sp,
+                    )
+                    Box(Modifier.weight(1f))
+                    Text(
+                        PlayerState.total,
+                        color = Color.White.copy(alpha = 0.55f), fontSize = 8.5.sp,
+                    )
+                }
+
                 Row(
-                    Modifier.padding(top = 4.dp),
+                    Modifier.padding(top = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Icon(Icons.Rounded.SkipPrevious, null, Modifier.size(14.dp), tint = Color.White)
+                    Icon(Icons.Rounded.SkipPrevious, null, Modifier.size(16.dp), tint = Color.White)
                     Box(
-                        Modifier.size(26.dp).clip(CircleShape)
+                        Modifier.size(30.dp).clip(CircleShape)
                             .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             if (PlayerState.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            null, Modifier.size(15.dp), tint = Blaze.OnAmber,
+                            null, Modifier.size(17.dp), tint = Blaze.OnAmber,
                         )
                     }
-                    Icon(Icons.Rounded.SkipNext, null, Modifier.size(14.dp), tint = Color.White)
+                    Icon(Icons.Rounded.SkipNext, null, Modifier.size(16.dp), tint = Color.White)
                 }
             }
         }
