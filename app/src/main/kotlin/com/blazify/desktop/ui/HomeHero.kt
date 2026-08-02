@@ -120,7 +120,12 @@ fun HomeHero(
                         image = picture,
                         // Anchored right and top: the words live on the left,
                         // and heads matter more than feet.
-                        dstOffset = IntOffset(size.width.toInt() - drawn.width, 0),
+                        // Lifted a little so the crowd sits across the middle of
+                        // the wordmark rather than starting at the top of it.
+                        dstOffset = IntOffset(
+                            size.width.toInt() - drawn.width,
+                            -(size.height * 0.10f).toInt(),
+                        ),
                         dstSize = drawn,
                         alpha = if (dark) 0.95f else 0.8f,
                         // The picture is cut out on black. Added to what's
@@ -141,11 +146,17 @@ fun HomeHero(
                 // and rubbed the letters out — the word was there and simply
                 // could not be seen.
                 color = Blz.ink.copy(alpha = if (dark) 0.13f else 0.09f),
-                fontSize = (pane.value * 0.155f).sp,
+                fontSize = (pane.value * 0.175f).sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = (-6).sp,
+                // Opened right out. At this size the letters are a texture
+                // rather than a word, and the gaps between them are most of
+                // what makes it read as one.
+                letterSpacing = (pane.value * 0.012f).sp,
                 maxLines = 1,
-                modifier = Modifier.align(Alignment.Center),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    // Pushed off centre, away from the greeting on the left.
+                    .padding(start = pane * 0.14f),
             )
 
             // Across the whole width: solid where the words are, gone by the
