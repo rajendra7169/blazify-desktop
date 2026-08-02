@@ -35,6 +35,7 @@ import com.blazify.desktop.ui.Destination
 import com.blazify.desktop.ui.GridSize
 import com.blazify.desktop.ui.Look
 import com.blazify.desktop.ui.LyricsAlign
+import com.blazify.desktop.ui.LyricsSize
 import com.blazify.desktop.ui.PlayerBackground
 import com.blazify.desktop.ui.ScrubBar
 import com.blazify.desktop.ui.SliderStyle
@@ -146,16 +147,54 @@ fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> 
 /** The lyrics settings, which live on their own page. */
 @Composable
 fun LyricsSettingsSection(section: @Composable (String, @Composable () -> Unit) -> Unit) {
-    section("Where the words sit") {
+    section("How they read") {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("Alignment", color = Blz.ink, fontSize = 13.5.sp)
             Choices(
                 LyricsAlign.entries.map { it.label },
                 Look.lyricsAlign.label,
             ) { picked -> Look.chooseLyricsAlign(LyricsAlign.entries.first { it.label == picked }) }
+
+            Text("Size", color = Blz.ink, fontSize = 13.5.sp)
+            Choices(
+                LyricsSize.entries.map { it.label },
+                Look.lyricsSize.label,
+            ) { picked -> Look.chooseLyricsSize(LyricsSize.entries.first { it.label == picked }) }
+
+            Text(
+                "Space between lines — ${Look.lyricsSpacing}",
+                color = Blz.ink, fontSize = 13.5.sp,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(0, 4, 7, 12, 18, 26).forEach { gap ->
+                    Choices(listOf("$gap"), "${Look.lyricsSpacing}") {
+                        Look.chooseLyricsSpacing(gap)
+                    }
+                }
+            }
+
             LyricsPreview()
         }
     }
 
+    section("Reading them") {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Switch(
+                "Show them in the Latin alphabet",
+                Look.romanize,
+                Look::chooseRomanize,
+            )
+            Text(
+                "Devanagari, Korean, Japanese, Cyrillic and the rest, written out in " +
+                    "Latin letters — for singing along to a language you can hear but " +
+                    "not read. Songs already in Latin are left alone.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
+
+            Switch("Follow along on its own", Look.lyricsFollow, Look::chooseLyricsFollow)
+            Switch("Light up the line being sung", Look.lyricsGlow, Look::chooseLyricsGlow)
+        }
+    }
 }
 
 @Composable
