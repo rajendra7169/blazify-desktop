@@ -264,7 +264,7 @@ private fun SongLine(card: Catalogue.Card, width: androidx.compose.ui.unit.Dp, o
             if (hovered.value) {
                 Box(
                     Modifier.size(46.dp).clip(RoundedCornerShape(6.dp))
-                        .background(Blaze.OnAmber.copy(alpha = 0.55f)),
+                        .background(Blaze.Scrim),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(Icons.Rounded.PlayArrow, null, Modifier.size(22.dp), tint = Blz.ink)

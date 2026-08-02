@@ -114,6 +114,14 @@ object Catalogue {
     @Serializable
     enum class Kind { Song, Album, Playlist, Artist }
 
+    /** A playlist that lives on the account rather than on this machine. */
+    data class AccountPlaylist(
+        val id: String,
+        val name: String,
+        val count: String?,
+        val thumbnail: String?,
+    )
+
     /** One tile on a shelf. */
     @Serializable
     data class Card(
@@ -275,6 +283,46 @@ object Catalogue {
         YouTube.library("FEmusic_liked_playlists").map { page ->
             page.items.mapNotNull { it.asCard() }
         }
+    }
+
+    /**
+     * The playlists on the account that this app is allowed to change.
+     *
+     * Only the ones the account owns. A playlist saved from somebody else
+     * shows in the library and cannot be added to, and offering it would be a
+     * button that fails every time it is pressed.
+     */
+    suspend fun myPlaylists(): Result<List<AccountPlaylist>> = withContext(Dispatchers.IO) {
+        if (!Account.signedIn) return@withContext Result.success(emptyList())
+        ensureIdentity()
+        YouTube.library("FEmusic_liked_playlists").map { page ->
+            page.items
+                .filterIsInstance<PlaylistItem>()
+                .filter { it.isEditable }
+                .map {
+                    AccountPlaylist(
+                        id = it.id,
+                        name = it.title,
+                        count = it.songCountText,
+                        thumbnail = it.thumbnail,
+                    )
+                }
+        }
+    }
+
+    /** Put a song into one of the account's playlists. */
+    suspend fun addToAccountPlaylist(playlistId: String, videoId: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            if (!Account.signedIn) return@withContext Result.failure(IllegalStateException("Not signed in"))
+            ensureIdentity()
+            YouTube.addToPlaylist(playlistId, videoId).map { }
+        }
+
+    /** Make a playlist on the account, and hand back its id. */
+    suspend fun createAccountPlaylist(name: String): Result<String> = withContext(Dispatchers.IO) {
+        if (!Account.signedIn) return@withContext Result.failure(IllegalStateException("Not signed in"))
+        ensureIdentity()
+        runCatching { YouTube.createPlaylist(name) }
     }
 
     /**

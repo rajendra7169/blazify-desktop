@@ -57,7 +57,7 @@ fun SleepTimerDialog(onDismiss: () -> Unit) {
             .fillMaxSize()
             // The scrim is the way out: clicking beside a dialog to dismiss it
             // is a habit older than any of this.
-            .background(Blaze.OnAmber.copy(alpha = 0.55f))
+            .background(Blaze.Scrim)
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center,
     ) {

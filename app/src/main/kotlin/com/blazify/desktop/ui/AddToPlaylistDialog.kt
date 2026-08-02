@@ -37,7 +37,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import com.blazify.desktop.Typing
+import com.blazify.desktop.data.Account
+import com.blazify.desktop.data.Catalogue
+import kotlinx.coroutines.launch
 import com.blazify.desktop.data.Playlists
 import com.blazify.desktop.data.Track
 
@@ -49,19 +54,42 @@ import com.blazify.desktop.data.Track
 /**
  * Putting a song somewhere.
  *
- * Each playlist says whether the song is already in it, so pressing the same
- * one twice isn't a question you have to remember the answer to. Making a new
- * one puts the song straight in — that's why anyone is making it.
+ * Both sets of playlists in one list — the ones on this machine and the ones on
+ * the account — because "which of my playlists" is one question and answering
+ * it in two places is the app's problem, not the listener's. Each says whether
+ * the song is already in it, so pressing the same one twice isn't a question
+ * you have to remember the answer to.
+ *
+ * A new playlist goes onto the account when there is one, so it is there on the
+ * phone too. Made here when there isn't, which still works with the network
+ * down — and nothing is lost either way.
  */
 @Composable
 fun AddToPlaylistDialog(track: Track, onDismiss: () -> Unit) {
-    var naming by remember { mutableStateOf(Playlists.all.isEmpty()) }
+    var naming by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
+    var working by remember { mutableStateOf(false) }
+    var trouble by remember { mutableStateOf<String?>(null) }
+
+    var theirs by remember { mutableStateOf<List<Catalogue.AccountPlaylist>?>(null) }
+    val scope = rememberCoroutineScope()
+
+    // Asked for once each time the dialog opens rather than held: a playlist
+    // made on the phone five minutes ago should be in this list, and a cached
+    // copy is exactly how it wouldn't be.
+    LaunchedEffect(Account.signedIn) {
+        theirs = if (Account.signedIn) Catalogue.myPlaylists().getOrNull().orEmpty() else emptyList()
+    }
+
+    // Nothing anywhere means there is only one thing to do, so do it.
+    LaunchedEffect(theirs) {
+        if (theirs != null && theirs!!.isEmpty() && Playlists.all.isEmpty()) naming = true
+    }
 
     Box(
         Modifier
             .fillMaxSize()
-            .background(Blaze.OnAmber.copy(alpha = 0.55f))
+            .background(Blaze.Scrim)
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center,
     ) {
@@ -82,43 +110,50 @@ fun AddToPlaylistDialog(track: Track, onDismiss: () -> Unit) {
                 )
             }
 
-            if (Playlists.all.isNotEmpty()) {
-                LazyColumn(
-                    Modifier.heightIn(max = 260.dp),
+            when {
+                theirs == null -> Text("Looking for your playlists…", color = Blz.dim, fontSize = 12.5.sp)
+                Playlists.all.isEmpty() && theirs!!.isEmpty() ->
+                    Text(
+                        if (Account.signedIn) "No playlists yet — make the first one."
+                        else "No playlists on this computer yet. Sign in to see the ones on your account.",
+                        color = Blz.dim, fontSize = 12.5.sp, lineHeight = 18.sp,
+                    )
+                else -> LazyColumn(
+                    Modifier.heightIn(max = 280.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    itemsIndexed(Playlists.all, key = { at, it -> "$at-${it.id}" }) { _, playlist ->
-                        val inside = Playlists.contains(playlist.id, track.id)
-                        val (source, hovered) = rememberHovered()
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .hoverBackground(Blz.hover, hovered, source)
-                                .clickable {
-                                    Playlists.add(playlist.id, track)
-                                    onDismiss()
+                    if (theirs!!.isNotEmpty()) {
+                        item { Heading("ON YOUR ACCOUNT") }
+                        itemsIndexed(theirs!!, key = { at, it -> "acc-$at-${it.id}" }) { _, playlist ->
+                            Choice(
+                                name = playlist.name,
+                                detail = playlist.count ?: "On your account",
+                                inside = false,
+                                busy = working,
+                            ) {
+                                working = true
+                                scope.launch {
+                                    Catalogue.addToAccountPlaylist(playlist.id, track.id)
+                                        .onSuccess { onDismiss() }
+                                        .onFailure {
+                                            working = false
+                                            trouble = "Couldn't add it to ${playlist.name}."
+                                        }
                                 }
-                                .padding(horizontal = 12.dp, vertical = 11.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(11.dp),
-                        ) {
-                            Icon(Icons.Rounded.QueueMusic, null, Modifier.size(17.dp), tint = Blz.dim)
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    playlist.name, color = Blz.ink, fontSize = 13.5.sp,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    "${playlist.tracks.size} songs",
-                                    color = Blz.dim, fontSize = 11.5.sp,
-                                )
                             }
-                            if (inside) {
-                                Icon(
-                                    Icons.Rounded.Check, "Already in", Modifier.size(16.dp),
-                                    tint = Blaze.Amber,
-                                )
+                        }
+                    }
+                    if (Playlists.all.isNotEmpty()) {
+                        item { Heading("ON THIS COMPUTER") }
+                        itemsIndexed(Playlists.all, key = { at, it -> "own-$at-${it.id}" }) { _, playlist ->
+                            Choice(
+                                name = playlist.name,
+                                detail = "${playlist.tracks.size} songs",
+                                inside = Playlists.contains(playlist.id, track.id),
+                                busy = false,
+                            ) {
+                                Playlists.add(playlist.id, track)
+                                onDismiss()
                             }
                         }
                     }
@@ -149,17 +184,91 @@ fun AddToPlaylistDialog(track: Track, onDismiss: () -> Unit) {
                 }
             }
 
+            trouble?.let {
+                Text("$it Try again, or add it to one on this computer.",
+                    color = Blaze.Amber, fontSize = 11.5.sp, lineHeight = 17.sp)
+            }
+
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (naming) {
-                    Pill("Create", filled = true, Modifier.weight(1f)) {
-                        Playlists.create(name, listOf(track))
-                        onDismiss()
+                    Pill(
+                        if (working) "Making…" else "Create",
+                        filled = true, Modifier.weight(1f),
+                    ) {
+                        if (working || name.isBlank()) return@Pill
+                        if (Account.signedIn) {
+                            working = true
+                            scope.launch {
+                                Catalogue.createAccountPlaylist(name)
+                                    .mapCatching { id ->
+                                        Catalogue.addToAccountPlaylist(id, track.id).getOrThrow()
+                                    }
+                                    .onSuccess { onDismiss() }
+                                    .onFailure {
+                                        // Not lost. The account refused it, so
+                                        // it is made here instead and the song
+                                        // still ends up somewhere.
+                                        Playlists.create(name, listOf(track))
+                                        onDismiss()
+                                    }
+                            }
+                        } else {
+                            Playlists.create(name, listOf(track))
+                            onDismiss()
+                        }
                     }
                 } else {
                     Pill("New playlist", filled = false, Modifier.weight(1f)) { naming = true }
                 }
                 Pill("Cancel", filled = false, Modifier.weight(1f), onClick = onDismiss)
             }
+
+            if (naming) {
+                Text(
+                    if (Account.signedIn) "Made on your account, so it's on your phone too."
+                    else "Made on this computer. Sign in to have it follow you.",
+                    color = Blz.dim, fontSize = 11.5.sp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun Heading(text: String) {
+    Text(
+        text, color = Blz.dim, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+        letterSpacing = 1.sp,
+        modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
+private fun Choice(
+    name: String,
+    detail: String,
+    inside: Boolean,
+    busy: Boolean,
+    onClick: () -> Unit,
+) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(enabled = !busy, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(11.dp),
+    ) {
+        Icon(Icons.Rounded.QueueMusic, null, Modifier.size(17.dp), tint = Blz.dim)
+        Column(Modifier.weight(1f)) {
+            Text(name, color = Blz.ink, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(detail, color = Blz.dim, fontSize = 11.5.sp)
+        }
+        if (inside) {
+            Icon(Icons.Rounded.Check, "Already in", Modifier.size(16.dp), tint = Blaze.Amber)
         }
     }
 }

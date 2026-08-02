@@ -26,6 +26,16 @@ object Blaze {
     val Ember: Color get() = Look.accent.end
     val OnAmber: Color get() = Look.accent.ink
 
+    /**
+     * The dim behind a dialog.
+     *
+     * Fixed black rather than the accent's ink. The ink is whichever of black
+     * or white reads on the current accent, so a pale cover turned the scrim
+     * white and put a dark dialog on a bright sheet — the one thing a scrim
+     * must never do is get lighter than the page it is covering.
+     */
+    val Scrim: Color = Color.Black.copy(alpha = 0.62f)
+
     /** The amber the app is named for, whatever the accent happens to be. */
     val Brand = Color(0xFFFFA726)
 }
