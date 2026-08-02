@@ -30,6 +30,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
+import com.blazify.desktop.data.Downloads
+import com.blazify.desktop.data.Library
+import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.clip
 import com.blazify.desktop.PlayerState
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +63,29 @@ import com.blazify.desktop.data.Track
  * version. It scrolls to whatever is playing when you open it — with a hundred
  * tracks loaded, opening at the top would be useless.
  */
+/**
+ * A way of looking at a queue, rather than a different queue.
+ *
+ * YouTube's own chips ask its server for a different mix; these can't, because
+ * nobody hands us one. What they can do is sort the queue you already have into
+ * the questions people actually ask of it — what do I know, what is new, what
+ * did I already keep — every one of which is answerable from what's on this
+ * machine. Naming them after something we cannot tell (a mood, a chart
+ * position) would be five buttons that shuffle the list and mean nothing.
+ */
+private enum class Lens(val label: String, val keep: (Track, Int, Int) -> Boolean) {
+    All("All", { _, _, _ -> true }),
+    UpNext("Up next", { _, at, current -> at > current }),
+    Familiar("Familiar", { track, _, _ ->
+        Library.history.any { it.id == track.id } || Library.isLiked(track.id)
+    }),
+    Discover("Discover", { track, _, _ ->
+        Library.history.none { it.id == track.id } && !Library.isLiked(track.id)
+    }),
+    Liked("Liked", { track, _, _ -> Library.isLiked(track.id) }),
+    Offline("Offline", { track, _, _ -> Downloads.has(track.id) }),
+}
+
 @Composable
 fun QueuePanel(
     queue: List<Track>,
@@ -60,6 +95,14 @@ fun QueuePanel(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
+    var lens by remember { mutableStateOf(Lens.All) }
+
+    // Kept as (position, track) so a filtered row still knows where it lives in
+    // the real queue — jumping to "the third familiar one" has to mean jumping
+    // to song nineteen, not to song three.
+    val shown = remember(queue, current, lens) {
+        queue.withIndex().filter { (at, track) -> lens.keep(track, at, current) }
+    }
 
     LaunchedEffect(current, queue.size) {
         if (current in queue.indices) {
@@ -114,6 +157,11 @@ fun QueuePanel(
             }
         }
 
+        // Sideways, and the wheel does it: a row of chips with a scrollbar
+        // under it is two controls for one gesture, and nobody drags a
+        // horizontal bar when the wheel is already under their hand.
+        LensStrip(lens) { lens = it }
+
         if (queue.isEmpty()) {
             Text("Nothing queued yet", color = Blz.dim, fontSize = 12.sp)
             return@Column
@@ -128,16 +176,83 @@ fun QueuePanel(
             state = listState,
             verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
-            itemsIndexed(queue, key = { i, t -> "$i-${t.id}" }) { i, track ->
+            if (shown.isEmpty()) {
+                item {
+                    Text(
+                        "Nothing in this queue matches ${lens.label.lowercase()}.",
+                        color = Blz.dim, fontSize = 12.sp,
+                        modifier = Modifier.padding(vertical = 10.dp),
+                    )
+                }
+            }
+            items(shown, key = { (at, track) -> "$at-${track.id}" }) { (at, track) ->
                 QueueRow(
                     track = track,
-                    playing = i == current,
-                    upcoming = i > current,
-                    onJump = { onJump(i) },
-                    onRemove = { onRemove(i) },
+                    playing = at == current,
+                    upcoming = at > current,
+                    onJump = { onJump(at) },
+                    onRemove = { onRemove(at) },
                 )
             }
         }
+    }
+}
+
+/**
+ * The chips, scrolled by the wheel.
+ *
+ * A vertical wheel turn moves this sideways, because on a strip this shape
+ * that is the only wheel anyone has — and a horizontal scrollbar drawn under
+ * six words would be taller than the words.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun LensStrip(current: Lens, onPick: (Lens) -> Unit) {
+    val state = rememberScrollState()
+    val scope = rememberCoroutineScope()
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .onPointerEvent(PointerEventType.Scroll) { event ->
+                val turned = event.changes.firstOrNull()?.scrollDelta ?: return@onPointerEvent
+                val by = if (turned.x != 0f) turned.x else turned.y
+                scope.launch { state.scrollBy(by * 64f) }
+            }
+            .horizontalScroll(state),
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Lens.entries.forEach { option ->
+            val on = option == current
+            val (source, hovered) = rememberHovered()
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .then(
+                        if (on) {
+                            Modifier.background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)))
+                        } else {
+                            Modifier.background(Blz.surfaceHigh)
+                        },
+                    )
+                    .then(
+                        if (on) Modifier.hoverGlow(hovered, source)
+                        else Modifier.hoverBackground(Blz.hover, hovered, source),
+                    )
+                    .clickable { onPick(option) }
+                    .padding(horizontal = 13.dp, vertical = 6.dp),
+            ) {
+                Text(
+                    option.label,
+                    color = if (on) Blaze.OnAmber else Blz.muted,
+                    fontSize = 12.sp,
+                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1,
+                )
+            }
+        }
+        // So the last chip can be scrolled clear of the panel's edge.
+        Box(Modifier.size(8.dp))
     }
 }
 
@@ -191,19 +306,14 @@ private fun QueueRow(
             )
         }
 
-        // The length, until the pointer arrives — then the way to drop it.
-        // One column, so nothing shifts sideways when a row is hovered.
+        // The length, until the pointer arrives — then everything you can do
+        // to the song. One column, so nothing shifts sideways on hover, and
+        // the same menu as every other list: what you can do with a song
+        // shouldn't depend on which screen you found it on. Removing it from
+        // here is in there too, which is why there's no separate cross.
         Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
             if (hovered.value) {
-                Icon(
-                    Icons.Rounded.Close, "Remove",
-                    Modifier
-                        .size(24.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .clickable(onClick = onRemove)
-                        .padding(4.dp),
-                    tint = Blz.ink,
-                )
+                SongSheetButton(track, hovered = true, onRemove = onRemove)
             } else {
                 Text(track.duration, color = Blz.dim, fontSize = 11.5.sp)
             }
