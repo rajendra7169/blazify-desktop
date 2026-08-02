@@ -183,6 +183,28 @@ object PlayerState {
         index = 0
     }
 
+    /**
+     * Put a song straight after the one playing.
+     *
+     * Anything already in the queue is moved rather than duplicated — asking
+     * for a song next when it's further down the list means "sooner", not
+     * "twice".
+     */
+    fun playNext(track: Track) {
+        if (queue.isEmpty()) { play(listOf(track)); return }
+        val without = queue.filterNot { it.id == track.id }
+        val at = without.indexOf(current).coerceAtLeast(0)
+        queue = without.toMutableList().also { it.add(at + 1, track) }
+        index = at
+    }
+
+    /** Put a song at the end of the queue. */
+    fun addToQueue(track: Track) {
+        if (queue.isEmpty()) { play(listOf(track)); return }
+        if (queue.any { it.id == track.id }) return
+        queue = queue + track
+    }
+
     fun toggle() {
         if (current == null) return
         // Nothing loaded yet — the first press should start it, not toggle silence.
