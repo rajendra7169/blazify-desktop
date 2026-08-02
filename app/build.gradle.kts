@@ -1,4 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.net.URI
+import java.util.zip.ZipFile
 
 
 plugins {
@@ -39,6 +41,10 @@ compose.desktop {
             targetFormats(TargetFormat.Deb, TargetFormat.AppImage, TargetFormat.Msi, TargetFormat.Exe)
             packageName = "Blazify"
             packageVersion = "1.0.0"
+
+            // Files copied in beside the application. The Windows folder holds
+            // the audio library, so a Windows install needs nothing else.
+            appResourcesRootDir.set(layout.projectDirectory.dir("resources"))
             description = "A music player"
             vendor = "Rajendra Pandey"
             copyright = "Blazify Project (C) 2026"
@@ -64,6 +70,82 @@ compose.desktop {
     }
 }
 
+
+/**
+ * Fetch the audio library for Windows and put it beside the application.
+ *
+ * Linux installs declare a dependency and the package manager handles it.
+ * Windows has no such mechanism, so the alternative is telling every person who
+ * downloads this to go and install a media player first — which is not an
+ * answer. The library is redistributable and licensed compatibly, so it travels
+ * with the application instead.
+ *
+ * Only the parts that decode and play audio are kept. The full download carries
+ * video decoders, subtitle renderers and interface skins that a music player
+ * will never open, and they are most of its size.
+ */
+val fetchWindowsAudio by tasks.registering {
+    val version = "3.0.21"
+    val into = layout.projectDirectory.dir("resources/windows/vlc").asFile
+    val cache = layout.buildDirectory.file("vlc-$version-win64.zip").get().asFile
+
+    outputs.dir(into)
+    onlyIf { !File(into, "libvlc.dll").exists() }
+
+    doLast {
+        into.mkdirs()
+        if (!cache.exists() || cache.length() < 1_000_000) {
+            cache.parentFile.mkdirs()
+            println("fetching the Windows audio library once (~78 MB)")
+            URI("https://get.videolan.org/vlc/$version/win64/vlc-$version-win64.zip")
+                .toURL().openStream().use { input ->
+                    cache.outputStream().use { output -> input.copyTo(output) }
+                }
+        }
+
+        // Everything a music player reaches for, and nothing it doesn't.
+        val wanted = setOf("access", "audio_filter", "audio_output", "codec", "demux", "misc", "stream_filter")
+
+        // Video encoders, subtitle renderers, screen capture and remote-desktop
+        // protocols all ship in those same folders and are most of their size.
+        // A music player will never open one.
+        val unwanted = listOf(
+            "x264", "x265", "vpx", "theora", "daala", "schroedinger", "libass",
+            "subsdec", "subsusf", "svcdsub", "cvdsub", "dvbsub", "substx3g", "scte",
+            "png", "jpeg", "svg", "bpg", "sdl_image", "zvbi",
+            "vnc", "rdp", "screen", "dshow", "decklink", "v4l", "dc1394", "dv1394",
+            "srt", "rist", "satip", "shm", "vcd", "dvdnav", "dvdread", "bluray",
+            "mkv", "avi", "asf", "ogg", "ts_", "libts", "mjpeg", "rawvid", "y4m",
+        )
+
+        ZipFile(cache).use { zip ->
+            zip.entries().asSequence().forEach { entry ->
+                if (entry.isDirectory) return@forEach
+                val path = entry.name.substringAfter("vlc-$version/", "")
+                val keep = when {
+                    path == "libvlc.dll" || path == "libvlccore.dll" -> path
+                    path.startsWith("plugins/") -> {
+                        val group = path.removePrefix("plugins/").substringBefore('/')
+                        val file = path.substringAfterLast('/')
+                        if (group in wanted && unwanted.none { it in file }) path else null
+                    }
+                    else -> null
+                } ?: return@forEach
+
+                val target = File(into, keep)
+                target.parentFile.mkdirs()
+                zip.getInputStream(entry).use { input ->
+                    target.outputStream().use { output -> input.copyTo(output) }
+                }
+            }
+        }
+        val size = into.walkTopDown().filter { it.isFile }.sumOf { it.length() } / 1_000_000
+        println("bundled the audio library for Windows (${size} MB)")
+    }
+}
+
+tasks.matching { it.name in setOf("packageMsi", "packageExe", "createDistributable") }
+    .configureEach { dependsOn(fetchWindowsAudio) }
 
 /**
  * Declare what the finished package needs but doesn't link against.

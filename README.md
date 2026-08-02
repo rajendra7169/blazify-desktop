@@ -32,6 +32,9 @@ Run `Blazify-1.0.0.msi`. It offers a folder to install into, adds a Start menu
 entry and a desktop shortcut, and needs no administrator password. Installing a
 newer version upgrades the old one rather than sitting alongside it.
 
+Nothing else is needed — the audio library travels inside the package, so it
+plays as soon as it opens.
+
 ## Building
 
 Needs JDK 21. Everything else the wrapper fetches.
@@ -44,8 +47,14 @@ Needs JDK 21. Everything else the wrapper fetches.
 ./gradlew :app:packageExe           # .exe   (build on Windows)
 ```
 
-Each installer bundles a runtime, so it is built on the platform it targets —
-there is no cross-building.
+Each installer carries its own Java runtime, so it is built on the platform it
+targets — there is no cross-building. On Windows that means a machine with JDK
+21 and the WiX Toolset, which is what the packager uses to assemble an
+installer.
+
+The first Windows package also fetches the audio library (about 78 MB, once)
+and keeps the part a music player uses. Linux packages declare a dependency
+instead, so a shared copy is used and nothing is bundled.
 
 ## Keyboard
 

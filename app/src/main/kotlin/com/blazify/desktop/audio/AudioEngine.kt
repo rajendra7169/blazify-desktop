@@ -78,7 +78,37 @@ object AudioEngine {
      * startup would slow the window down for someone who never presses play.
      */
     private val component: AudioPlayerComponent by lazy {
+        useBundledLibrary()
         AudioPlayerComponent().also { it.mediaPlayer().events().addMediaPlayerEventListener(Listener) }
+    }
+
+    /**
+     * Point the player at the copy that travels with the application.
+     *
+     * Only Windows carries one — a Linux package declares a dependency and the
+     * package manager puts a shared copy where it belongs, which is both
+     * smaller and more correct. Windows has no such mechanism, so the library
+     * ships inside the application and is found here.
+     *
+     * Silent when there's nothing bundled: running from source, or on a system
+     * that has its own, the ordinary search finds it.
+     */
+    private fun useBundledLibrary() {
+        runCatching {
+            val root = System.getProperty("compose.application.resources.dir") ?: return
+            val folder = java.io.File(root, "vlc")
+            if (!java.io.File(folder, "libvlc.dll").exists()) return
+
+            com.sun.jna.NativeLibrary.addSearchPath("libvlc", folder.absolutePath)
+            System.setProperty("jna.library.path", folder.absolutePath)
+
+            // The decoders sit in a folder beside the library, and the library
+            // is told where by the environment rather than by an argument.
+            com.sun.jna.platform.win32.Kernel32.INSTANCE.SetEnvironmentVariable(
+                "VLC_PLUGIN_PATH",
+                java.io.File(folder, "plugins").absolutePath,
+            )
+        }
     }
 
     private val player: MediaPlayer get() = component.mediaPlayer()
