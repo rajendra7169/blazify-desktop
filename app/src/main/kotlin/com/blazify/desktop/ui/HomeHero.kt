@@ -83,12 +83,17 @@ fun HomeHero(
         // greeting, and a greeting that pushes the music off the screen has
         // its priorities the wrong way round. Bounded at both ends so it can't
         // become a stripe on a wide window or a wall on a narrow one.
-        val height = (pane * 0.17f).coerceIn(178.dp, 236.dp)
+        val height = (pane * 0.185f).coerceIn(196.dp, 268.dp)
 
         Box(
             Modifier
                 .offset(x = -bleed)
-                .width(pane + bleed * 2)
+                // Over-extended on purpose. Reaching exactly as far as the
+                // margin left the hero a margin short on the right, which read
+                // as a dark gap; the list clips whatever spills past, so asking
+                // for more than the window has costs nothing and guarantees the
+                // picture meets the edge.
+                .width(pane + bleed * 4)
                 .height(height),
         ) {
             // The picture goes down first and everything else is laid over the
@@ -96,49 +101,45 @@ fun HomeHero(
             // colour while a wash sat behind it at a different colour was what
             // put a seam down the middle: two gradients meeting at an edge
             // instead of one continuous surface.
-            // The right-hand side: the name across the top, the crowd along
-            // the bottom underneath it. Starting after the buttons so nothing
-            // reads across the words on the left.
-            Box(
-                Modifier
-                    .align(Alignment.CenterEnd)
-                    .width(pane * 0.62f)
-                    .fillMaxHeight(),
-            ) {
-                Text(
-                    "Blazify",
-                    color = Blz.ink.copy(alpha = if (dark) 0.07f else 0.05f),
-                    fontSize = (pane.value * 0.075f).coerceIn(64f, 132f).sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-3).sp,
-                    maxLines = 1,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp),
-                )
+            // The name straight across, edge to edge, at a size that stops
+            // being a word and becomes the surface the rest of it sits on.
+            Text(
+                "Blazify",
+                color = Blz.ink.copy(alpha = if (dark) 0.075f else 0.055f),
+                fontSize = (pane.value * 0.155f).sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-6).sp,
+                maxLines = 1,
+                modifier = Modifier.align(Alignment.Center),
+            )
 
-                hero?.let { picture ->
-                    val wide = pane * 0.62f
-                    val tall = wide * (picture.height.toFloat() / picture.width)
+            hero?.let { picture ->
+                // Full width at its own proportions. That makes it taller than
+                // the hero, which is the point — the crowd is cut off at the
+                // knees rather than shrunk to fit, so the figures stay the size
+                // they want to be and the list clips the rest.
+                val wide = pane + bleed * 4
+                val tall = wide * (picture.height.toFloat() / picture.width)
 
-                    Canvas(
-                        Modifier
-                            .align(Alignment.BottomEnd)
-                            .width(wide)
-                            .height(tall),
-                    ) {
-                        // The picture is cut out on black. Painted normally
-                        // that black is a rectangle sitting on the page; added
-                        // to what's underneath instead, black contributes
-                        // nothing at all and only the figures land — no edge,
-                        // nothing to hide, and it works on any background the
-                        // artwork happens to have tinted the window.
-                        drawImage(
-                            image = picture,
-                            dstOffset = IntOffset.Zero,
-                            dstSize = IntSize(size.width.toInt(), size.height.toInt()),
-                            alpha = if (dark) 0.95f else 0.8f,
-                            blendMode = BlendMode.Screen,
-                        )
-                    }
+                Canvas(
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .fillMaxWidth()
+                        .height(tall),
+                ) {
+                    // The picture is cut out on black. Painted normally that
+                    // black is a rectangle sitting on the page; added to what's
+                    // underneath instead, black contributes nothing at all and
+                    // only the figures land — no edge, nothing to hide, and it
+                    // works on whatever colour the artwork has tinted the
+                    // window.
+                    drawImage(
+                        image = picture,
+                        dstOffset = IntOffset.Zero,
+                        dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+                        alpha = if (dark) 0.95f else 0.8f,
+                        blendMode = BlendMode.Screen,
+                    )
                 }
             }
 
@@ -148,8 +149,8 @@ fun HomeHero(
                 Modifier.matchParentSize().background(
                     Brush.horizontalGradient(
                         0f to Blz.page,
-                        0.46f to Blz.page,
-                        0.68f to Blz.page.copy(alpha = 0.55f),
+                        0.34f to Blz.page,
+                        0.58f to Blz.page.copy(alpha = 0.45f),
                         1f to Color.Transparent,
                     ),
                 ),
