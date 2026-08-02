@@ -1,17 +1,8 @@
 package com.blazify.desktop.data
 
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
-import io.ktor.client.request.get
-import io.ktor.client.request.parameter
-import io.ktor.client.statement.bodyAsText
+import com.blazify.desktop.ui.Look
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Blazify Project (C) 2026
@@ -55,102 +46,91 @@ data class Lyrics(
 /**
  * Where the words come from.
  *
- * A public lyrics service, matched on title, artist and length. Length is what
- * separates a studio cut from a live take of the same song, so it's sent when
- * we know it — the match is noticeably better with it than without.
+ * Several services, asked in the order you set, stopping at the first that
+ * answers. A timed transcript is what everyone actually wants, so a source that
+ * returns one ends the search — but a source returning only flat text does not:
+ * the plain copy is held and the list carries on, in case something further
+ * down has it with timings. Better a slower answer than a page that can't
+ * follow the song.
  *
  * Results are held for the session. Looking the same song up twice in one
- * sitting is common (skip back, reopen the panel) and none of it changes
+ * sitting is common — skip back, reopen the panel — and none of it changes
  * between one look and the next.
  */
 object LyricsSource {
 
-    private val client by lazy { HttpClient(OkHttp) }
-    private val json = Json { ignoreUnknownKeys = true }
     private val cache = mutableMapOf<String, Lyrics>()
 
+    /** Which source answered for the song now showing, for the panel to name. */
+    var attribution: String? = null
+        private set
+
+    /** Forget one song, so the next look asks again. */
+    fun forget(id: String) {
+        cache.remove(id)
+    }
+
     suspend fun of(track: Track): Lyrics = withContext(Dispatchers.IO) {
-        cache[track.id]?.let { return@withContext it }
-
-        val title = track.title.cleaned()
-        val artist = track.artist.substringBefore(",").trim()
-
-        val found = try {
-            // Asking by length is the accurate route, but it's an exact match:
-            // a couple of seconds out and there's simply no answer. Searching
-            // afterwards costs one more request and catches everything the
-            // catalogue timed slightly differently.
-            exact(title, artist, track.durationSeconds)
-                ?: search(title, artist, track.durationSeconds)
-                ?: Lyrics()
-        } catch (_: Exception) {
-            // No words is an ordinary outcome, not a failure worth reporting.
-            Lyrics()
+        cache[track.id]?.let {
+            attribution = null
+            return@withContext it
         }
 
+        var flat: Lyrics? = null
+        var flatFrom: String? = null
+        var found = Lyrics()
+        var from: String? = null
+
+        for (provider in Look.lyricsChain()) {
+            // No words is an ordinary outcome, not a failure worth reporting —
+            // and one source throwing must never stop the rest being asked.
+            val raw = runCatching { provider.find(track) }.getOrNull()
+            if (raw.isNullOrBlank()) continue
+
+            val parsed = read(raw)
+            if (parsed.synced) {
+                found = parsed
+                from = provider.name
+                break
+            }
+            if (flat == null && !parsed.plain.isNullOrBlank()) {
+                flat = parsed
+                flatFrom = provider.name
+            }
+        }
+
+        if (!found.synced && flat != null) {
+            found = flat
+            from = flatFrom
+        }
+
+        attribution = from
         cache[track.id] = found
         found
     }
 
-    private suspend fun exact(title: String, artist: String, seconds: Int?): Lyrics? {
-        val body = client.get("https://lrclib.net/api/get") {
-            parameter("track_name", title)
-            parameter("artist_name", artist)
-            seconds?.let { parameter("duration", it) }
-        }.bodyAsText()
-        return json.parseToJsonElement(body).jsonObject.toLyrics()
-    }
-
     /**
-     * The nearest match by name, preferring one that runs about as long.
+     * Read whatever a source handed back.
      *
-     * A search turns up remasters, live cuts and covers under the same title.
-     * Length is the one thing that reliably tells them apart, so results within
-     * a few seconds of ours come first, and a timed transcript beats a flat one
-     * at the same distance.
+     * Stamped lines become a timed transcript; anything without a stamp is
+     * either a header the file carries about itself or a flat transcript, and
+     * which of the two it is depends on whether there were any stamps at all.
      */
-    private suspend fun search(title: String, artist: String, seconds: Int?): Lyrics? {
-        val body = client.get("https://lrclib.net/api/search") {
-            parameter("track_name", title)
-            parameter("artist_name", artist)
-        }.bodyAsText()
-
-        val results = json.parseToJsonElement(body) as? JsonArray ?: return null
-        return results
-            .mapNotNull { it.jsonObject }
-            .minByOrNull { entry ->
-                val length = entry["duration"]?.jsonPrimitive?.content?.toDoubleOrNull()
-                val apart = if (seconds != null && length != null) kotlin.math.abs(length - seconds) else 30.0
-                val timed = entry["syncedLyrics"]?.jsonPrimitive?.contentOrNullSafe() != null
-                apart + if (timed) 0.0 else 5.0
-            }
-            ?.toLyrics()
+    fun read(text: String): Lyrics {
+        val lines = parse(text)
+        return if (lines.isNotEmpty()) {
+            Lyrics(lines = lines, plain = null)
+        } else {
+            Lyrics(plain = text.trim().takeIf { it.isNotBlank() })
+        }
     }
-
-    private fun JsonObject.toLyrics(): Lyrics? {
-        val timed = this["syncedLyrics"]?.jsonPrimitive?.contentOrNullSafe()
-        val flat = this["plainLyrics"]?.jsonPrimitive?.contentOrNullSafe()
-        if (timed == null && flat == null) return null
-        return Lyrics(lines = timed?.let(::parse).orEmpty(), plain = flat)
-    }
-
-    /**
-     * Strip the decoration catalogues hang off titles.
-     *
-     * "Kesariya (From "Brahmastra")" won't match anything; "Kesariya" will.
-     */
-    private fun String.cleaned() = replace(Regex("\\s*[\\(\\[][^)\\]]*[\\)\\]]"), "").trim()
-        .ifEmpty { this }
-
-    private fun kotlinx.serialization.json.JsonPrimitive.contentOrNullSafe(): String? =
-        content.takeIf { it.isNotBlank() && it != "null" }
 
     /**
      * Read a timed transcript.
      *
-     * Every line is stamped `[mm:ss.cc]`. Anything without a stamp is a header
-     * the file carries about itself, and is skipped. Empty lines are kept: a
-     * pause between verses is part of following along.
+     * Every line is stamped `[mm:ss.cc]`. Empty lines are kept: a pause between
+     * verses is part of following along. A stamp with nothing after it and no
+     * further stamps is metadata, not a lyric.
      */
     private fun parse(text: String): List<LyricLine> {
         val stamp = Regex("\\[(\\d+):(\\d+)(?:[.:](\\d+))?]")

@@ -4,6 +4,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import com.blazify.desktop.data.LyricsProvider
+import com.blazify.desktop.data.LyricsProviders
 import com.blazify.desktop.data.Romanize
 import java.util.prefs.Preferences
 
@@ -153,6 +155,81 @@ object Look {
     fun chooseLyricsLead(value: Float) {
         lyricsLead = value.coerceIn(0f, 2f)
         runCatching { store.putFloat("lyricsLead", lyricsLead) }
+    }
+
+    /**
+     * Which sources may be asked for words, and in what order.
+     *
+     * Both are kept as names rather than positions so that adding a source
+     * later doesn't quietly reshuffle the list someone arranged, and a name no
+     * longer known is dropped on the way out instead of leaving a hole.
+     */
+    var lyricsSources by mutableStateOf(
+        store.get("lyricsSources", LyricsProviders.all.joinToString(",") { it.name })
+            .split(",").filter { it.isNotBlank() }.toSet(),
+    )
+        private set
+
+    var lyricsOrder by mutableStateOf(
+        store.get("lyricsOrder", LyricsProviders.all.joinToString(",") { it.name })
+            .split(",").filter { it.isNotBlank() },
+    )
+        private set
+
+    fun chooseLyricsSources(value: Set<String>) {
+        lyricsSources = value
+        put("lyricsSources", value.joinToString(","))
+    }
+
+    fun chooseLyricsOrder(value: List<String>) {
+        lyricsOrder = value
+        put("lyricsOrder", value.joinToString(","))
+    }
+
+    /**
+     * The sources to ask, in order.
+     *
+     * Anything the saved order doesn't mention goes on the end rather than
+     * being lost — that is what makes a new source appear for people who
+     * arranged the list before it existed.
+     */
+    fun lyricsChain(): List<LyricsProvider> {
+        val known = LyricsProviders.all
+        val ordered = lyricsOrder.mapNotNull { name -> known.firstOrNull { it.name == name } }
+        return (ordered + known.filterNot { it in ordered }).filter { it.name in lyricsSources }
+    }
+
+    /** Whether clicking a line jumps playback to it. */
+    var lyricsTap by mutableStateOf(store.getBoolean("lyricsTap", true))
+        private set
+
+    fun chooseLyricsTap(value: Boolean) {
+        lyricsTap = value
+        runCatching { store.putBoolean("lyricsTap", value) }
+    }
+
+    /**
+     * How much of a lift the line being sung gets over the rest.
+     *
+     * A multiplier on the line height rather than a gap in points, so the sheet
+     * keeps its proportions when the type is made larger — which is the whole
+     * reason someone made it larger.
+     */
+    var lyricsLineHeight by mutableStateOf(store.getFloat("lyricsLineHeight", 1.5f))
+        private set
+
+    fun chooseLyricsLineHeight(value: Float) {
+        lyricsLineHeight = value.coerceIn(1.0f, 3.0f)
+        runCatching { store.putFloat("lyricsLineHeight", lyricsLineHeight) }
+    }
+
+    /** Point size of the words, so the sheet can be read from across a room. */
+    var lyricsPoints by mutableStateOf(store.getFloat("lyricsPoints", 17f))
+        private set
+
+    fun chooseLyricsPoints(value: Float) {
+        lyricsPoints = value.coerceIn(12f, 48f)
+        runCatching { store.putFloat("lyricsPoints", lyricsPoints) }
     }
 
     /** Whether the words follow along on their own. */
