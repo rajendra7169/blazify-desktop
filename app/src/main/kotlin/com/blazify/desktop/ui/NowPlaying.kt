@@ -152,7 +152,12 @@ fun NowPlayingScreen(
     // A wash of the accent behind the artwork, or the plain page, or true
     // black. The gradient is bottom-heavy so the controls sit on colour and
     // the cover sits on something closer to the page it came from.
-    val background: Modifier = when (if (Look.playerTheme == PlayerTheme.FullArt) PlayerBackground.FollowTheme else Look.playerBackground) {
+    // Full art brings its own ground — the cover itself — so the column above
+    // it gets no background at all. Painting the page colour over the backdrop
+    // is exactly why the artwork wasn't showing.
+    val background: Modifier = if (Look.playerTheme == PlayerTheme.FullArt) {
+        Modifier
+    } else when (Look.playerBackground) {
         PlayerBackground.FollowTheme -> Modifier.background(Blz.page)
         PlayerBackground.PureBlack -> Modifier.background(Color.Black)
         PlayerBackground.Gradient -> Modifier.background(
@@ -180,10 +185,11 @@ fun NowPlayingScreen(
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
-                    0f to Blz.page.copy(alpha = 0.30f),
-                    0.42f to Blz.page.copy(alpha = 0.42f),
-                    0.72f to Blz.page.copy(alpha = 0.80f),
-                    1f to Blz.page.copy(alpha = 0.94f),
+                    0f to Color.Black.copy(alpha = 0.40f),
+                    0.35f to Color.Transparent,
+                    0.60f to Color.Black.copy(alpha = 0.55f),
+                    0.80f to Color.Black.copy(alpha = 0.80f),
+                    1f to Color.Black.copy(alpha = 0.95f),
                 ),
             ),
         )
@@ -269,6 +275,7 @@ fun NowPlayingScreen(
                     side = 340.dp,
                     playing = PlayerState.playing,
                     progress = PlayerState.progress,
+                    onSeek = PlayerState::seek,
                 )
             } else {
                 Box(Modifier.size(1.dp, 200.dp))

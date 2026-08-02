@@ -59,6 +59,7 @@ fun PlayerStage(
     playing: Boolean,
     progress: Float,
     modifier: Modifier = Modifier,
+    onSeek: ((Float) -> Unit)? = null,
 ) {
     // The cassette is a landscape object and the rest are square, so the stage
     // takes the width it is given and only fixes the height for the ones that
@@ -73,7 +74,20 @@ fun PlayerStage(
             PlayerTheme.Classic, PlayerTheme.FullArt ->
                 Artwork(artwork, size = side, corner = 20.dp)
 
-            PlayerTheme.Ring -> Ring(artwork, side, progress)
+            // The ring is the progress bar, not a picture of one: drag or tap
+            // anywhere round it to scrub. That is the whole reason to wrap the
+            // artwork in it rather than draw a line underneath.
+            PlayerTheme.Ring -> SeekableAlbumRing(
+                thumbnailUrl = artwork,
+                progress = progress,
+                ringColor = Blaze.Amber,
+                trackColor = Blz.surfaceHigh,
+                onSeek = { onSeek?.invoke(it) },
+                ringStrokeDp = (side.value * 0.028f).coerceIn(6f, 14f),
+                artPaddingDp = (side.value * 0.055f).coerceIn(10f, 26f),
+                thumbColor = Blaze.Ember,
+                modifier = Modifier.size(side),
+            )
 
             // The turntable and the tape are drawn entirely in Canvas, in their
             // own files, at whatever size they are given — the stage only has
@@ -96,46 +110,3 @@ fun PlayerStage(
     }
 }
 
-/**
- * Round, with the song drawn around it.
- *
- * The progress is the frame rather than a bar somewhere else, which means one
- * glance answers both "what is this" and "how far in am I". The track behind it
- * stays visible so the ring reads as filling rather than growing out of
- * nothing.
- */
-@Composable
-private fun Ring(artwork: String?, side: Dp, progress: Float) {
-    val swept by animateFloatAsState(progress.coerceIn(0f, 1f), tween(240), label = "ring")
-    val amber = Blaze.Amber
-    val ember = Blaze.Ember
-    val track = Blz.surfaceHigh
-
-    Box(Modifier.size(side), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize()) {
-            val stroke = size.minDimension * 0.035f
-            val inset = stroke / 2f
-            drawArc(
-                color = track,
-                startAngle = -90f,
-                sweepAngle = 360f,
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke),
-                style = Stroke(width = stroke, cap = StrokeCap.Round),
-            )
-            if (swept > 0f) {
-                drawArc(
-                    brush = Brush.sweepGradient(listOf(amber, ember, amber)),
-                    startAngle = -90f,
-                    sweepAngle = 360f * swept,
-                    useCenter = false,
-                    topLeft = Offset(inset, inset),
-                    size = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke),
-                    style = Stroke(width = stroke, cap = StrokeCap.Round),
-                )
-            }
-        }
-        Artwork(artwork, size = side * 0.86f, corner = side * 0.43f)
-    }
-}
