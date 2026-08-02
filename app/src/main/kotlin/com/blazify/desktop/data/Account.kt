@@ -56,11 +56,20 @@ object Account {
 
     val signedIn: Boolean get() = !cookie.isNullOrBlank()
 
-    init {
-        // Read straight back in, so a restart doesn't sign you out.
-        runCatching { if (store.exists()) store.readText().trim().ifBlank { null } }
+    /**
+     * Put the stored session back on the client.
+     *
+     * Called once at startup rather than left to happen on first use: the very
+     * first fetch decides whether the feed is yours or everybody's, and by then
+     * it is too late to sign in.
+     */
+    fun restore() {
+        runCatching { store.takeIf { it.exists() }?.readText()?.trim()?.ifBlank { null } }
             .getOrNull()
-            ?.let { apply(it) }
+            ?.let {
+                attach(it)
+                refresh()
+            }
     }
 
     /**
@@ -82,7 +91,7 @@ object Account {
             return
         }
 
-        apply(cleaned)
+        attach(cleaned)
         runCatching { store.writeText(cleaned) }
         refresh()
     }
@@ -120,7 +129,7 @@ object Account {
         }
     }
 
-    private fun apply(value: String) {
+    private fun attach(value: String) {
         cookie = value
         YouTube.cookie = value
     }

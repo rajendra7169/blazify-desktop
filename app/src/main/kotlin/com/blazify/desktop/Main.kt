@@ -21,6 +21,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.blazify.desktop.data.Account
 import com.blazify.desktop.ui.AppShell
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.BlazifyTheme
@@ -47,7 +48,13 @@ private class Tinted(private val inner: Painter, private val colour: androidx.co
     }
 }
 
-fun main() = application {
+fun main() {
+    // Before the window, so the very first fetch already knows whose it is.
+    Account.restore()
+    run()
+}
+
+private fun run() = application {
     val state = rememberWindowState(
         // Wide enough for the rail, the content and the queue panel side by side,
         // which is the layout the whole app is built around.
