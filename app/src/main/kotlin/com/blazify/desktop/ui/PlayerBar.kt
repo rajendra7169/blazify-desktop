@@ -98,6 +98,7 @@ fun PlayerBar(
     onToggleQueue: () -> Unit,
     onOpenTimer: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    onExpand: () -> Unit,
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
     shuffling: Boolean,
@@ -118,7 +119,9 @@ fun PlayerBar(
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.weight(1f)) { NowPlayingCell(now, onToggleLike, onKeep, onAddToPlaylist) }
+        Box(Modifier.weight(1f)) {
+            NowPlayingCell(now, onToggleLike, onKeep, onAddToPlaylist, onExpand)
+        }
 
         // Weighted rather than fixed, so the bar you drag grows with the
         // window instead of stranding it at one width on a wide screen. The
@@ -167,20 +170,34 @@ private fun NowPlayingCell(
     onToggleLike: () -> Unit,
     onKeep: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    onExpand: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-        Artwork(now?.artwork, size = 44.dp, corner = 7.dp)
-        Column(Modifier.widthIn(max = 220.dp)) {
-            Text(
-                now?.title ?: "Nothing playing",
-                color = Blz.ink, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                now?.artist.orEmpty(),
-                color = Blz.muted, fontSize = 11.5.sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        // The artwork and the title are the way into the full view — clicking
+        // what's playing to see it bigger needs no button to explain it.
+        val (source, hovered) = rememberHovered()
+        Row(
+            Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .hoverBackground(Blz.hover, hovered, source)
+                .clickable(enabled = now != null, onClick = onExpand)
+                .padding(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(11.dp),
+        ) {
+            Artwork(now?.artwork, size = 44.dp, corner = 7.dp)
+            Column(Modifier.widthIn(max = 200.dp)) {
+                Text(
+                    now?.title ?: "Nothing playing",
+                    color = Blz.ink, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    now?.artist.orEmpty(),
+                    color = Blz.muted, fontSize = 11.5.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         if (now != null) {
             TransportButton(

@@ -61,6 +61,7 @@ fun AppShell() {
     var queueOpen by remember { mutableStateOf(false) }
     var timerOpen by remember { mutableStateOf(false) }
     var addingOpen by remember { mutableStateOf(false) }
+    var full by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(Blz.page)) {
@@ -73,7 +74,17 @@ fun AppShell() {
             )
 
             Box(Modifier.weight(1f).fillMaxSize()) {
-                Content(Navigator.destination)
+                // Over the content rather than instead of it: closing the full
+                // view puts you back exactly where you were browsing.
+                if (full) {
+                    NowPlayingScreen(
+                        lyricsOpen = lyricsOpen,
+                        onToggleLyrics = { lyricsOpen = !lyricsOpen },
+                        onClose = { full = false },
+                    )
+                } else {
+                    Content(Navigator.destination)
+                }
             }
 
             AnimatedVisibility(
@@ -145,6 +156,7 @@ fun AppShell() {
             onToggleQueue = { queueOpen = !queueOpen },
             onOpenTimer = { timerOpen = true },
             onAddToPlaylist = { addingOpen = true },
+            onExpand = { full = !full },
             lyricsOpen = lyricsOpen,
             queueOpen = queueOpen,
             timerOn = SleepTimer.running,
