@@ -3,6 +3,7 @@ package com.blazify.desktop.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -299,15 +301,31 @@ private fun Synced(
     ) {
         itemsIndexed(lyrics.lines) { at, line ->
             val active = at == current
-            // The sung line takes the colour of the cover, and the rest stay
-            // grey. Brightness alone says "this one is legible"; the record's
-            // own colour says "this one is now", and it changes with the song
-            // rather than being one fixed highlight for everything.
+            val style = Look.lyricsStyle
+
+            // Plain says the line being sung is simply the legible one. The
+            // others say it is happening now — colour, size and movement all
+            // pointing at the same line, which is what makes a sheet followable
+            // out of the corner of an eye.
+            val lit = if (style == LyricsStyle.Plain) Blz.ink else Blaze.Amber
             val colour by animateColorAsState(
-                if (active) Blaze.Amber else Blz.dim, tween(180), label = "lyricInk",
+                if (active) lit else Blz.dim, tween(180), label = "lyricInk",
             )
-            val weight by animateFloatAsState(
-                if (active) 1f else 0f, tween(180), label = "lyricWeight",
+            val faded by animateFloatAsState(
+                when {
+                    active -> 1f
+                    style == LyricsStyle.Fade || style == LyricsStyle.Blaze -> 0.45f
+                    else -> 1f
+                },
+                tween(220), label = "lyricFade",
+            )
+            val grown by animateFloatAsState(
+                if (active && style != LyricsStyle.Plain && style != LyricsStyle.Fade) 1.12f else 1f,
+                tween(200), label = "lyricGrow",
+            )
+            val shifted by animateDpAsState(
+                if (active && (style == LyricsStyle.Lift || style == LyricsStyle.Blaze)) 6.dp else 0.dp,
+                tween(200), label = "lyricShift",
             )
             val (source, hovered) = rememberHovered()
 
@@ -316,23 +334,20 @@ private fun Synced(
                 // Turned into the Latin alphabet when asked, and left alone
                 // when there's nothing to turn.
                 (if (Look.romanize) Romanize.of(line.text, Look.romanized) else line.text).ifBlank { "·" },
-                color = colour,
-                // The line being sung is the whole point of the panel, so it
-                // steps up in size as well as in colour — dimming alone reads
-                // as "these are off" rather than "this one is now".
-                fontSize = (if (active) base * 1.12f else base).sp,
-                fontWeight = if (weight > 0.5f) FontWeight.Bold else FontWeight.Medium,
+                color = colour.copy(alpha = colour.alpha * faded),
+                fontSize = (base * grown).sp,
+                fontWeight = if (active && style != LyricsStyle.Plain) FontWeight.Bold else FontWeight.Medium,
                 lineHeight = (base * Look.lyricsLineHeight).sp,
                 textAlign = align,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .offset(x = shifted)
                     .clip(RoundedCornerShape(8.dp))
-                    // Off unless asked for. The line being sung is already the
-                    // brightest and largest thing on the sheet, and a panel of
-                    // words with a coloured block sliding down it is busier
-                    // than the words are worth.
+                    // The app's own mark, and only on its own style: the sung
+                    // line sits on a wash of the record's colour rather than
+                    // merely being brighter than its neighbours.
                     .then(
-                        if (active && Look.lyricsGlow) {
+                        if (active && style == LyricsStyle.Blaze) {
                             Modifier.background(
                                 Brush.horizontalGradient(
                                     listOf(
@@ -363,7 +378,7 @@ private fun Synced(
         // beside them — a permanent button for a temporary state is clutter
         // for everyone who never scrolled.
         androidx.compose.animation.AnimatedVisibility(
-            visible = !following && Look.lyricsFollow,
+            visible = !following,
             enter = fadeIn(tween(140)),
             exit = fadeOut(tween(120)),
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp),

@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -157,15 +158,15 @@ fun SettingsScreen() {
                             )
                         }
                     }
-                    item { LookAndFeelSection { title, content -> Section(title) { content() } } }
+                    item { LookAndFeelSection { title, reset, content -> Section(title, reset) { content() } } }
                 }
 
                 SettingsPage.PlayerAudio -> {
-                    item { EqualiserSection { title, content -> Section(title) { content() } } }
+                    item { EqualiserSection { title, reset, content -> Section(title, reset) { content() } } }
                 }
 
                 SettingsPage.Lyrics -> item {
-                    LyricsSettingsSection { title, content -> Section(title) { content() } }
+                    LyricsSettingsSection { title, reset, content -> Section(title, reset) { content() } }
                 }
 
                 SettingsPage.Content -> item {
@@ -424,13 +425,32 @@ private fun openInBrowser(url: String) {
     runCatching { ProcessBuilder("xdg-open", url).start() }
 }
 
+/**
+ * One group of settings under its heading.
+ *
+ * The heading carries its own way back to the defaults when the group has one.
+ * A single button at the bottom of the page can only mean "undo everything",
+ * which is why nobody presses it — the useful question is "put this bit back",
+ * and that has to be asked next to the bit.
+ */
 @Composable
-private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
+private fun Section(
+    title: String,
+    onReset: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            title.uppercase(), color = Blz.dim, fontSize = 11.sp,
-            fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp,
-        )
+        Row(
+            Modifier.fillMaxWidth().widthIn(max = 760.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                title.uppercase(), color = Blz.dim, fontSize = 11.sp,
+                fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp,
+                modifier = Modifier.weight(1f),
+            )
+            onReset?.let { ResetHeadingButton(it) }
+        }
         Column(
             Modifier
                 .fillMaxWidth()
@@ -440,6 +460,30 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
+        )
+    }
+}
+
+/**
+ * Put this group back.
+ *
+ * Faint until pointed at, because it is the one control on the page that undoes
+ * work rather than doing any — it should be findable, not prominent.
+ */
+@Composable
+private fun ResetHeadingButton(onClick: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Box(
+        Modifier
+            .size(26.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Rounded.Restore, "Back to defaults", Modifier.size(15.dp),
+            tint = if (hovered.value) Blz.ink else Blz.dim.copy(alpha = 0.45f),
         )
     }
 }

@@ -54,10 +54,12 @@ import com.blazify.desktop.ui.rememberHovered
  * in — hertz below a thousand, kilohertz above.
  */
 @Composable
-fun EqualiserSection(section: @Composable (String, @Composable () -> Unit) -> Unit) {
+fun EqualiserSection(
+    section: @Composable (String, (() -> Unit)?, @Composable () -> Unit) -> Unit,
+) {
     LaunchedEffect(Unit) { Equaliser.load() }
 
-    section("Equaliser") {
+    section("Equaliser", Equaliser::flatten) {
         if (Equaliser.bands.isEmpty()) {
             Text(
                 "The audio library didn't offer an equaliser on this machine",

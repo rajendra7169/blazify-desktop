@@ -40,6 +40,7 @@ import com.blazify.desktop.ui.Destination
 import com.blazify.desktop.ui.GridSize
 import com.blazify.desktop.ui.Look
 import com.blazify.desktop.ui.LyricsAlign
+import com.blazify.desktop.ui.LyricsStyle
 import com.blazify.desktop.ui.PlayerBackground
 import com.blazify.desktop.ui.ScrubBar
 import com.blazify.desktop.ui.SliderStyle
@@ -64,8 +65,10 @@ import kotlin.math.roundToInt
  * touch again.
  */
 @Composable
-fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> Unit) {
-    section("Accent") {
+fun LookAndFeelSection(
+    section: @Composable (String, (() -> Unit)?, @Composable () -> Unit) -> Unit,
+) {
+    section("Accent", Look::resetAccent) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Accent.offered.forEach { accent ->
@@ -99,7 +102,7 @@ fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> 
         }
     }
 
-    section("The bar you drag") {
+    section("The bar you drag", Look::resetSlider) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Choices(
                 SliderStyle.entries.map { it.label },
@@ -112,7 +115,7 @@ fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> 
         }
     }
 
-    section("The full player") {
+    section("The full player", Look::resetPlayer) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Choices(
                 PlayerBackground.entries.map { it.label },
@@ -124,7 +127,7 @@ fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> 
         }
     }
 
-    section("Shelves") {
+    section("Shelves", Look::resetShelves) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Choices(
                 GridSize.entries.map { it.label },
@@ -134,7 +137,7 @@ fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> 
         }
     }
 
-    section("When it opens") {
+    section("When it opens", Look::resetOpening) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Choices(
                 listOf(Destination.Home, Destination.Explore, Destination.Library).map { it.label },
@@ -144,7 +147,6 @@ fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> 
             }
             Switch("Pure black", Look.pureBlack, Look::choosePureBlack)
             Switch("Greeting on the home screen", Look.showGreeting, Look::chooseShowGreeting)
-            Reset()
         }
     }
 }
@@ -157,8 +159,10 @@ fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> 
  * because a sheet that never appears is not a typography problem.
  */
 @Composable
-fun LyricsSettingsSection(section: @Composable (String, @Composable () -> Unit) -> Unit) {
-    section("Where they come from") {
+fun LyricsSettingsSection(
+    section: @Composable (String, (() -> Unit)?, @Composable () -> Unit) -> Unit,
+) {
+    section("Where they come from", Look::resetLyricsSources) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 "Asked in this order, stopping at the first that has them. Drag order " +
@@ -198,7 +202,7 @@ fun LyricsSettingsSection(section: @Composable (String, @Composable () -> Unit) 
         }
     }
 
-    section("How they read") {
+    section("How they read", Look::resetLyricsType) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("Alignment", color = Blz.ink, fontSize = 13.5.sp)
             Choices(
@@ -229,11 +233,17 @@ fun LyricsSettingsSection(section: @Composable (String, @Composable () -> Unit) 
         }
     }
 
-    section("While a song plays") {
+    section("While a song plays", Look::resetLyricsPlayback) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Style", color = Blz.ink, fontSize = 13.5.sp)
+            Choices(
+                LyricsStyle.entries.map { it.label },
+                Look.lyricsStyle.label,
+            ) { picked -> Look.chooseLyricsStyle(LyricsStyle.entries.first { it.label == picked }) }
+            Text(Look.lyricsStyle.blurb, color = Blz.dim, fontSize = 11.5.sp)
+
             Switch("Follow along on its own", Look.lyricsFollow, Look::chooseLyricsFollow)
             Switch("Click a line to jump there", Look.lyricsTap, Look::chooseLyricsTap)
-            Switch("Light up the line being sung", Look.lyricsGlow, Look::chooseLyricsGlow)
 
             Dial(
                 "Read ahead", "%.2fs".format(Look.lyricsLead),
@@ -247,7 +257,7 @@ fun LyricsSettingsSection(section: @Composable (String, @Composable () -> Unit) 
         }
     }
 
-    section("Reading them") {
+    section("Reading them", Look::resetRomanize) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Switch(
                 "Show them in the Latin alphabet",
@@ -285,8 +295,6 @@ fun LyricsSettingsSection(section: @Composable (String, @Composable () -> Unit) 
                     }
                 }
             }
-
-            Reset()
         }
     }
 }

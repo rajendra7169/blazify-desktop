@@ -28,6 +28,22 @@ enum class PlayerBackground(val label: String) {
     PureBlack("Pure black"),
 }
 
+/**
+ * How the line being sung announces itself.
+ *
+ * The plain one only changes colour. The rest are progressively less quiet, and
+ * Blaze is the app's own: the line lifts, brightens and carries the record's
+ * colour behind it at once. Offered rather than chosen for people, because how
+ * much movement is pleasant and how much is distracting is not a thing anyone
+ * can decide on someone else's behalf.
+ */
+enum class LyricsStyle(val label: String, val blurb: String) {
+    Plain("Plain", "Colour only — nothing moves"),
+    Fade("Fade", "Lines ease in and out as they pass"),
+    Lift("Lift", "The sung line grows and slides forward"),
+    Blaze("Blaze", "Lift, glow and the record's own colour behind it"),
+}
+
 /** Where lyric lines sit across the panel. */
 enum class LyricsAlign(val label: String) { Left("Left"), Centre("Centre"), Right("Right") }
 
@@ -188,6 +204,17 @@ object Look {
         return (ordered + known.filterNot { it in ordered }).filter { it.name in lyricsSources }
     }
 
+    /**
+     * Which of the looks the sheet uses.
+     *
+     * Blaze by default: it is the one that was designed with the rest of the
+     * app rather than the one that asks least of it.
+     */
+    var lyricsStyle by mutableStateOf(read("lyricsStyle", LyricsStyle.Blaze) { LyricsStyle.valueOf(it) })
+        private set
+
+    fun chooseLyricsStyle(value: LyricsStyle) { lyricsStyle = value; put("lyricsStyle", value.name) }
+
     /** Whether clicking a line jumps playback to it. */
     var lyricsTap by mutableStateOf(store.getBoolean("lyricsTap", true))
         private set
@@ -289,7 +316,58 @@ object Look {
     }
 
     /** Back to how it shipped, for anyone who has painted themselves into a corner. */
+    /**
+     * Defaults, one group at a time.
+     *
+     * Put back beside the heading they belong to rather than only all at once:
+     * the whole point of trying an alignment is that you can undo it without
+     * also losing the accent you spent five minutes choosing.
+     */
+    fun resetAccent() {
+        chooseAccent(Accent.Blaze)
+        chooseDynamicColour(true)
+        chooseTintedWindow(true)
+    }
+
+    fun resetSlider() = chooseSliderStyle(SliderStyle.Capsule)
+
+    fun resetPlayer() = choosePlayerBackground(PlayerBackground.Gradient)
+
+    fun resetShelves() = chooseGridSize(GridSize.Big)
+
+    fun resetOpening() {
+        chooseStartTab(Destination.Home)
+        choosePureBlack(false)
+        chooseShowGreeting(true)
+    }
+
+    fun resetLyricsSources() {
+        chooseLyricsSources(LyricsProviders.all.map { it.name }.toSet())
+        chooseLyricsOrder(LyricsProviders.all.map { it.name })
+    }
+
+    fun resetLyricsType() {
+        chooseLyricsAlign(LyricsAlign.Left)
+        chooseLyricsPoints(17f)
+        chooseLyricsLineHeight(1.5f)
+        chooseLyricsSpacing(7)
+    }
+
+    fun resetLyricsPlayback() {
+        chooseLyricsStyle(LyricsStyle.Blaze)
+        chooseLyricsFollow(true)
+        chooseLyricsTap(true)
+        chooseLyricsGlow(false)
+        chooseLyricsLead(0.45f)
+    }
+
+    fun resetRomanize() {
+        chooseRomanize(false)
+        chooseRomanized(Romanize.Script.entries.map { it.label }.toSet())
+    }
+
     fun reset() {
+        chooseLyricsStyle(LyricsStyle.Blaze)
         chooseAccent(Accent.Blaze)
         chooseDynamicColour(true)
         chooseTintedWindow(true)
