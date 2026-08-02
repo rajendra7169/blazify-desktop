@@ -25,7 +25,7 @@ import java.io.File
  * There is exactly one credential: the session from a browser you are already
  * signed in to. Google's own sign-in token was tried, and the catalogue
  * ignores it outright — it renews perfectly and buys nothing — so it isn't
- * offered. The phone works the same way; it simply shows the Google page
+ * offered. It is the same session a browser holds; the difference is only
  * inside itself, which is the one thing a window without a browser engine
  * can't do.
  */

@@ -9,7 +9,8 @@ package com.blazify.desktop.together
  * What the two sides say to each other.
  *
  * Every name here is the server's, not ours — a room can hold a desktop and a
- * phone at once, so the wire is a shared language and none of it is free to be
+ * different client at once, so the wire is a shared language and none of it is
+ * free to be
  * tidied. Kept as plain strings in one place so that reading the protocol means
  * reading this file rather than grepping for quoted words.
  */
@@ -65,10 +66,11 @@ object Did {
 /**
  * Where rooms live.
  *
- * One community server, the same one the phone uses — which is the entire point
- * of not inventing our own: a room is only worth having if the people you want
- * in it can reach it from whatever they happen to be holding.
+ * A community server rather than one of ours — which is the point of not
+ * inventing our own: a room is only worth having if the people you want in it
+ * can already reach it.
  */
 object Servers {
+    /** Where rooms are made unless you say otherwise. */
     const val DEFAULT = "wss://metroserverx.meowery.eu/ws"
 }

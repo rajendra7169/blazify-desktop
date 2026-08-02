@@ -77,8 +77,7 @@ import java.awt.datatransfer.StringSelection
 /**
  * Listening with other people.
  *
- * Laid out the way the phone lays it out, because it is the same feature and a
- * room can hold both: the disc, then where the line stands, then either the
+ * One centred column: the disc, then where the line stands, then either the
  * form for getting into a room or the room itself, then the way to its
  * settings. Everything down one centred column — this is a page you read top to
  * bottom once and then mostly ignore, not a dashboard.
@@ -135,10 +134,9 @@ fun TogetherScreen() {
 /**
  * The disc, breathing.
  *
- * The same mark the phone opens this screen with — a halo pulsing behind a
- * gradient disc — because somebody who set a room up on their phone should
- * recognise this page before they read a word of it. It is also the honest
- * shape for the feature: something quietly alive, waiting for other people.
+ * A halo pulsing behind a gradient disc — the honest shape for the feature:
+ * something quietly alive, waiting for other people, and recognisable from
+ * across the room before a word of the page is read.
  */
 @Composable
 private fun Hero() {
@@ -206,7 +204,7 @@ private fun Hero() {
 /**
  * Where the line stands, said in one row.
  *
- * A dot and a word, the way the phone says it — and the button underneath is
+ * A dot and a word — and the button underneath is
  * whichever one is possible right now rather than both greyed against each
  * other. Being connected without being in a room is a real state and it needs
  * saying, or "join" failing looks like the code was wrong.
@@ -493,7 +491,7 @@ private fun Room() {
  *
  * Server, name and what gets approved without asking all live in Settings, and
  * this is the page you are on when you want them — so the door is here rather
- * than only in the rail, which is exactly the arrangement the phone uses.
+ * than only in the rail.
  */
 @Composable
 private fun SettingsCard() {

@@ -50,8 +50,8 @@ import java.time.LocalDate
  * gone the moment you press play on something else. This is how an evening
  * becomes something you can put on again.
  *
- * It goes onto the account when there is one, so it is on the phone too, and
- * stays here when there isn't. Named after today by default, since that is
+ * It goes onto the account when there is one, so it follows you, and stays here
+ * when there isn't. Named after today by default, since that is
  * almost always what it was.
  */
 @Composable
@@ -134,7 +134,7 @@ fun SaveQueueDialog(queue: List<Track>, onDismiss: () -> Unit) {
             }
 
             Text(
-                if (Account.signedIn) "Kept on your account, so it's on your phone too."
+                if (Account.signedIn) "Kept on your account, so it follows you."
                 else "Kept on this computer. Sign in to have it follow you.",
                 color = Blz.dim, fontSize = 11.5.sp,
             )

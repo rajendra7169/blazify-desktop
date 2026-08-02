@@ -61,7 +61,7 @@ import com.blazify.desktop.data.Track
  * you have to remember the answer to.
  *
  * A new playlist goes onto the account when there is one, so it is there on the
- * phone too. Made here when there isn't, which still works with the network
+ * follows you. Made here when there isn't, which still works with the network
  * down — and nothing is lost either way.
  */
 @Composable
@@ -75,7 +75,7 @@ fun AddToPlaylistDialog(track: Track, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     // Asked for once each time the dialog opens rather than held: a playlist
-    // made on the phone five minutes ago should be in this list, and a cached
+    // made elsewhere five minutes ago should be in this list, and a cached
     // copy is exactly how it wouldn't be.
     LaunchedEffect(Account.signedIn) {
         theirs = if (Account.signedIn) Catalogue.myPlaylists().getOrNull().orEmpty() else emptyList()
@@ -245,7 +245,7 @@ fun AddToPlaylistDialog(track: Track, onDismiss: () -> Unit) {
 
             if (naming) {
                 Text(
-                    if (Account.signedIn) "Made on your account, so it's on your phone too."
+                    if (Account.signedIn) "Made on your account, so it follows you."
                     else "Made on this computer. Sign in to have it follow you.",
                     color = Blz.dim, fontSize = 11.5.sp,
                 )

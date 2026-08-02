@@ -181,7 +181,7 @@ fun NowPlayingScreen(
                 alpha = 1f - gone * 0.35f
             }
             .then(background)
-            // Pull it down to put it away, the way the phone does. The gesture
+            // Pull it down to put it away. The gesture
             // only reaches here when the page underneath has no scrolling left
             // to do, so on a short window dragging still reads the screen and
             // only sends it away once you are at the top of it.

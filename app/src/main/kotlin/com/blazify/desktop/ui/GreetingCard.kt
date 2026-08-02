@@ -39,7 +39,7 @@ import java.time.LocalTime
 /**
  * The card that opens the home screen.
  *
- * The same greeting the phone shows, in the same shape: a gradient card with
+ * A gradient card with
  * the hours of the day on the left and the hero image spilling out over the top
  * edge on the right. Someone moving between the two should recognise this
  * immediately — that recognition is most of what makes them feel like one
@@ -116,7 +116,7 @@ fun GreetingCard(modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 34.dp)
-                    // Larger than on a phone. The card is several times wider
+                    // Sized for a window rather than a panel. The card is wider
                     // here, and a small figure at one end of it leaves the
                     // middle looking like something failed to load.
                     .requiredWidth(300.dp)
@@ -131,7 +131,7 @@ fun GreetingCard(modifier: Modifier = Modifier) {
     }
 }
 
-/** Split across two lines, as it is on the phone. */
+/** Split across two lines. */
 private fun greeting(): String = when (LocalTime.now().hour) {
     in 5..11 -> "Good\nMorning 🌅"
     in 12..16 -> "Good\nAfternoon ☀️"

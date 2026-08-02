@@ -46,10 +46,10 @@ import com.blazify.desktop.ui.rememberHovered
 /**
  * The parts of Blaze Together that aren't a room.
  *
- * Same three questions the phone asks: what you're called, what you'll let
- * through without being asked, and which server the rooms live on. Reachable
- * both from here and from a card on the feature's own page, because that is
- * where you are standing when you want them.
+ * Three questions: what you're called, what you'll let through without being
+ * asked, and which server the rooms live on. Reachable both from here and from
+ * a card on the feature's own page, because that is where you are standing when
+ * you want them.
  */
 @Composable
 fun TogetherSettingsSection(
@@ -107,23 +107,51 @@ fun TogetherSettingsSection(
         }
     }
 
-    section("Server", null) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    section("Server", Together::resetServer) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            var address by remember { mutableStateOf(Together.server) }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(9.dp).clip(CircleShape).background(
-                    if (Together.link == Together.Link.On) Blaze.Amber else Blz.dim,
-                ))
+                Box(
+                    Modifier.size(9.dp).clip(CircleShape).background(
+                        if (Together.link == Together.Link.On) Blaze.Amber else Blz.dim,
+                    ),
+                )
                 Text(
-                    Servers.DEFAULT,
-                    color = Blz.ink, fontSize = 12.5.sp,
+                    if (Together.link == Together.Link.On) "Connected" else "Not connected",
+                    color = Blz.ink, fontSize = 13.5.sp,
                     modifier = Modifier.padding(start = 10.dp),
                 )
             }
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Blz.surfaceHigh)
+                    .padding(horizontal = 13.dp, vertical = 11.dp),
+            ) {
+                if (address.isEmpty()) Text(Servers.DEFAULT, color = Blz.dim, fontSize = 12.5.sp)
+                BasicTextField(
+                    value = address,
+                    onValueChange = { address = it; Together.chooseServer(it) },
+                    singleLine = true,
+                    textStyle = TextStyle(color = Blz.ink, fontSize = 12.5.sp),
+                    cursorBrush = SolidColor(Blaze.Amber),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { Typing.active = it.isFocused },
+                )
+            }
             Text(
-                "The same room server the phone app uses, run by the community rather " +
-                    "than by us — which is what lets a laptop and a phone share one room. " +
-                    "Nothing but room messages ever goes through it; the music is played " +
-                    "by each machine from its own source.",
+                "Anybody can run one of these, and the address is yours to change — the " +
+                    "default is a community server rather than ours. Everyone you want in a " +
+                    "room has to be pointed at the same one. Changing it closes the current " +
+                    "connection.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
+            Text(
+                "Only room messages travel over it: who is in the room, which song, and " +
+                    "how far through. Audio never does — every machine plays from its own " +
+                    "source.",
                 color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
             )
         }

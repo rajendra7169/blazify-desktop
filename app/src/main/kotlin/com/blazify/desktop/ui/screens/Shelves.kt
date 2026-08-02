@@ -309,7 +309,7 @@ private fun CardRail(
  * The six colours playlist cards cycle through.
  *
  * A playlist has no artwork of its own worth the name — the catalogue sends a
- * collage or a stock tile — so the phone gives each one a colour instead, and
+ * collage or a stock tile — so each one gets a colour instead, and
  * the same six in the same order mean a playlist looks the same in both places.
  */
 private val PlaylistColours = listOf(

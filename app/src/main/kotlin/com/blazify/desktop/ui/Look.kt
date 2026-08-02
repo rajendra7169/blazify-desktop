@@ -83,7 +83,7 @@ object Look {
     /**
      * Whether the accent follows the artwork.
      *
-     * On by default, as it is on the phone: a cover is the one thing on screen
+     * On by default: a cover is the one thing on screen
      * that already has an identity, and taking the accent from it makes the
      * window belong to the song rather than to the application.
      *

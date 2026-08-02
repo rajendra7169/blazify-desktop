@@ -47,13 +47,14 @@ import java.util.zip.GZIPInputStream
  * it* — so the audio is as good as each person's connection rather than as good
  * as the worst one, and the server only ever carries a few hundred bytes.
  *
- * The server is the one the phone uses, deliberately. A room is only worth
- * having if the people you want in it can reach it from whatever they happen to
- * be holding.
+ * The server is a community one rather than ours, deliberately. A room is only
+ * worth having if the people you want in it can already reach it, and running
+ * our own would mean everybody had to be told where to point.
  */
 object Together {
 
     private val nameFile = File(Store.folder, "together-name")
+    private val serverFile = File(Store.folder, "together-server")
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val client by lazy { HttpClient(OkHttp) { install(WebSockets) } }
@@ -91,6 +92,29 @@ object Together {
         username = value
         runCatching { nameFile.writeText(value.trim()) }
     }
+
+    /**
+     * Which server rooms are made on.
+     *
+     * Editable, and remembered. There is no single authority for this — anybody
+     * can run one — so hard-coding ours would be deciding on somebody's behalf
+     * which strangers they are willing to route a room through.
+     */
+    var server by mutableStateOf(
+        runCatching { serverFile.takeIf { it.exists() }?.readText()?.trim() }.getOrNull()
+            ?.takeIf { it.startsWith("ws") } ?: Servers.DEFAULT,
+    )
+        private set
+
+    fun chooseServer(value: String) {
+        val cleaned = value.trim().ifBlank { Servers.DEFAULT }
+        server = cleaned
+        runCatching { serverFile.writeText(cleaned) }
+        // A change of address means the line to the old one is meaningless.
+        if (link != Link.Off) disconnect()
+    }
+
+    fun resetServer() = chooseServer(Servers.DEFAULT)
 
     /** Rooms this app will let in without asking, when hosting. */
     var autoApproveJoins by mutableStateOf(false)
@@ -132,7 +156,7 @@ object Together {
      * The name others see.
      *
      * The account's if there is one, since that is the name the same person
-     * already goes by on the phone; otherwise the machine's, which is at least
+     * already uses elsewhere; otherwise the machine's, which is at least
      * something they will recognise.
      */
     val myName: String
@@ -153,7 +177,7 @@ object Together {
         trouble = null
         pump = scope.launch {
             try {
-                val session = client.webSocketSession(Servers.DEFAULT)
+                val session = client.webSocketSession(server)
                 socket = session
                 link = Link.On
                 startHeartbeat()
@@ -162,7 +186,7 @@ object Together {
                     if (frame is Frame.Binary) heard(frame.readBytes())
                 }
             } catch (_: Exception) {
-                trouble = "Couldn't reach the room server. Check the connection and try again."
+                trouble = "Couldn't reach $server. Check the address and the connection."
                 link = Link.Trouble
             } finally {
                 hangUp(keepTicket = true)
@@ -212,7 +236,7 @@ object Together {
         scope.launch { runCatching { session.send(Frame.Binary(true, envelope.toByteArray())) } }
     }
 
-    /** Open the line, without joining anything. Mirrors the phone's Connect. */
+    /** Open the line, without joining anything. */
     fun connect() = dial { }
 
     /** Close it. A room is left first, because leaving is not the same as vanishing. */
@@ -414,7 +438,7 @@ object Together {
      * The position is only forced when it is meaningfully out — chasing every
      * update to the millisecond would mean a seek on every message, and a
      * player that seeks constantly stutters. Half a second apart is closer than
-     * two people in one room with two phones ever manage.
+     * two people sharing a sofa and two sets of headphones ever manage.
      */
     private fun follow(state: Wire.SyncStatePayload) {
         if (hosting) return
