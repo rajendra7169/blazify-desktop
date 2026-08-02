@@ -70,6 +70,20 @@ fun AppShell() {
     var addingOpen by remember { mutableStateOf(false) }
     var full by remember { mutableStateOf(false) }
 
+    // The words come up with the player when that's been asked for, and the
+    // panel goes back to however it was when the player is put away — opening
+    // one screen shouldn't quietly change what you see on the one behind it.
+    var lyricsWereOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(full) {
+        if (!Look.lyricsWithPlayer) return@LaunchedEffect
+        if (full) {
+            lyricsWereOpen = lyricsOpen
+            lyricsOpen = true
+        } else {
+            lyricsOpen = lyricsWereOpen
+        }
+    }
+
     // The accent follows the cover when asked to. Watched here because this is
     // the one place that outlives every screen — a colour that reset each time
     // you changed page would be worse than no colour at all.
@@ -220,6 +234,9 @@ fun AppShell() {
         // one of its own.
         (Dialogs.addingTo ?: PlayerState.current?.takeIf { addingOpen })?.let {
             AddToPlaylistDialog(it, onDismiss = { addingOpen = false; Dialogs.dismiss() })
+        }
+        if (Dialogs.keepingQueue && PlayerState.queue.isNotEmpty()) {
+            SaveQueueDialog(PlayerState.queue, onDismiss = Dialogs::dismiss)
         }
     }
 }

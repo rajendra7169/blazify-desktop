@@ -243,6 +243,11 @@ fun LyricsSettingsSection(
             ) { picked -> Look.chooseLyricsStyle(LyricsStyle.entries.first { it.label == picked }) }
             Text(Look.lyricsStyle.blurb, color = Blz.dim, fontSize = 11.5.sp)
 
+            Switch(
+                "Open them with the full player",
+                Look.lyricsWithPlayer,
+                Look::chooseLyricsWithPlayer,
+            )
             Switch("Follow along on its own", Look.lyricsFollow, Look::chooseLyricsFollow)
             Switch("Click a line to jump there", Look.lyricsTap, Look::chooseLyricsTap)
 

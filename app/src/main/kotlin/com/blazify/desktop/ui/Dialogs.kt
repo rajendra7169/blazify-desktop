@@ -25,5 +25,19 @@ object Dialogs {
 
     fun addToPlaylist(track: Track) { addingTo = track }
 
-    fun dismiss() { addingTo = null }
+    /**
+     * Whether the queue is being kept as a playlist.
+     *
+     * Asked for from the queue panel, which is 274dp wide — a dialog drawn
+     * inside it would be a dialog inside a column, not one over the window.
+     */
+    var keepingQueue by mutableStateOf(false)
+        private set
+
+    fun keepQueue() { keepingQueue = true }
+
+    fun dismiss() {
+        addingTo = null
+        keepingQueue = false
+    }
 }

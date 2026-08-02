@@ -235,6 +235,21 @@ object Look {
 
     fun chooseLyricsStyle(value: LyricsStyle) { lyricsStyle = value; put("lyricsStyle", value.name) }
 
+    /**
+     * Whether the words come up with the full player.
+     *
+     * Off by default, because the full player exists to give the cover the
+     * room — but for anyone who opens the two together every time, having to
+     * press twice is a small tax paid on every song.
+     */
+    var lyricsWithPlayer by mutableStateOf(store.getBoolean("lyricsWithPlayer", false))
+        private set
+
+    fun chooseLyricsWithPlayer(value: Boolean) {
+        lyricsWithPlayer = value
+        runCatching { store.putBoolean("lyricsWithPlayer", value) }
+    }
+
     /** Whether clicking a line jumps playback to it. */
     var lyricsTap by mutableStateOf(store.getBoolean("lyricsTap", true))
         private set
@@ -374,6 +389,7 @@ object Look {
     }
 
     fun resetLyricsPlayback() {
+        chooseLyricsWithPlayer(false)
         chooseLyricsStyle(LyricsStyle.Lift)
         chooseLyricsFollow(true)
         chooseLyricsTap(true)

@@ -17,11 +17,16 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,6 +84,29 @@ fun QueuePanel(
                 },
                 color = Blz.dim, fontSize = 11.sp,
             )
+            // A queue is the one list nobody builds on purpose — it collects
+            // out of what you played, what you added and where a radio went,
+            // and it is gone the moment you play something else. Keeping it is
+            // the difference between an evening you can play again and one you
+            // can only remember.
+            if (queue.isNotEmpty()) {
+                val (source, hovered) = rememberHovered()
+                Box(
+                    Modifier
+                        .padding(start = 6.dp)
+                        .size(26.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .hoverBackground(Blz.hover, hovered, source)
+                        .clickable { Dialogs.keepQueue() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Rounded.PlaylistAdd, "Save as a playlist",
+                        Modifier.size(17.dp),
+                        tint = if (hovered.value) Blz.ink else Blz.dim,
+                    )
+                }
+            }
         }
 
         if (queue.isEmpty()) {
