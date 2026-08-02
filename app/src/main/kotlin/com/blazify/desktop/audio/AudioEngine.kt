@@ -121,6 +121,21 @@ object AudioEngine {
     /** Whether the native library could be found. False means VLC isn't installed. */
     fun available(): Boolean = runCatching { component; true }.getOrDefault(false)
 
+    /**
+     * The library's own equaliser, if it's there.
+     *
+     * Handed out rather than wrapped: the bands and presets belong to whatever
+     * version of the library is installed, and inventing our own list would
+     * only be right until it changed.
+     */
+    fun equalizerApi(): uk.co.caprica.vlcj.factory.EqualizerApi? =
+        runCatching { component.mediaPlayerFactory().equalizer() }.getOrNull()
+
+    /** Attach a curve, or detach whatever is on. */
+    fun applyEqualizer(curve: uk.co.caprica.vlcj.player.base.Equalizer?) {
+        runCatching { player.audio().setEqualizer(curve) }
+    }
+
     fun play(mrl: String) {
         error = null
         loading = true
