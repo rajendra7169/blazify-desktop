@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Keyboard
@@ -58,6 +59,7 @@ import com.blazify.desktop.data.LocalMusic
 import com.blazify.desktop.data.Store
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
+import com.blazify.desktop.ui.Navigator
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.ThemeMode
 import com.blazify.desktop.ui.ThemeState
@@ -115,9 +117,12 @@ fun SettingsScreen() {
                 .padding(horizontal = 12.dp, vertical = 22.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
+            // The way out sits above the headings, where the app's own rail
+            // was a moment ago — so leaving is where arriving came from.
+            BackRow()
             Text(
                 "Settings", color = Blz.ink, fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 10.dp, bottom = 14.dp),
+                modifier = Modifier.padding(start = 10.dp, top = 6.dp, bottom = 14.dp),
             )
             SettingsPage.entries.forEach { entry ->
                 PageRow(entry, entry == page) { page = entry }
@@ -225,6 +230,24 @@ fun SettingsScreen() {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun BackRow() {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(onClick = Navigator::closeSettings)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(Icons.Rounded.ArrowBack, "Back", Modifier.size(18.dp), tint = Blz.muted)
+        Text("Back to ${Navigator.destination.label}", color = Blz.muted, fontSize = 13.sp)
     }
 }
 

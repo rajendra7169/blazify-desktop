@@ -51,6 +51,16 @@ object Navigator {
     }
 
     /**
+     * Leave the settings.
+     *
+     * The destination underneath is untouched, so this puts you back on
+     * whatever you were listening from rather than at the top of the app.
+     */
+    fun closeSettings() {
+        settingsOpen = false
+    }
+
+    /**
      * A playlist made here, being looked at.
      *
      * Kept beside the card stack rather than inside it: one of these isn't

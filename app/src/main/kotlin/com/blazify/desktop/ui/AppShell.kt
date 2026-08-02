@@ -74,13 +74,18 @@ fun AppShell() {
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(Blz.page)) {
         Row(Modifier.weight(1f)) {
-            Sidebar(
-                current = Navigator.destination,
-                collapsed = railCollapsed,
-                settingsOpen = Navigator.settingsOpen,
-                onSelect = Navigator::go,
-                onOpenSettings = Navigator::openSettings,
-            )
+            // One rail at a time. The settings bring their own, and two lists
+            // of unrelated places side by side is a question about which one
+            // you're in that shouldn't have to be asked.
+            if (!Navigator.settingsOpen) {
+                Sidebar(
+                    current = Navigator.destination,
+                    collapsed = railCollapsed,
+                    settingsOpen = false,
+                    onSelect = Navigator::go,
+                    onOpenSettings = Navigator::openSettings,
+                )
+            }
 
             Box(Modifier.weight(1f).fillMaxSize()) {
                 // Over the content rather than instead of it: closing the full
