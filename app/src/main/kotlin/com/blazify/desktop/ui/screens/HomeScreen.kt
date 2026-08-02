@@ -40,7 +40,7 @@ import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
-import com.blazify.desktop.ui.GreetingCard
+import com.blazify.desktop.ui.HomeHero
 import com.blazify.desktop.ui.Look
 import com.blazify.desktop.ui.SkeletonRail
 import com.blazify.desktop.ui.hoverBackground
@@ -97,14 +97,28 @@ fun HomeScreen(
         // The greeting card's figure stands above the card on purpose, and a
         // list crops at its own edge — so the room it needs has to be part of
         // the list rather than part of the card.
+        // The hero reaches past this margin on both sides and starts at the
+        // very top, so it gets no padding of its own to fight.
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            start = 26.dp, end = 26.dp, top = 86.dp, bottom = 92.dp,
+            start = 26.dp, end = 26.dp, top = 0.dp, bottom = 92.dp,
         ),
         state = listState,
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        // The same card the phone opens with, so the two look like one app.
-        if (Look.showGreeting) item { GreetingCard() }
+        if (Look.showGreeting) {
+            item {
+                HomeHero(
+                    onPlay = {
+                        val songs = (picks + shelves).filter { it.isSongs }.flatMap { it.cards }
+                        if (songs.isNotEmpty()) onPlayAll(songs, 0)
+                    },
+                    onShuffle = {
+                        val songs = (picks + shelves).filter { it.isSongs }.flatMap { it.cards }
+                        if (songs.isNotEmpty()) onPlayAll(songs.shuffled(), 0)
+                    },
+                )
+            }
+        }
         if (HomeState.moods.isNotEmpty()) {
             item {
                 MoodChips(HomeState.moods, mood) { picked ->
