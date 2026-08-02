@@ -82,30 +82,68 @@ object BrowserSession {
                 Triple("Brave", "$appData\\BraveSoftware\\Brave-Browser\\User Data\\Default\\Network\\Cookies", "brave"),
             )
         } else {
+            // Installed three different ways on the same desktop, and each way
+            // puts the same browser somewhere else entirely. A browser found in
+            // one place says nothing about the others, so all of them are
+            // looked at and whichever holds a session wins.
             listOf(
-                Triple("Chrome", "$home/.config/google-chrome/Default/Cookies", "chrome"),
-                Triple("Chromium", "$home/.config/chromium/Default/Cookies", "chromium"),
-                Triple("Brave", "$home/.config/BraveSoftware/Brave-Browser/Default/Cookies", "brave"),
-                Triple("Edge", "$home/.config/microsoft-edge/Default/Cookies", "chromium"),
-                Triple("Vivaldi", "$home/.config/vivaldi/Default/Cookies", "vivaldi"),
-            )
+                Triple("Chrome", "google-chrome/Default/Cookies", "chrome"),
+                Triple("Chromium", "chromium/Default/Cookies", "chromium"),
+                Triple("Brave", "BraveSoftware/Brave-Browser/Default/Cookies", "brave"),
+                Triple("Edge", "microsoft-edge/Default/Cookies", "chromium"),
+                Triple("Vivaldi", "vivaldi/Default/Cookies", "vivaldi"),
+            ).flatMap { (label, tail, keyring) ->
+                listOf(
+                    // Installed from the distribution's own packages.
+                    Triple(label, "$home/.config/$tail", keyring),
+                    // Installed as a flatpak, which keeps its own home.
+                    Triple(label, "$home/.var/app/${flatpakId(label)}/config/$tail", keyring),
+                    // Installed as a snap, likewise.
+                    Triple(label, "$home/snap/${label.lowercase()}/common/$tail", keyring),
+                )
+            }
         }
 
         val found = chromium.mapNotNull { (label, path, keyring) ->
             File(path).takeIf { it.isFile }?.let { Browser(label, it, Kind.Chromium, keyring) }
-        }.toMutableList()
+        }
+            // The same browser can turn up twice when it's installed twice;
+            // the one used most recently is the one someone is signed in to.
+            .groupBy { it.label }
+            .map { (_, copies) -> copies.maxBy { it.store.lastModified() } }
+            .toMutableList()
 
-        // Firefox keeps a folder per profile with no fixed name, so the one
-        // that has been used most recently is the one meant.
-        val profiles = File(
-            if (windows) "$appData\\..\\Roaming\\Mozilla\\Firefox\\Profiles" else "$home/.mozilla/firefox",
-        )
-        profiles.listFiles()
-            ?.mapNotNull { File(it, "cookies.sqlite").takeIf { file -> file.isFile } }
-            ?.maxByOrNull { it.lastModified() }
+        // Firefox keeps a folder per profile with no fixed name, in a place
+        // that likewise depends on how it was installed.
+        val firefoxRoots = if (windows) {
+            listOf(File("$appData\\..\\Roaming\\Mozilla\\Firefox\\Profiles"))
+        } else {
+            listOf(
+                File("$home/.mozilla/firefox"),
+                File("$home/snap/firefox/common/.mozilla/firefox"),
+                File("$home/.var/app/org.mozilla.firefox/.mozilla/firefox"),
+                File("$home/.var/app/org.mozilla.firefox/config/mozilla/firefox"),
+            )
+        }
+
+        firefoxRoots
+            .flatMap { root -> root.listFiles().orEmpty().toList() }
+            .mapNotNull { File(it, "cookies.sqlite").takeIf { file -> file.isFile } }
+            // A profile per window, and only the one being used is signed in.
+            .maxByOrNull { it.lastModified() }
             ?.let { found += Browser("Firefox", it, Kind.Firefox) }
 
         return found
+    }
+
+    /** What a browser is called when it's installed as a flatpak. */
+    private fun flatpakId(label: String) = when (label) {
+        "Chrome" -> "com.google.Chrome"
+        "Chromium" -> "org.chromium.Chromium"
+        "Brave" -> "com.brave.Browser"
+        "Edge" -> "com.microsoft.Edge"
+        "Vivaldi" -> "com.vivaldi.Vivaldi"
+        else -> label
     }
 
     /**
@@ -123,11 +161,24 @@ object BrowserSession {
             val copy = File.createTempFile("blazify-cookies", ".db").apply { deleteOnExit() }
             browser.store.copyTo(copy, overwrite = true)
 
+            // Anything written recently is still in the log beside the store
+            // rather than in the store itself — including, for a browser that
+            // is open right now, the sign-in someone just did. Copying the
+            // store alone reads the world as it was some time ago.
+            listOf("-wal", "-shm").forEach { suffix ->
+                val extra = File(browser.store.parentFile, browser.store.name + suffix)
+                if (extra.isFile) {
+                    extra.copyTo(File(copy.parentFile, copy.name + suffix), overwrite = true)
+                        .deleteOnExit()
+                }
+            }
+
             val found = when (browser.kind) {
                 Kind.Firefox -> readFirefox(copy)
                 Kind.Chromium -> readChromium(copy, browser)
             }
             copy.delete()
+            listOf("-wal", "-shm").forEach { File(copy.parentFile, copy.name + it).delete() }
 
             // Three different things go wrong here and they need different
             // answers, so they get told apart rather than lumped into one
