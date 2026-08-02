@@ -16,6 +16,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
@@ -30,19 +32,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.ui.Accent
 import com.blazify.desktop.ui.Blaze
+import com.blazify.desktop.data.LyricsProvider
+import com.blazify.desktop.data.LyricsProviders
 import com.blazify.desktop.data.Romanize
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.Destination
 import com.blazify.desktop.ui.GridSize
 import com.blazify.desktop.ui.Look
 import com.blazify.desktop.ui.LyricsAlign
-import com.blazify.desktop.ui.LyricsSize
 import com.blazify.desktop.ui.PlayerBackground
 import com.blazify.desktop.ui.ScrubBar
 import com.blazify.desktop.ui.SliderStyle
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverGlow
 import com.blazify.desktop.ui.rememberHovered
+import kotlin.math.roundToInt
 
 /**
  * Blazify Project (C) 2026
@@ -145,9 +149,55 @@ fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> 
     }
 }
 
-/** The lyrics settings, which live on their own page. */
+/**
+ * The lyrics settings, which live on their own page.
+ *
+ * In the order the questions actually get asked: where do the words come from,
+ * how are they set, and how do they behave while a song plays. Sources first,
+ * because a sheet that never appears is not a typography problem.
+ */
 @Composable
 fun LyricsSettingsSection(section: @Composable (String, @Composable () -> Unit) -> Unit) {
+    section("Where they come from") {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                "Asked in this order, stopping at the first that has them. Drag order " +
+                    "matters: the top source that answers is the one you get.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
+
+            val chain = Look.lyricsOrder.mapNotNull { name -> LyricsProviders.byName(name) } +
+                LyricsProviders.all.filterNot { it.name in Look.lyricsOrder }
+
+            chain.forEachIndexed { at, provider ->
+                SourceRow(
+                    provider = provider,
+                    position = at,
+                    last = at == chain.lastIndex,
+                    enabled = provider.name in Look.lyricsSources,
+                    onToggle = { on ->
+                        Look.chooseLyricsSources(
+                            if (on) Look.lyricsSources + provider.name
+                            else Look.lyricsSources - provider.name,
+                        )
+                    },
+                    onMove = { by ->
+                        val names = chain.map { it.name }.toMutableList()
+                        val to = (at + by).coerceIn(0, names.lastIndex)
+                        names.add(to, names.removeAt(at))
+                        Look.chooseLyricsOrder(names)
+                    },
+                )
+            }
+
+            Text(
+                "Turning one off skips it entirely — worth doing for a source that " +
+                    "keeps matching the wrong take of a song you play often.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
+        }
+    }
+
     section("How they read") {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("Alignment", color = Blz.ink, fontSize = 13.5.sp)
@@ -156,25 +206,44 @@ fun LyricsSettingsSection(section: @Composable (String, @Composable () -> Unit) 
                 Look.lyricsAlign.label,
             ) { picked -> Look.chooseLyricsAlign(LyricsAlign.entries.first { it.label == picked }) }
 
-            Text("Size", color = Blz.ink, fontSize = 13.5.sp)
-            Choices(
-                LyricsSize.entries.map { it.label },
-                Look.lyricsSize.label,
-            ) { picked -> Look.chooseLyricsSize(LyricsSize.entries.first { it.label == picked }) }
-
-            Text(
-                "Space between lines — ${Look.lyricsSpacing}",
-                color = Blz.ink, fontSize = 13.5.sp,
+            Dial(
+                "Text size", "${Look.lyricsPoints.roundToInt()} pt",
+                Look.lyricsPoints, 12f, 48f, Look::chooseLyricsPoints,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(0, 4, 7, 12, 18, 26).forEach { gap ->
-                    Choices(listOf("$gap"), "${Look.lyricsSpacing}") {
-                        Look.chooseLyricsSpacing(gap)
-                    }
-                }
-            }
+            Dial(
+                "Line height", "%.1f×".format(Look.lyricsLineHeight),
+                Look.lyricsLineHeight, 1f, 3f, Look::chooseLyricsLineHeight,
+            )
+            Dial(
+                "Space between lines", "${Look.lyricsSpacing}",
+                Look.lyricsSpacing.toFloat(), 0f, 28f,
+            ) { Look.chooseLyricsSpacing(it.roundToInt()) }
 
             LyricsPreview()
+
+            Text(
+                "Full screen scales all of this up with the window — this is the size " +
+                    "in the side panel.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
+        }
+    }
+
+    section("While a song plays") {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Switch("Follow along on its own", Look.lyricsFollow, Look::chooseLyricsFollow)
+            Switch("Click a line to jump there", Look.lyricsTap, Look::chooseLyricsTap)
+            Switch("Light up the line being sung", Look.lyricsGlow, Look::chooseLyricsGlow)
+
+            Dial(
+                "Read ahead", "%.2fs".format(Look.lyricsLead),
+                Look.lyricsLead, 0f, 1.5f, Look::chooseLyricsLead,
+            )
+            Text(
+                "Sound leaves the player before it leaves the speakers. Nudge this up if " +
+                    "the words still land after they're sung, down if they run ahead.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
         }
     }
 
@@ -217,26 +286,95 @@ fun LyricsSettingsSection(section: @Composable (String, @Composable () -> Unit) 
                 }
             }
 
-            Switch("Follow along on its own", Look.lyricsFollow, Look::chooseLyricsFollow)
-            Switch("Light up the line being sung", Look.lyricsGlow, Look::chooseLyricsGlow)
-
-            Text(
-                "Read ahead by %.2fs".format(Look.lyricsLead),
-                color = Blz.ink, fontSize = 13.5.sp,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(0f, 0.25f, 0.45f, 0.7f, 1f).forEach { lead ->
-                    Choices(listOf("%.2f".format(lead)), "%.2f".format(Look.lyricsLead)) {
-                        Look.chooseLyricsLead(lead)
-                    }
-                }
-            }
-            Text(
-                "Sound leaves the player before it leaves the speakers. Nudge this up if " +
-                    "the words still land after they're sung, down if they run ahead.",
-                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
-            )
+            Reset()
         }
+    }
+}
+
+/**
+ * One source, with its place in the queue and a way to move it.
+ *
+ * Arrows rather than dragging: a list of four with one obviously right order is
+ * a list you rearrange twice ever, and a drag handle that has to be discovered
+ * is worse than a button that is simply there.
+ */
+@Composable
+private fun SourceRow(
+    provider: LyricsProvider,
+    position: Int,
+    last: Boolean,
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    onMove: (Int) -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            "${position + 1}",
+            color = if (enabled) Blaze.Amber else Blz.dim,
+            fontSize = 12.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.width(20.dp),
+        )
+        Box(Modifier.weight(1f)) {
+            Switch(provider.name, enabled, onToggle)
+        }
+        Nudge(Icons.Rounded.KeyboardArrowUp, "Move up", position > 0) { onMove(-1) }
+        Nudge(Icons.Rounded.KeyboardArrowDown, "Move down", !last) { onMove(1) }
+    }
+}
+
+@Composable
+private fun Nudge(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    can: Boolean,
+    onClick: () -> Unit,
+) {
+    val (source, hovered) = rememberHovered()
+    Box(
+        Modifier
+            .size(26.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .then(if (can) Modifier.hoverBackground(Blz.hover, hovered, source) else Modifier)
+            .then(if (can) Modifier.clickable(onClick = onClick) else Modifier),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon, label, Modifier.size(17.dp),
+            tint = if (can) Blz.muted else Blz.dim.copy(alpha = 0.25f),
+        )
+    }
+}
+
+/**
+ * A number you set by dragging.
+ *
+ * The same bar the player uses, because a second kind of slider in one
+ * application is a second thing to learn for no reason.
+ */
+@Composable
+private fun Dial(
+    label: String,
+    readout: String,
+    value: Float,
+    from: Float,
+    to: Float,
+    onChange: (Float) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = Blz.ink, fontSize = 13.5.sp, modifier = Modifier.weight(1f))
+            Text(readout, color = Blaze.Amber, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+        }
+        ScrubBar(
+            ((value - from) / (to - from)).coerceIn(0f, 1f),
+            { fraction -> onChange(from + fraction * (to - from)) },
+            Modifier.fillMaxWidth(),
+            thickness = 5.dp,
+        )
     }
 }
 
@@ -292,18 +430,24 @@ private fun LyricsPreview() {
             .clip(RoundedCornerShape(10.dp))
             .background(Blz.surfaceHigh)
             .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
+        verticalArrangement = Arrangement.spacedBy(Look.lyricsSpacing.dp),
     ) {
+        // Drawn at the real size, spacing and colour, so what you pick is what
+        // you are looking at rather than something to go and verify.
+        val base = Look.lyricsPoints
         Text(
-            "And the words go by", color = Blz.dim, fontSize = 15.sp,
+            "And the words go by", color = Blz.dim, fontSize = base.sp,
+            lineHeight = (base * Look.lyricsLineHeight).sp,
             textAlign = align, modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            "one line at a time", color = Blz.ink, fontSize = 18.sp,
+            "one line at a time", color = Blaze.Amber, fontSize = (base * 1.12f).sp,
+            lineHeight = (base * Look.lyricsLineHeight).sp,
             fontWeight = FontWeight.Bold, textAlign = align, modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            "until the song ends", color = Blz.dim, fontSize = 15.sp,
+            "until the song ends", color = Blz.dim, fontSize = base.sp,
+            lineHeight = (base * Look.lyricsLineHeight).sp,
             textAlign = align, modifier = Modifier.fillMaxWidth(),
         )
     }

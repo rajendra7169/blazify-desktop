@@ -28,14 +28,6 @@ enum class PlayerBackground(val label: String) {
     PureBlack("Pure black"),
 }
 
-/** How large the words are set. */
-enum class LyricsSize(val label: String, val line: Int) {
-    Small("Small", 17),
-    Medium("Medium", 20),
-    Large("Large", 24),
-    Huge("Huge", 29),
-}
-
 /** Where lyric lines sit across the panel. */
 enum class LyricsAlign(val label: String) { Left("Left"), Centre("Centre"), Right("Right") }
 
@@ -102,9 +94,6 @@ object Look {
         private set
 
     var lyricsAlign by mutableStateOf(read("lyricsAlign", LyricsAlign.Left) { LyricsAlign.valueOf(it) })
-        private set
-
-    var lyricsSize by mutableStateOf(read("lyricsSize", LyricsSize.Medium) { LyricsSize.valueOf(it) })
         private set
 
     /** Extra air between lines, on top of what the type needs. */
@@ -236,7 +225,6 @@ object Look {
     var lyricsFollow by mutableStateOf(store.getBoolean("lyricsFollow", true))
         private set
 
-    fun chooseLyricsSize(value: LyricsSize) { lyricsSize = value; put("lyricsSize", value.name) }
 
     fun chooseLyricsSpacing(value: Int) {
         lyricsSpacing = value.coerceIn(0, 28)
@@ -308,7 +296,12 @@ object Look {
         chooseSliderStyle(SliderStyle.Capsule)
         choosePlayerBackground(PlayerBackground.Gradient)
         chooseLyricsAlign(LyricsAlign.Left)
-        chooseLyricsSize(LyricsSize.Medium)
+        chooseLyricsPoints(17f)
+        chooseLyricsLineHeight(1.5f)
+        chooseLyricsTap(true)
+        chooseLyricsLead(0.45f)
+        chooseLyricsSources(LyricsProviders.all.map { it.name }.toSet())
+        chooseLyricsOrder(LyricsProviders.all.map { it.name })
         chooseLyricsSpacing(7)
         chooseRomanize(false)
         chooseLyricsGlow(false)
