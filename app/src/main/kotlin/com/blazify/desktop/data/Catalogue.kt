@@ -353,7 +353,7 @@ object Catalogue {
                 // onto songs. Three different ones rather than three from the
                 // same search, or every shelf would be the same music twice.
                 val borrowed = if (history.isEmpty() && liked.isEmpty()) {
-                    coldStart.shuffled().take(3).mapNotNull { term ->
+                    coldStart.shuffled().take(5).mapNotNull { term ->
                         search(term).getOrNull().orEmpty().shuffled().firstOrNull()
                     }
                 } else {
@@ -382,9 +382,15 @@ object Catalogue {
                 // Keep listening — plainly what was on recently, no fetching.
                 keep("Keep listening", null, history.take(16))
 
+                // Listen again — further back than "keep listening", and
+                // shuffled, so it turns up things rather than repeating them.
+                keep("Listen again", null, history.take(60).shuffled())
+
                 // Similar to — named after the seed, so the shelf explains
                 // itself rather than claiming to be a recommendation engine.
-                (history.drop(1).take(2).ifEmpty { borrowed.drop(1) }).forEach { seed ->
+                // Enough of these that the page still has song shelves to give
+                // once the album ones start arriving underneath.
+                (history.drop(1).take(4).ifEmpty { borrowed.drop(1) }).forEach { seed ->
                     keep(seed.artist.substringBefore(",").ifBlank { seed.title }, "SIMILAR TO",
                         relatedTo(seed.id).getOrNull().orEmpty().shuffled())
                 }
