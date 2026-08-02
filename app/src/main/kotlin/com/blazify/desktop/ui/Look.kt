@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import com.blazify.desktop.data.Romanize
 import java.util.prefs.Preferences
 
 /**
@@ -118,8 +119,41 @@ object Look {
         private set
 
     /** A glow behind the line being sung, which is the app's own look. */
-    var lyricsGlow by mutableStateOf(store.getBoolean("lyricsGlow", true))
+    var lyricsGlow by mutableStateOf(store.getBoolean("lyricsGlow", false))
         private set
+
+    /**
+     * Which scripts get turned into Latin letters.
+     *
+     * All of them to begin with, since someone who turned the setting on meant
+     * it — and any they can read, they can turn back off one at a time.
+     */
+    var romanized by mutableStateOf(
+        store.get("romanized", Romanize.Script.entries.joinToString(",") { it.label })
+            .split(",").filter { it.isNotBlank() }.toSet(),
+    )
+        private set
+
+    fun chooseRomanized(value: Set<String>) {
+        romanized = value
+        put("romanized", value.joinToString(","))
+    }
+
+    /**
+     * How far ahead of the reported position the words are read, in seconds.
+     *
+     * Sound leaves the player some time before it leaves the speakers, and the
+     * position we are told is where the player has got to, not what you can
+     * hear. Without an allowance for that gap every line lights up just after
+     * it has been sung.
+     */
+    var lyricsLead by mutableStateOf(store.getFloat("lyricsLead", 0.45f))
+        private set
+
+    fun chooseLyricsLead(value: Float) {
+        lyricsLead = value.coerceIn(0f, 2f)
+        runCatching { store.putFloat("lyricsLead", lyricsLead) }
+    }
 
     /** Whether the words follow along on their own. */
     var lyricsFollow by mutableStateOf(store.getBoolean("lyricsFollow", true))
@@ -200,7 +234,9 @@ object Look {
         chooseLyricsSize(LyricsSize.Medium)
         chooseLyricsSpacing(7)
         chooseRomanize(false)
-        chooseLyricsGlow(true)
+        chooseLyricsGlow(false)
+        chooseRomanized(Romanize.Script.entries.map { it.label }.toSet())
+        chooseLyricsLead(0.45f)
         chooseLyricsFollow(true)
         chooseGridSize(GridSize.Big)
         choosePureBlack(false)

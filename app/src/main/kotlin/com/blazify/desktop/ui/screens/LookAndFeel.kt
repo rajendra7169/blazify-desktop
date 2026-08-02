@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.ui.Accent
 import com.blazify.desktop.ui.Blaze
+import com.blazify.desktop.data.Romanize
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.Destination
 import com.blazify.desktop.ui.GridSize
@@ -185,14 +186,56 @@ fun LyricsSettingsSection(section: @Composable (String, @Composable () -> Unit) 
                 Look::chooseRomanize,
             )
             Text(
-                "Devanagari, Korean, Japanese, Cyrillic and the rest, written out in " +
-                    "Latin letters — for singing along to a language you can hear but " +
-                    "not read. Songs already in Latin are left alone.",
+                "Written out in Latin letters — for singing along to a language you can " +
+                    "hear but not read. Songs already in Latin are left alone.",
                 color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
             )
 
+            if (Look.romanize) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "LANGUAGES", color = Blz.dim, fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
+                        modifier = Modifier.weight(1f),
+                    )
+                    val all = Romanize.Script.entries.map { it.label }.toSet()
+                    Reset(if (Look.romanized.size == all.size) "None" else "All") {
+                        Look.chooseRomanized(if (Look.romanized.size == all.size) emptySet() else all)
+                    }
+                }
+                // One at a time, because reading one of these is no reason to
+                // have the others rewritten.
+                Romanize.Script.entries.forEach { script ->
+                    Switch(script.label, script.label in Look.romanized) { on ->
+                        Look.chooseRomanized(
+                            if (on) Look.romanized + script.label else Look.romanized - script.label,
+                        )
+                    }
+                }
+            }
+
             Switch("Follow along on its own", Look.lyricsFollow, Look::chooseLyricsFollow)
             Switch("Light up the line being sung", Look.lyricsGlow, Look::chooseLyricsGlow)
+
+            Text(
+                "Read ahead by %.2fs".format(Look.lyricsLead),
+                color = Blz.ink, fontSize = 13.5.sp,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(0f, 0.25f, 0.45f, 0.7f, 1f).forEach { lead ->
+                    Choices(listOf("%.2f".format(lead)), "%.2f".format(Look.lyricsLead)) {
+                        Look.chooseLyricsLead(lead)
+                    }
+                }
+            }
+            Text(
+                "Sound leaves the player before it leaves the speakers. Nudge this up if " +
+                    "the words still land after they're sung, down if they run ahead.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
         }
     }
 }
@@ -352,16 +395,16 @@ private fun Switch(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
 }
 
 @Composable
-private fun Reset() {
+private fun Reset(label: String = "Back to defaults", onClick: () -> Unit = { Look.reset() }) {
     val (source, hovered) = rememberHovered()
     Box(
         Modifier
             .clip(RoundedCornerShape(999.dp))
             .background(Blz.surfaceHigh)
             .hoverBackground(Blz.hover, hovered, source)
-            .clickable { Look.reset() }
+            .clickable(onClick = onClick)
             .padding(horizontal = 15.dp, vertical = 8.dp),
     ) {
-        Text("Back to defaults", color = Blz.muted, fontSize = 12.5.sp)
+        Text(label, color = Blz.muted, fontSize = 12.5.sp)
     }
 }

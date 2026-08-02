@@ -30,6 +30,37 @@ object Romanize {
     private val cache = mutableMapOf<String, String>()
 
     /**
+     * The scripts this can convert, each with the block of characters that
+     * gives it away.
+     *
+     * Offered one by one rather than as a single switch: someone who reads
+     * Devanagari but not Hangul wants exactly one of these converted, and a
+     * single switch makes them choose between two languages they read
+     * differently.
+     */
+    enum class Script(val label: String, private val ranges: List<IntRange>) {
+        Hindi("Hindi", listOf(0x0900..0x097F)),
+        Japanese("Japanese", listOf(0x3040..0x30FF, 0x31F0..0x31FF)),
+        Korean("Korean", listOf(0xAC00..0xD7AF, 0x1100..0x11FF, 0x3130..0x318F)),
+        Chinese("Chinese", listOf(0x4E00..0x9FFF, 0x3400..0x4DBF)),
+        Cyrillic("Cyrillic", listOf(0x0400..0x04FF)),
+        Greek("Greek", listOf(0x0370..0x03FF)),
+        Arabic("Arabic", listOf(0x0600..0x06FF)),
+        Thai("Thai", listOf(0x0E00..0x0E7F));
+
+        fun matches(text: String) = text.any { c -> ranges.any { c.code in it } }
+    }
+
+    /**
+     * Which script a line is written in, if any this can handle.
+     *
+     * Japanese is checked before Chinese because the two share their
+     * characters — a line with kana in it is Japanese whatever else it holds,
+     * and testing the shared block first would call all of it Chinese.
+     */
+    fun scriptOf(text: String): Script? = Script.entries.firstOrNull { it.matches(text) }
+
+    /**
      * Whether there's anything here worth converting.
      *
      * Latin text comes back from the converter unchanged, so running it would
@@ -39,8 +70,10 @@ object Romanize {
      */
     fun needed(text: String): Boolean = text.any { it.code > 0x24F }
 
-    fun of(text: String): String {
+    fun of(text: String, allowed: Set<String>): String {
         if (text.isBlank() || !needed(text)) return text
+        val script = scriptOf(text) ?: return text
+        if (script.label !in allowed) return text
         cache[text]?.let { return it }
         val done = runCatching { engine?.transliterate(text) }.getOrNull() ?: text
         cache[text] = done

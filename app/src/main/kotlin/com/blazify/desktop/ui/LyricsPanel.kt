@@ -112,7 +112,9 @@ fun LyricsPanel(
 @Composable
 private fun Synced(lyrics: Lyrics, position: Double, onSeekTo: (Double) -> Unit) {
     val state = rememberLazyListState()
-    val current = lyrics.lineAt(position)
+    // Read a little ahead of where the player says it is, so a line lights up
+    // as it starts rather than once it's over.
+    val current = lyrics.lineAt(position + Look.lyricsLead)
 
     // Kept a third of the way down rather than centred: the line being sung
     // matters less than the two coming after it, and reading downward wants
@@ -150,7 +152,7 @@ private fun Synced(lyrics: Lyrics, position: Double, onSeekTo: (Double) -> Unit)
             Text(
                 // Turned into the Latin alphabet when asked, and left alone
                 // when there's nothing to turn.
-                (if (Look.romanize) Romanize.of(line.text) else line.text).ifBlank { "·" },
+                (if (Look.romanize) Romanize.of(line.text, Look.romanized) else line.text).ifBlank { "·" },
                 color = colour,
                 // The line being sung is the whole point of the panel, so it
                 // steps up in size as well as in colour — dimming alone reads
@@ -162,9 +164,10 @@ private fun Synced(lyrics: Lyrics, position: Double, onSeekTo: (Double) -> Unit)
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    // The app's own mark on a lyric sheet: the line being sung
-                    // sits on a wash of the accent rather than only being
-                    // brighter than the rest.
+                    // Off unless asked for. The line being sung is already the
+                    // brightest and largest thing on the sheet, and a panel of
+                    // words with a coloured block sliding down it is busier
+                    // than the words are worth.
                     .then(
                         if (active && Look.lyricsGlow) {
                             Modifier.background(
@@ -193,7 +196,7 @@ private fun Plain(text: String) {
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         items(text.lines()) { line ->
             Text(
-                (if (Look.romanize) Romanize.of(line) else line).ifBlank { " " },
+                (if (Look.romanize) Romanize.of(line, Look.romanized) else line).ifBlank { " " },
                 color = Blz.muted,
                 fontSize = Look.lyricsSize.line.sp,
                 lineHeight = (Look.lyricsSize.line + 10).sp,
