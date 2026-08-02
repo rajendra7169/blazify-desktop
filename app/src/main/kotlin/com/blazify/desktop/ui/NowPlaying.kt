@@ -184,19 +184,23 @@ fun NowPlayingScreen(
                 }
             }
 
+            // Sized for a screen you look at from across a room rather than
+            // a strip you glance down at. Skip is larger than shuffle and
+            // repeat, and play larger again: how often a control is pressed is
+            // what should decide how big it is.
             Row(
-                Modifier.padding(top = 18.dp),
+                Modifier.padding(top = 22.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Round(
-                    Icons.Rounded.Shuffle, "Shuffle", PlayerState::toggleShuffle, 20.dp,
+                    Icons.Rounded.Shuffle, "Shuffle", PlayerState::toggleShuffle, 26.dp,
                     tint = if (PlayerState.shuffling) Blaze.Amber else null,
                 )
-                Round(Icons.Rounded.SkipPrevious, "Previous", PlayerState::previous, 30.dp)
+                Round(Icons.Rounded.SkipPrevious, "Previous", PlayerState::previous, 40.dp)
                 Box(
                     Modifier
-                        .size(64.dp)
+                        .size(82.dp)
                         .clip(CircleShape)
                         .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)))
                         .clickable(onClick = PlayerState::toggle),
@@ -205,56 +209,62 @@ fun NowPlayingScreen(
                     Icon(
                         if (PlayerState.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         if (PlayerState.playing) "Pause" else "Play",
-                        Modifier.size(34.dp),
+                        Modifier.size(44.dp),
                         tint = Blaze.OnAmber,
                     )
                 }
-                Round(Icons.Rounded.SkipNext, "Next", PlayerState::next, 30.dp)
+                Round(Icons.Rounded.SkipNext, "Next", PlayerState::next, 40.dp)
                 Round(
                     if (PlayerState.repeat == PlayerState.Repeat.One) Icons.Rounded.RepeatOne
                     else Icons.Rounded.Repeat,
-                    "Repeat", PlayerState::cycleRepeat, 20.dp,
+                    "Repeat", PlayerState::cycleRepeat, 26.dp,
                     tint = if (PlayerState.repeat != PlayerState.Repeat.Off) Blaze.Amber else null,
                 )
             }
 
-            // Everything that isn't transport, under the transport. Same order
-            // as the strip they replace, so the hand goes to the same place.
+            // Everything that isn't transport, under the transport, and
+            // named. Five unlabelled glyphs is a memory test — and on a screen
+            // with this much room, refusing to say what they do is a choice
+            // rather than a constraint.
+            //
+            // Lyrics sits at the right end where the panel it opens appears,
+            // and add-to-playlist at the left end away from it; the ones you
+            // reach for by habit are on the outside, the occasional ones in
+            // the middle.
             Row(
-                Modifier.padding(top = 22.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                Modifier.padding(top = 26.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Top,
             ) {
-                Round(
-                    Icons.Rounded.Lyrics, "Lyrics", onToggleLyrics, 20.dp,
-                    tint = if (lyricsOpen) Blaze.Amber else null,
+                if (track != null) {
+                    Labelled(Icons.Rounded.PlaylistAdd, "Playlist", onClick = onAddToPlaylist)
+                }
+                Labelled(
+                    Icons.Rounded.QueueMusic, "Queue", on = queueOpen, onClick = onToggleQueue,
                 )
-                Round(
-                    Icons.Rounded.QueueMusic, "Queue", onToggleQueue, 20.dp,
-                    tint = if (queueOpen) Blaze.Amber else null,
-                )
-                Round(
-                    Icons.Rounded.Bedtime, "Sleep timer", onOpenTimer, 20.dp,
-                    tint = if (timerOn) Blaze.Amber else null,
+                Labelled(
+                    Icons.Rounded.Bedtime, "Timer", on = timerOn, onClick = onOpenTimer,
                 )
                 if (track != null) {
-                    Round(Icons.Rounded.PlaylistAdd, "Add to playlist", onAddToPlaylist, 20.dp)
                     val kept = Downloads.has(track.id)
-                    Round(
+                    Labelled(
                         if (kept) Icons.Rounded.DownloadDone else Icons.Rounded.Download,
-                        if (kept) "Kept for offline" else "Keep for offline",
-                        PlayerState::downloadCurrent, 20.dp,
-                        tint = if (kept) Blaze.Amber else null,
+                        if (kept) "Kept" else "Download",
+                        on = kept,
+                        onClick = PlayerState::downloadCurrent,
                     )
                 }
+                Labelled(
+                    Icons.Rounded.Lyrics, "Lyrics", on = lyricsOpen, onClick = onToggleLyrics,
+                )
             }
 
             // The volume, because with the strip hidden there is nowhere else
             // to reach it without leaving the screen.
             Row(
-                Modifier.padding(top = 16.dp).width(220.dp),
+                Modifier.padding(top = 22.dp).width(340.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Round(
                     when {
@@ -263,12 +273,14 @@ fun NowPlayingScreen(
                         else -> Icons.Rounded.VolumeUp
                     },
                     if (PlayerState.volume <= 0f) "Unmute" else "Mute",
-                    PlayerState::toggleMute, 18.dp,
+                    PlayerState::toggleMute, 24.dp,
                     tint = if (PlayerState.volume <= 0f) Blaze.Amber else null,
                 )
+                // Thicker than the strip's, and wider: a bar you set by
+                // dragging wants to be hittable without aiming.
                 ScrubBar(
                     PlayerState.volume, PlayerState::changeVolume,
-                    Modifier.weight(1f), fill = Blz.muted, thickness = 3.dp,
+                    Modifier.weight(1f), fill = Blz.muted, thickness = 6.dp,
                 )
             }
 
@@ -316,6 +328,44 @@ private fun PlayerLookMenu(open: Boolean, onDismiss: () -> Unit) {
                 if (on) Icon(Icons.Rounded.Check, null, Modifier.size(15.dp), tint = Blaze.Amber)
             }
         }
+    }
+}
+
+/**
+ * An icon that says what it is.
+ *
+ * The word sits under the glyph rather than beside it, so five of them stay a
+ * row rather than becoming a paragraph — and so the icons themselves stay
+ * evenly spaced, which is what makes the row scannable at a glance.
+ */
+@Composable
+private fun Labelled(
+    icon: ImageVector,
+    label: String,
+    on: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val (source, hovered) = rememberHovered()
+    val shade by animateColorAsState(
+        if (on) Blaze.Amber else if (hovered.value) Blz.ink else Blz.muted,
+        tween(120), label = "labelledTint",
+    )
+    Column(
+        Modifier
+            .width(78.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(icon, label, Modifier.size(24.dp), tint = shade)
+        Text(
+            label, color = shade, fontSize = 11.sp,
+            fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
