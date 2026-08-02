@@ -3,6 +3,7 @@ package com.blazify.desktop.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,12 +32,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.data.Lyrics
+import com.blazify.desktop.data.Romanize
 import com.blazify.desktop.data.LyricsSource
 import com.blazify.desktop.data.Track
 
@@ -116,7 +120,7 @@ private fun Synced(lyrics: Lyrics, position: Double, onSeekTo: (Double) -> Unit)
     // Measured from the panel rather than fixed, so the sung line stays a
     // third of the way down at any window height.
     LaunchedEffect(current) {
-        if (current < 0) return@LaunchedEffect
+        if (current < 0 || !Look.lyricsFollow) return@LaunchedEffect
         val viewport = state.layoutInfo.viewportSize.height
         state.animateScrollToItem(current, scrollOffset = -(viewport / 3))
     }
@@ -130,7 +134,7 @@ private fun Synced(lyrics: Lyrics, position: Double, onSeekTo: (Double) -> Unit)
     LazyColumn(
         Modifier.fillMaxSize(),
         state = state,
-        verticalArrangement = Arrangement.spacedBy(7.dp),
+        verticalArrangement = Arrangement.spacedBy(Look.lyricsSpacing.dp),
     ) {
         itemsIndexed(lyrics.lines) { at, line ->
             val active = at == current
@@ -142,22 +146,43 @@ private fun Synced(lyrics: Lyrics, position: Double, onSeekTo: (Double) -> Unit)
             )
             val (source, hovered) = rememberHovered()
 
+            val base = Look.lyricsSize.line
             Text(
-                line.text.ifBlank { "·" },
+                // Turned into the Latin alphabet when asked, and left alone
+                // when there's nothing to turn.
+                (if (Look.romanize) Romanize.of(line.text) else line.text).ifBlank { "·" },
                 color = colour,
                 // The line being sung is the whole point of the panel, so it
                 // steps up in size as well as in colour — dimming alone reads
                 // as "these are off" rather than "this one is now".
-                fontSize = if (active) 24.sp else 20.sp,
+                fontSize = (if (active) base + 4 else base).sp,
                 fontWeight = if (weight > 0.5f) FontWeight.Bold else FontWeight.Medium,
-                lineHeight = 31.sp,
+                lineHeight = (base + 11).sp,
                 textAlign = align,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(6.dp))
+                    .clip(RoundedCornerShape(8.dp))
+                    // The app's own mark on a lyric sheet: the line being sung
+                    // sits on a wash of the accent rather than only being
+                    // brighter than the rest.
+                    .then(
+                        if (active && Look.lyricsGlow) {
+                            Modifier.background(
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        Blaze.Amber.copy(alpha = 0.16f),
+                                        Blaze.Ember.copy(alpha = 0.06f),
+                                        Color.Transparent,
+                                    ),
+                                ),
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
                     .hoverBackground(Blz.hover, hovered, source)
                     .clickable { onSeekTo(line.at) }
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
             )
         }
     }
@@ -168,7 +193,10 @@ private fun Plain(text: String) {
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         items(text.lines()) { line ->
             Text(
-                line.ifBlank { " " }, color = Blz.muted, fontSize = 18.sp, lineHeight = 28.sp,
+                (if (Look.romanize) Romanize.of(line) else line).ifBlank { " " },
+                color = Blz.muted,
+                fontSize = Look.lyricsSize.line.sp,
+                lineHeight = (Look.lyricsSize.line + 10).sp,
                 modifier = Modifier.padding(horizontal = 8.dp),
             )
         }

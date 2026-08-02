@@ -25,6 +25,14 @@ enum class PlayerBackground(val label: String) {
     PureBlack("Pure black"),
 }
 
+/** How large the words are set. */
+enum class LyricsSize(val label: String, val line: Int) {
+    Small("Small", 17),
+    Medium("Medium", 20),
+    Large("Large", 24),
+    Huge("Huge", 29),
+}
+
 /** Where lyric lines sit across the panel. */
 enum class LyricsAlign(val label: String) { Left("Left"), Centre("Centre"), Right("Right") }
 
@@ -93,6 +101,52 @@ object Look {
     var lyricsAlign by mutableStateOf(read("lyricsAlign", LyricsAlign.Left) { LyricsAlign.valueOf(it) })
         private set
 
+    var lyricsSize by mutableStateOf(read("lyricsSize", LyricsSize.Medium) { LyricsSize.valueOf(it) })
+        private set
+
+    /** Extra air between lines, on top of what the type needs. */
+    var lyricsSpacing by mutableStateOf(store.getInt("lyricsSpacing", 7))
+        private set
+
+    /**
+     * Whether the words are turned into the Latin alphabet.
+     *
+     * Off by default: someone who reads the script wants the script, and
+     * guessing otherwise would be presumptuous about who's listening.
+     */
+    var romanize by mutableStateOf(store.getBoolean("romanize", false))
+        private set
+
+    /** A glow behind the line being sung, which is the app's own look. */
+    var lyricsGlow by mutableStateOf(store.getBoolean("lyricsGlow", true))
+        private set
+
+    /** Whether the words follow along on their own. */
+    var lyricsFollow by mutableStateOf(store.getBoolean("lyricsFollow", true))
+        private set
+
+    fun chooseLyricsSize(value: LyricsSize) { lyricsSize = value; put("lyricsSize", value.name) }
+
+    fun chooseLyricsSpacing(value: Int) {
+        lyricsSpacing = value.coerceIn(0, 28)
+        runCatching { store.putInt("lyricsSpacing", lyricsSpacing) }
+    }
+
+    fun chooseRomanize(value: Boolean) {
+        romanize = value
+        runCatching { store.putBoolean("romanize", value) }
+    }
+
+    fun chooseLyricsGlow(value: Boolean) {
+        lyricsGlow = value
+        runCatching { store.putBoolean("lyricsGlow", value) }
+    }
+
+    fun chooseLyricsFollow(value: Boolean) {
+        lyricsFollow = value
+        runCatching { store.putBoolean("lyricsFollow", value) }
+    }
+
     var gridSize by mutableStateOf(read("grid", GridSize.Big) { GridSize.valueOf(it) })
         private set
 
@@ -143,6 +197,11 @@ object Look {
         chooseSliderStyle(SliderStyle.Capsule)
         choosePlayerBackground(PlayerBackground.Gradient)
         chooseLyricsAlign(LyricsAlign.Left)
+        chooseLyricsSize(LyricsSize.Medium)
+        chooseLyricsSpacing(7)
+        chooseRomanize(false)
+        chooseLyricsGlow(true)
+        chooseLyricsFollow(true)
         chooseGridSize(GridSize.Big)
         choosePureBlack(false)
         chooseShowGreeting(true)

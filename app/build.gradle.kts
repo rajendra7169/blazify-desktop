@@ -21,6 +21,10 @@ dependencies {
 
     // Reading the cookie store browsers keep, which is an ordinary SQLite file.
     implementation(libs.sqlite.jdbc)
+
+    // Turning any script into the Latin alphabet. Writing this by hand means a
+    // table per language and getting every one of them slightly wrong.
+    implementation(libs.icu4j)
     implementation(libs.ktor.client.okhttp)
 
     // Audio. The catalogue serves fragmented MP4, which the lighter JVM media
