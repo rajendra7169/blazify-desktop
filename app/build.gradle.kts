@@ -1,13 +1,110 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.gradle.process.ExecOperations
 import java.net.URI
+import javax.inject.Inject
 import java.util.zip.ZipFile
 
+
+/**
+ * Turn `proto/together.proto` into Java before anything compiles.
+ *
+ * The rooms this app joins are shared with other Blazify clients, so the wire
+ * format is not ours to invent — it belongs to the server, and the .proto file
+ * is the only honest description of it. Generating from that file means a
+ * change to the protocol is a one-line change here rather than a hunt through
+ * hand-written parsing.
+ *
+ * protoc is fetched once into the build directory. It is a native binary per
+ * platform, which is why it can't simply be a dependency.
+ */
+abstract class GenerateProtoTask : DefaultTask() {
+    @get:InputFile
+    abstract val protoSourceFile: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val generatedSourcesDir: DirectoryProperty
+
+    @get:Input
+    abstract val protocUrl: Property<String>
+
+    @get:Internal
+    abstract val protocExecutable: RegularFileProperty
+
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
+    @TaskAction
+    fun generate() {
+        val proto = protoSourceFile.get().asFile
+        val out = generatedSourcesDir.get().asFile
+        val protoc = protocExecutable.get().asFile
+        out.mkdirs()
+
+        if (!protoc.exists() || protoc.length() == 0L) {
+            val url = protocUrl.get()
+            logger.lifecycle("Fetching ${url.substringAfterLast('/')}")
+            protoc.parentFile.mkdirs()
+            val connection = URI(url).toURL().openConnection() as java.net.HttpURLConnection
+            connection.setRequestProperty("User-Agent", "Blazify/1.0")
+            if (connection.responseCode !in 200..299) {
+                throw GradleException("protoc download failed: HTTP ${connection.responseCode} for $url")
+            }
+            connection.inputStream.use { input -> protoc.outputStream().use(input::copyTo) }
+            protoc.setExecutable(true)
+        }
+
+        execOperations.exec {
+            executable = protoc.absolutePath
+            args("--java_out=lite:$out", "-I=${proto.parentFile}", proto.absolutePath)
+        }
+    }
+}
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.compose)
     alias(libs.plugins.kotlin.serialization)
+}
+
+val protocVersion = libs.versions.protobuf.get()
+
+val protocDownloadUrl: String = run {
+    val os = System.getProperty("os.name").lowercase()
+    val arch = System.getProperty("os.arch").lowercase()
+    val platform = when {
+        os.contains("linux") -> "linux"
+        os.contains("mac") || os.contains("darwin") -> "osx"
+        os.contains("windows") -> "windows"
+        else -> "linux"
+    }
+    val chip = when {
+        arch.contains("x86_64") || arch.contains("amd64") -> "x86_64"
+        arch.contains("aarch64") || arch.contains("arm64") -> "aarch_64"
+        else -> "x86_64"
+    }
+    "https://repo1.maven.org/maven2/com/google/protobuf/protoc/" +
+        "$protocVersion/protoc-$protocVersion-$platform-$chip.exe"
+}
+
+val generatedProto = layout.buildDirectory.dir("generated/proto")
+
+val generateProto = tasks.register<GenerateProtoTask>("generateProto") {
+    group = "build"
+    description = "Generate the Blaze Together wire format from proto/together.proto"
+    protoSourceFile.set(rootProject.file("proto/together.proto"))
+    generatedSourcesDir.set(generatedProto)
+    protocUrl.set(protocDownloadUrl)
+    protocExecutable.set(
+        layout.buildDirectory.file("protoc/${protocDownloadUrl.substringAfterLast('/')}"),
+    )
+}
+
+sourceSets["main"].java.srcDir(generatedProto)
+
+tasks.withType<JavaCompile>().configureEach { dependsOn(generateProto) }
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    dependsOn(generateProto)
 }
 
 dependencies {
@@ -26,6 +123,8 @@ dependencies {
     // table per language and getting every one of them slightly wrong.
     implementation(libs.icu4j)
     implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.websockets)
+    implementation(libs.protobuf.javalite)
 
     // Audio. The catalogue serves fragmented MP4, which the lighter JVM media
     // libraries can't open at all — this one plays it without complaint, along

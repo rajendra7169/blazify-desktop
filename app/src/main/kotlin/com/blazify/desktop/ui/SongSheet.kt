@@ -21,6 +21,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.PlaylistPlay
@@ -48,6 +49,7 @@ import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LocalMusic
 import com.blazify.desktop.data.Track
+import com.blazify.desktop.together.Together
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
 
@@ -115,6 +117,16 @@ fun SongSheet(
         Item(Icons.Rounded.QueueMusic, "Add to queue") { PlayerState.addToQueue(track); onDismiss() }
         Item(Icons.Rounded.PlaylistAdd, "Add to playlist…") {
             Dialogs.addToPlaylist(track); onDismiss()
+        }
+
+        // Only when there is a room and you are not the one driving it. A
+        // host adds; a guest asks. Shown rather than greyed out for the same
+        // reason as everything else here: an item that can't work teaches
+        // people the menu is decorative.
+        if (Together.code != null && !Together.hosting) {
+            Item(Icons.Rounded.People, "Suggest to the room") {
+                Together.suggest(track); onDismiss()
+            }
         }
 
         Divider()

@@ -48,6 +48,7 @@ import com.blazify.desktop.ui.screens.HomeScreen
 import com.blazify.desktop.ui.screens.LibraryScreen
 import com.blazify.desktop.ui.screens.LocalScreen
 import com.blazify.desktop.ui.screens.SettingsScreen
+import com.blazify.desktop.ui.screens.TogetherScreen
 import com.blazify.desktop.ui.screens.TrackListScreen
 
 /**
@@ -354,6 +355,8 @@ private fun Content(destination: Destination) {
             onPlay = PlayerState::play,
             onShuffle = PlayerState::shuffle,
         )
+
+        Destination.Together -> TogetherScreen()
 
         else -> Placeholder(destination)
     }

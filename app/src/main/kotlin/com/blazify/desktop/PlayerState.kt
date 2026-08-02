@@ -8,6 +8,8 @@ import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LyricsSource
+import com.blazify.desktop.together.Did
+import com.blazify.desktop.together.Together
 import com.blazify.desktop.data.LocalMusic
 import com.blazify.desktop.data.Track
 import com.blazify.desktop.data.asTrack
@@ -241,6 +243,9 @@ object PlayerState {
         if (current == null) return
         // Nothing loaded yet — the first press should start it, not toggle silence.
         if (AudioEngine.duration == 0.0 && !AudioEngine.loading) start() else AudioEngine.toggle()
+        // Told after the fact rather than before, so what the room hears is
+        // what actually happened here.
+        Together.share(if (AudioEngine.playing) Did.PLAY else Did.PAUSE)
     }
 
     fun next() {
@@ -258,6 +263,7 @@ object PlayerState {
         val target = fraction.coerceIn(0f, 1f)
         seekTarget = target
         AudioEngine.seek(target.toDouble())
+        Together.share(Did.SEEK)
         scope.launch {
             // Let go once the engine lands near where it was asked to go, or
             // give up after a moment so a failed seek can't freeze the bar.
@@ -342,6 +348,10 @@ object PlayerState {
 
     private fun start() {
         val track = current ?: return
+        // Everyone in the room hears what the host started, and hears it from
+        // their own copy — the wire carries which song and where in it, never
+        // the audio.
+        Together.share(Did.CHANGE_TRACK)
         failure = null
         seekTarget = null
 
