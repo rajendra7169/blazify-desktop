@@ -37,6 +37,7 @@ import com.blazify.desktop.audio.Equaliser
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.hoverBackground
+import com.blazify.desktop.ui.hoverGlow
 import com.blazify.desktop.ui.rememberHovered
 
 /**
@@ -255,7 +256,10 @@ private fun Chip(label: String, on: Boolean, onClick: () -> Unit) {
                 if (on) Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))
                 else Brush.linearGradient(listOf(Blz.surfaceHigh, Blz.surfaceHigh)),
             )
-            .then(if (on) Modifier else Modifier.hoverBackground(Blz.hover, hovered, source))
+            .then(
+                if (on) Modifier.hoverGlow(hovered, source)
+                else Modifier.hoverBackground(Blz.hover, hovered, source),
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 13.dp, vertical = 7.dp),
     ) {

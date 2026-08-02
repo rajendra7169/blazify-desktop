@@ -43,6 +43,7 @@ import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.Look
 import com.blazify.desktop.ui.SkeletonRail
 import com.blazify.desktop.ui.hoverBackground
+import com.blazify.desktop.ui.hoverGlow
 import com.blazify.desktop.ui.hoverLift
 import com.blazify.desktop.ui.rememberHovered
 import java.time.LocalTime
@@ -216,7 +217,7 @@ private fun ShuffleButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
             .clip(RoundedCornerShape(999.dp))
             .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)))
             .hoverLift(hovered, to = 1.05f)
-            .hoverBackground(Blz.hover, hovered, source)
+            .hoverGlow(hovered, source)
             .clickable(onClick = onClick)
             .padding(start = 18.dp, end = 22.dp, top = 14.dp, bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -248,7 +249,10 @@ private fun MoodChips(
                         if (on) Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))
                         else Brush.linearGradient(listOf(Blz.surface, Blz.surface)),
                     )
-                    .then(if (on) Modifier else Modifier.hoverBackground(Blz.hover, hovered, source))
+                    .then(
+                        if (on) Modifier.hoverGlow(hovered, source)
+                        else Modifier.hoverBackground(Blz.hover, hovered, source),
+                    )
                     // Picking the one already on turns it off, which is the
                     // only way back to the unfiltered feed once you've chosen.
                     .clickable { onSelect(if (on) null else entry) }

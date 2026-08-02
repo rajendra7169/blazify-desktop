@@ -55,6 +55,7 @@ import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.Look
 import com.blazify.desktop.ui.SongMenu
 import com.blazify.desktop.ui.hoverBackground
+import com.blazify.desktop.ui.hoverGlow
 import com.blazify.desktop.ui.hoverLift
 import com.blazify.desktop.ui.rememberHovered
 import kotlinx.coroutines.launch
@@ -179,7 +180,7 @@ private fun PlayAllPill(onPlay: () -> Unit) {
         Modifier
             .clip(RoundedCornerShape(999.dp))
             .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)))
-            .hoverBackground(Blz.hover, hovered, source)
+            .hoverGlow(hovered, source)
             .clickable(onClick = onPlay)
             .padding(start = 10.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,

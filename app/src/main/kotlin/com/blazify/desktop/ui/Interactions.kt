@@ -46,6 +46,26 @@ fun Modifier.hoverBackground(
         .background(color.copy(alpha = color.alpha * alpha))
 }
 
+/**
+ * Brightens whatever is underneath while the pointer is inside.
+ *
+ * For anything already carrying a colour of its own — a filled button, a
+ * selected chip. The plain hover tint paints an opaque surface colour, which on
+ * a coloured background covers it entirely and takes the label with it: dark
+ * ink meant for amber, sitting on dark grey. A wash of white lifts the colour
+ * instead of replacing it, and works the same on every accent and both themes.
+ */
+fun Modifier.hoverGlow(
+    hovered: State<Boolean>,
+    source: MutableInteractionSource,
+    strength: Float = 0.16f,
+): Modifier = composed {
+    val alpha by animateFloatAsState(if (hovered.value) strength else 0f, tween(120), label = "hoverGlow")
+    this
+        .hoverable(source)
+        .background(Color.White.copy(alpha = alpha))
+}
+
 /** A barely-there lift. Used on artwork cards, never on text. */
 fun Modifier.hoverLift(hovered: State<Boolean>, to: Float = 1.02f): Modifier = composed {
     val s by animateFloatAsState(if (hovered.value) to else 1f, tween(140), label = "hoverLift")

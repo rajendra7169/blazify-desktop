@@ -179,7 +179,10 @@ private fun Pill(
                 if (filled) Modifier.background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)))
                 else Modifier.background(Blz.surfaceHigh),
             )
-            .hoverBackground(Blz.hover, hovered, source)
+            .then(
+                if (filled) Modifier.hoverGlow(hovered, source)
+                else Modifier.hoverBackground(Blz.hover, hovered, source),
+            )
             .clickable(onClick = onClick)
             .padding(vertical = 11.dp),
         contentAlignment = Alignment.Center,

@@ -49,6 +49,7 @@ import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.SongMenu
 import com.blazify.desktop.ui.SkeletonRows
 import com.blazify.desktop.ui.hoverBackground
+import com.blazify.desktop.ui.hoverGlow
 import com.blazify.desktop.ui.rememberHovered
 
 /**
@@ -195,7 +196,10 @@ private fun Action(icon: ImageVector, label: String, filled: Boolean, onClick: (
                 if (filled) Modifier.background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)))
                 else Modifier.background(Blz.surface),
             )
-            .hoverBackground(Blz.hover, hovered, source)
+            .then(
+                if (filled) Modifier.hoverGlow(hovered, source)
+                else Modifier.hoverBackground(Blz.hover, hovered, source),
+            )
             .clickable(onClick = onClick)
             .padding(start = 16.dp, end = 20.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

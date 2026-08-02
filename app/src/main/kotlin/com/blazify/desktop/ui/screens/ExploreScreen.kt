@@ -59,6 +59,7 @@ import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.SkeletonRows
 import com.blazify.desktop.ui.SongMenu
 import com.blazify.desktop.ui.hoverBackground
+import com.blazify.desktop.ui.hoverGlow
 import com.blazify.desktop.ui.hoverLift
 import com.blazify.desktop.ui.rememberHovered
 import kotlinx.coroutines.delay
@@ -304,7 +305,10 @@ private fun ScopeChips(selected: Catalogue.Scope, onSelect: (Catalogue.Scope) ->
                         if (on) Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))
                         else Brush.linearGradient(listOf(Blz.surface, Blz.surface)),
                     )
-                    .then(if (on) Modifier else Modifier.hoverBackground(Blz.hover, hovered, source))
+                    .then(
+                        if (on) Modifier.hoverGlow(hovered, source)
+                        else Modifier.hoverBackground(Blz.hover, hovered, source),
+                    )
                     .clickable { onSelect(scope) }
                     .padding(horizontal = 13.dp, vertical = 6.dp),
             ) {

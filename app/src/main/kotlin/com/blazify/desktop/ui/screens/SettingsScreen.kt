@@ -66,6 +66,7 @@ import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.ThemeMode
 import com.blazify.desktop.ui.ThemeState
 import com.blazify.desktop.ui.hoverBackground
+import com.blazify.desktop.ui.hoverGlow
 import com.blazify.desktop.ui.rememberHovered
 
 /**
@@ -477,7 +478,10 @@ private fun Choice(
                             if (on) Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))
                             else Brush.linearGradient(listOf(Blz.surfaceHigh, Blz.surfaceHigh)),
                         )
-                        .then(if (on) Modifier else Modifier.hoverBackground(Blz.hover, hovered, source))
+                        .then(
+                        if (on) Modifier.hoverGlow(hovered, source)
+                        else Modifier.hoverBackground(Blz.hover, hovered, source),
+                    )
                         .clickable { onSelect(option) }
                         .padding(horizontal = 15.dp, vertical = 7.dp),
                 ) {

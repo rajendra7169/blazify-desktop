@@ -50,11 +50,15 @@ object Look {
     /**
      * Whether the accent follows the artwork.
      *
+     * On by default, as it is on the phone: a cover is the one thing on screen
+     * that already has an identity, and taking the accent from it makes the
+     * window belong to the song rather than to the application.
+     *
      * The chosen colour is kept underneath rather than overwritten, so turning
      * this off puts back the one that was picked instead of leaving whatever
      * the last cover happened to be.
      */
-    var dynamicColour by mutableStateOf(store.getBoolean("dynamic", false))
+    var dynamicColour by mutableStateOf(store.getBoolean("dynamic", true))
         private set
 
     /** The accent in force: the artwork's when it's following one, else yours. */
@@ -120,7 +124,7 @@ object Look {
     /** Back to how it shipped, for anyone who has painted themselves into a corner. */
     fun reset() {
         chooseAccent(Accent.Blaze)
-        chooseDynamicColour(false)
+        chooseDynamicColour(true)
         chooseSliderStyle(SliderStyle.Capsule)
         choosePlayerBackground(PlayerBackground.Gradient)
         chooseLyricsAlign(LyricsAlign.Left)
