@@ -62,6 +62,7 @@ object Library {
         liked = if (wanted) listOf(track) + liked else liked.filterNot { it.id == track.id }
         Store.write(LIKED, liked)
         scope.launch { Catalogue.setLiked(track.id, wanted) }
+        Scrobbler.love(track, wanted)
     }
 
     /**

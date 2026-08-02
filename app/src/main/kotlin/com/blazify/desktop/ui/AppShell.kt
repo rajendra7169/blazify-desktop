@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +42,7 @@ import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.Playlists
+import com.blazify.desktop.data.Scrobbler
 import com.blazify.desktop.ui.screens.CollectionScreen
 import com.blazify.desktop.ui.screens.DownloadsScreen
 import com.blazify.desktop.ui.screens.ExploreScreen
@@ -90,6 +92,16 @@ fun AppShell() {
     // you changed page would be worse than no colour at all.
     LaunchedEffect(PlayerState.current?.thumbnail, Look.dynamicColour) {
         ArtworkColour.follow(PlayerState.current?.thumbnail.takeIf { Look.dynamicColour })
+    }
+
+    // A play is only a play once it has been most of a play. Watched from here
+    // because this is the one composable that outlives every screen — the
+    // decision must not depend on which page happens to be open.
+    LaunchedEffect(PlayerState.current?.id) {
+        val playing = PlayerState.current ?: return@LaunchedEffect
+        snapshotFlow { PlayerState.positionSeconds }.collect { seconds ->
+            Scrobbler.heard(playing, seconds)
+        }
     }
 
     Box(Modifier.fillMaxSize()) {

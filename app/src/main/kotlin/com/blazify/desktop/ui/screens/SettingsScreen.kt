@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Shield
@@ -94,6 +95,7 @@ import com.blazify.desktop.ui.rememberHovered
 enum class SettingsPage(val label: String, val icon: ImageVector) {
     Account("Account", Icons.Rounded.Person),
     Together("Blaze Together", Icons.Rounded.People),
+    Connections("Connections", Icons.Rounded.Link),
     LookAndFeel("Look and feel", Icons.Rounded.Palette),
     PlayerAudio("Player and audio", Icons.Rounded.GraphicEq),
     Lyrics("Lyrics", Icons.Rounded.Lyrics),
@@ -149,6 +151,12 @@ fun SettingsScreen() {
 
             when (page) {
                 SettingsPage.Account -> item { AccountSection() }
+
+                SettingsPage.Connections -> item {
+                    ConnectionsSettingsSection { title, reset, content ->
+                        Section(title, reset) { content() }
+                    }
+                }
 
                 SettingsPage.Together -> item {
                     TogetherSettingsSection { title, reset, content ->

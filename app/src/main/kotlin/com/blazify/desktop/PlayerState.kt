@@ -8,6 +8,7 @@ import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LyricsSource
+import com.blazify.desktop.data.Scrobbler
 import com.blazify.desktop.together.Did
 import com.blazify.desktop.together.Together
 import com.blazify.desktop.data.LocalMusic
@@ -362,6 +363,7 @@ object PlayerState {
         // while somebody is staring at an empty panel.
         LyricsSource.warm(track)
         LyricsSource.warm(queue.getOrNull(index + 1))
+        Scrobbler.began(track)
         if (!AudioEngine.available()) {
             failure = "Audio support is missing — install VLC and restart Blazify"
             return
