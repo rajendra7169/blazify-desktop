@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.blazify.desktop.ui.screens.SettingsPage
 import com.blazify.desktop.data.Catalogue
 
 /**
@@ -44,7 +45,12 @@ object Navigator {
     var settingsOpen by mutableStateOf(false)
         private set
 
-    fun openSettings() {
+    /** Which page the settings should land on when they open. */
+    var settingsPage by mutableStateOf(SettingsPage.Account)
+        private set
+
+    fun openSettings(page: SettingsPage = SettingsPage.Account) {
+        settingsPage = page
         settingsOpen = true
         stack.clear()
         playlist = null

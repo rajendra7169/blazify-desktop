@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Storage
@@ -90,8 +91,9 @@ import com.blazify.desktop.ui.rememberHovered
  * Named after what you'd be trying to change rather than after where the code
  * happens to live.
  */
-private enum class SettingsPage(val label: String, val icon: ImageVector) {
+enum class SettingsPage(val label: String, val icon: ImageVector) {
     Account("Account", Icons.Rounded.Person),
+    Together("Blaze Together", Icons.Rounded.People),
     LookAndFeel("Look and feel", Icons.Rounded.Palette),
     PlayerAudio("Player and audio", Icons.Rounded.GraphicEq),
     Lyrics("Lyrics", Icons.Rounded.Lyrics),
@@ -111,7 +113,9 @@ private enum class SettingsPage(val label: String, val icon: ImageVector) {
  */
 @Composable
 fun SettingsScreen() {
-    var page by remember { mutableStateOf(SettingsPage.Account) }
+    // Opened at whichever page asked for it. A link from a feature's own screen
+    // that lands on Account is a link you have to finish following by hand.
+    var page by remember { mutableStateOf(Navigator.settingsPage) }
 
     Row(Modifier.fillMaxSize()) {
         Column(
@@ -145,6 +149,12 @@ fun SettingsScreen() {
 
             when (page) {
                 SettingsPage.Account -> item { AccountSection() }
+
+                SettingsPage.Together -> item {
+                    TogetherSettingsSection { title, reset, content ->
+                        Section(title, reset) { content() }
+                    }
+                }
 
                 SettingsPage.LookAndFeel -> {
                     item {

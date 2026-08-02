@@ -53,6 +53,8 @@ import java.util.zip.GZIPInputStream
  */
 object Together {
 
+    private val nameFile = File(Store.folder, "together-name")
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val client by lazy { HttpClient(OkHttp) { install(WebSockets) } }
 
@@ -60,10 +62,46 @@ object Together {
     private var pump: Job? = null
     private var heartbeat: Job? = null
 
-    enum class Link { Off, Dialling, On }
+    /** Where the line stands, independently of whether there is a room. */
+    enum class Link { Off, Dialling, On, Trouble }
 
     var link by mutableStateOf(Link.Off)
         private set
+
+    /** True from asking to be let in until the host answers. */
+    var knockingAtDoor by mutableStateOf(false)
+        private set
+
+    /**
+     * The name you go by in a room, remembered between runs.
+     *
+     * A preference rather than something taken from the account, because the
+     * room is a room full of people and what you want to be called in one is
+     * not always what your email says. Seeded from the account the first time,
+     * since that is a better guess than nothing.
+     */
+    var username by mutableStateOf(
+        runCatching { nameFile.takeIf { it.exists() }?.readText()?.trim() }.getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: (Account.name ?: System.getProperty("user.name") ?: ""),
+    )
+        private set
+
+    fun chooseUsername(value: String) {
+        username = value
+        runCatching { nameFile.writeText(value.trim()) }
+    }
+
+    /** Rooms this app will let in without asking, when hosting. */
+    var autoApproveJoins by mutableStateOf(false)
+        private set
+
+    fun chooseAutoApproveJoins(value: Boolean) { autoApproveJoins = value }
+
+    var autoApproveSuggestions by mutableStateOf(false)
+        private set
+
+    fun chooseAutoApproveSuggestions(value: Boolean) { autoApproveSuggestions = value }
 
     /** The room's four letters, once there is a room. */
     var code by mutableStateOf<String?>(null)
@@ -98,7 +136,7 @@ object Together {
      * something they will recognise.
      */
     val myName: String
-        get() = Account.name ?: System.getProperty("user.name") ?: "Blazify"
+        get() = username.trim().ifBlank { Account.name ?: System.getProperty("user.name") ?: "Blazify" }
 
     private val ticket = File(Store.folder, "together-session")
 
@@ -125,6 +163,7 @@ object Together {
                 }
             } catch (_: Exception) {
                 trouble = "Couldn't reach the room server. Check the connection and try again."
+                link = Link.Trouble
             } finally {
                 hangUp(keepTicket = true)
             }
@@ -148,7 +187,8 @@ object Together {
         heartbeat?.cancel()
         heartbeat = null
         socket = null
-        link = Link.Off
+        knockingAtDoor = false
+        if (link != Link.Trouble) link = Link.Off
         if (!keepTicket) {
             code = null
             hosting = false
@@ -172,11 +212,24 @@ object Together {
         scope.launch { runCatching { session.send(Frame.Binary(true, envelope.toByteArray())) } }
     }
 
+    /** Open the line, without joining anything. Mirrors the phone's Connect. */
+    fun connect() = dial { }
+
+    /** Close it. A room is left first, because leaving is not the same as vanishing. */
+    fun disconnect() {
+        if (code != null) leave() else {
+            scope.launch { runCatching { socket?.close() } }
+            hangUp(keepTicket = false)
+        }
+    }
+
     fun host() = dial {
+        trouble = null
         say(Say.CREATE_ROOM, Wire.CreateRoomPayload.newBuilder().setUsername(myName).build())
     }
 
     fun join(room: String) = dial {
+        knockingAtDoor = true
         say(
             Say.JOIN_ROOM,
             Wire.JoinRoomPayload.newBuilder()
@@ -273,6 +326,7 @@ object Together {
             }
 
             Say.JOIN_APPROVED -> Wire.JoinApprovedPayload.parseFrom(body).let {
+                knockingAtDoor = false
                 code = it.roomCode
                 me = it.userId
                 hosting = false
@@ -281,13 +335,14 @@ object Together {
             }
 
             Say.JOIN_REJECTED -> Wire.JoinRejectedPayload.parseFrom(body).let {
+                knockingAtDoor = false
                 trouble = it.reason.ifBlank { "The host didn't let you in." }
                 hangUp(keepTicket = false)
             }
 
             // Only the host is ever asked, and only the host can answer.
             Say.JOIN_REQUEST -> Wire.JoinRequestPayload.parseFrom(body).let {
-                knocking += Knock(it.userId, it.username)
+                if (autoApproveJoins) letIn(it.userId) else knocking += Knock(it.userId, it.username)
             }
 
             Say.USER_JOINED -> Wire.UserJoinedPayload.parseFrom(body).let {
@@ -321,7 +376,8 @@ object Together {
             Say.SYNC_PLAYBACK, Say.SYNC_STATE -> follow(Wire.SyncStatePayload.parseFrom(body))
 
             Say.SUGGESTION_RECEIVED -> Wire.SuggestionReceivedPayload.parseFrom(body).let {
-                suggestions += Suggestion(it.suggestionId, it.fromUsername, it.trackInfo.ours())
+                val put = Suggestion(it.suggestionId, it.fromUsername, it.trackInfo.ours())
+                if (autoApproveSuggestions) accept(put) else suggestions += put
             }
 
             Say.ERROR -> Wire.ErrorPayload.parseFrom(body).let {

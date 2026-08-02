@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,7 +24,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.GroupAdd
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
@@ -58,6 +62,7 @@ import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.EmptyState
+import com.blazify.desktop.ui.Navigator
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverGlow
 import com.blazify.desktop.ui.rememberHovered
@@ -72,26 +77,58 @@ import java.awt.datatransfer.StringSelection
 /**
  * Listening with other people.
  *
- * Two states, and the screen is built as two screens rather than one that
- * changes: before there's a room you are choosing between starting one and
- * joining one, and after there is you are looking at who's here. Trying to be
- * both at once is how a page ends up with a dead form at the top of it.
+ * Laid out the way the phone lays it out, because it is the same feature and a
+ * room can hold both: the disc, then where the line stands, then either the
+ * form for getting into a room or the room itself, then the way to its
+ * settings. Everything down one centred column — this is a page you read top to
+ * bottom once and then mostly ignore, not a dashboard.
+ *
+ * Connecting and joining are two separate acts here, as they are there. The
+ * line can be open with nobody in a room, which is what makes "connected" a
+ * thing worth saying out loud on its own row.
  */
 @Composable
 fun TogetherScreen() {
+    var name by remember { mutableStateOf(Together.username) }
+    var codeTyped by remember { mutableStateOf("") }
+
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(horizontal = 26.dp, vertical = 22.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Hero()
 
-        Together.trouble?.let {
-            Text(it, color = Blaze.Amber, fontSize = 12.5.sp, lineHeight = 18.sp)
-        }
+        Column(
+            Modifier.widthIn(max = 560.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            LineCard()
 
-        if (Together.code == null) Doorway() else Room()
+            if (Together.link == Together.Link.On && Together.code == null) {
+                Text(
+                    "The line stays open while this window is. Nothing is shared until " +
+                        "you are in a room.",
+                    color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            if (Together.code == null) {
+                Doorway(
+                    name = name,
+                    onName = { name = it; Together.chooseUsername(it) },
+                    code = codeTyped,
+                    onCode = { codeTyped = it },
+                )
+            } else {
+                Room()
+            }
+
+            SettingsCard()
+        }
     }
 }
 
@@ -129,7 +166,7 @@ private fun Hero() {
     )
 
     Column(
-        Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 6.dp),
+        Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -166,62 +203,142 @@ private fun Hero() {
     }
 }
 
-/** Start one, or go to one. */
+/**
+ * Where the line stands, said in one row.
+ *
+ * A dot and a word, the way the phone says it — and the button underneath is
+ * whichever one is possible right now rather than both greyed against each
+ * other. Being connected without being in a room is a real state and it needs
+ * saying, or "join" failing looks like the code was wrong.
+ */
 @Composable
-private fun Doorway() {
-    var typed by remember { mutableStateOf("") }
-    val dialling = Together.link == Together.Link.Dialling
+private fun LineCard() {
+    val link = Together.link
+    val colour = when (link) {
+        Together.Link.On -> Blaze.Amber
+        Together.Link.Dialling -> Blz.ink
+        Together.Link.Trouble -> Blaze.Ember
+        Together.Link.Off -> Blz.dim
+    }
 
-    Row(
-        Modifier.fillMaxWidth().widthIn(max = 820.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Card(Modifier.weight(1f)) {
-            Text("Start a room", color = Blz.ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+    Card {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(10.dp).clip(CircleShape).background(colour))
             Text(
-                "You pick what plays and everyone follows. You'll get a four-letter code " +
-                    "to pass around.",
-                color = Blz.dim, fontSize = 12.5.sp, lineHeight = 18.sp,
+                when (link) {
+                    Together.Link.On -> "Connected"
+                    Together.Link.Dialling -> "Connecting…"
+                    Together.Link.Trouble -> "Connection error"
+                    Together.Link.Off -> "Disconnected"
+                },
+                color = colour, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 10.dp),
             )
-            Pill(if (dialling) "Starting…" else "Start", filled = true) { Together.host() }
         }
 
-        Card(Modifier.weight(1f)) {
-            Text("Join a room", color = Blz.ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Text(
-                "Type the code somebody gave you. The host has to let you in.",
-                color = Blz.dim, fontSize = 12.5.sp, lineHeight = 18.sp,
-            )
+        if (link == Together.Link.Dialling) {
             Box(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Blz.surfaceHigh)
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(999.dp))
+                    .background(Blz.surfaceHigh),
             ) {
-                if (typed.isEmpty()) {
-                    Text("CODE", color = Blz.dim, fontSize = 15.sp, letterSpacing = 3.sp)
-                }
-                BasicTextField(
-                    value = typed,
-                    // Upper case on the way in, because the code is upper case
-                    // and nobody should have to hold shift to be let into a
-                    // room.
-                    onValueChange = { typed = it.uppercase().filter(Char::isLetterOrDigit).take(6) },
-                    singleLine = true,
-                    textStyle = TextStyle(color = Blz.ink, fontSize = 15.sp, letterSpacing = 3.sp),
-                    cursorBrush = SolidColor(Blaze.Amber),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // The letter shortcuts stand down while this has focus,
-                        // or typing a room code would pause the music halfway
-                        // through it.
-                        .onFocusChanged { Typing.active = it.isFocused },
+                val pulse = rememberInfiniteTransition(label = "dialling")
+                val along by pulse.animateFloat(
+                    initialValue = 0f, targetValue = 1f,
+                    animationSpec = infiniteRepeatable(tween(1100), RepeatMode.Reverse),
+                    label = "along",
+                )
+                Box(
+                    Modifier.fillMaxWidth(0.35f).height(4.dp)
+                        .offset(x = (along * 200).dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))),
                 )
             }
-            Pill(if (dialling) "Knocking…" else "Join", filled = typed.isNotBlank()) {
-                if (typed.isNotBlank()) Together.join(typed)
+        }
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            when (link) {
+                Together.Link.Off, Together.Link.Trouble ->
+                    Wide("Connect", filled = true, Modifier.weight(1f)) { Together.connect() }
+                Together.Link.On ->
+                    Wide("Disconnect", filled = false, Modifier.weight(1f)) { Together.disconnect() }
+                Together.Link.Dialling -> Unit
             }
+        }
+    }
+}
+
+/**
+ * The name you go by, and the way in.
+ *
+ * One card rather than two side by side. Both routes need the name, so asking
+ * for it once above them is the difference between one form and two that
+ * disagree — and which button appears follows what you have typed: no code
+ * means you are starting a room, a full code means you are joining one.
+ */
+@Composable
+private fun Doorway(
+    name: String,
+    onName: (String) -> Unit,
+    code: String,
+    onCode: (String) -> Unit,
+) {
+    val named = name.trim().isNotBlank()
+    // Eight, because that is the length the server issues. Anything else is a
+    // half-typed code and offering to join on it only produces a refusal.
+    val complete = code.length == 8
+
+    Card {
+        Field(
+            label = "Your name",
+            hint = "What the room calls you",
+            value = name,
+            onValue = onName,
+        )
+        Field(
+            label = "Room code",
+            hint = "Leave empty to start your own",
+            value = code,
+            onValue = { onCode(it.uppercase().filter(Char::isLetterOrDigit).take(8)) },
+            wide = true,
+        )
+
+        if (Together.knockingAtDoor) {
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                    .background(Blaze.Amber.copy(alpha = 0.14f))
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Waiting for the host to let you in…",
+                    color = Blaze.Amber, fontSize = 12.5.sp,
+                )
+            }
+        }
+
+        when {
+            !named -> Text(
+                "Pick a name first — it is what everybody else sees.",
+                color = Blz.dim, fontSize = 11.5.sp, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            complete -> Wide("Join room", filled = true, Modifier.fillMaxWidth()) {
+                Together.join(code)
+            }
+            code.isEmpty() -> Wide("Create room", filled = true, Modifier.fillMaxWidth()) {
+                Together.host()
+            }
+            else -> Text(
+                "Room codes are eight characters — ${code.length} so far.",
+                color = Blz.dim, fontSize = 11.5.sp, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
@@ -230,12 +347,12 @@ private fun Doorway() {
 @Composable
 private fun Room() {
     Column(
-        Modifier.fillMaxWidth().widthIn(max = 820.dp),
+        Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Card {
             Text(
-                if (Together.hosting) "You're hosting" else "You're listening in",
+                if (Together.hosting) "YOU'RE HOSTING" else "YOU'RE LISTENING IN",
                 color = Blz.dim, fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
                 letterSpacing = 1.2.sp,
             )
@@ -263,7 +380,7 @@ private fun Room() {
                 },
                 color = Blz.dim, fontSize = 12.5.sp, lineHeight = 18.sp,
             )
-            Pill("Leave", filled = false) { Together.leave() }
+            Wide("Leave room", filled = false, Modifier.fillMaxWidth()) { Together.leave() }
         }
 
         // Only the host is ever asked, so this simply isn't there for anyone
@@ -371,6 +488,36 @@ private fun Room() {
     }
 }
 
+/**
+ * The way to the rest of it.
+ *
+ * Server, name and what gets approved without asking all live in Settings, and
+ * this is the page you are on when you want them — so the door is here rather
+ * than only in the rail, which is exactly the arrangement the phone uses.
+ */
+@Composable
+private fun SettingsCard() {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Blz.surface)
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable { Navigator.openSettings(SettingsPage.Together) }
+            .padding(18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Icon(Icons.Rounded.Tune, null, Modifier.size(22.dp), tint = Blaze.Amber)
+        Column(Modifier.weight(1f)) {
+            Text("Blaze Together settings", color = Blz.ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text("Server, your name, and what gets let in automatically", color = Blz.dim, fontSize = 12.sp)
+        }
+        Icon(Icons.Rounded.ChevronRight, null, Modifier.size(20.dp), tint = Blz.dim)
+    }
+}
+
 /** The empty version of this screen, before anything has been tried. */
 @Composable
 fun TogetherEmpty() {
@@ -391,6 +538,87 @@ private fun Card(modifier: Modifier = Modifier, content: @Composable ColumnScope
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content,
     )
+}
+
+/**
+ * A labelled box you type in.
+ *
+ * The label sits above rather than inside, so it is still readable once there
+ * is text in the field — a placeholder that vanishes the moment you use it is
+ * a label you have to remember.
+ */
+@Composable
+private fun Field(
+    label: String,
+    hint: String,
+    value: String,
+    onValue: (String) -> Unit,
+    wide: Boolean = false,
+) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, color = Blz.muted, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Blz.surfaceHigh)
+                .padding(horizontal = 14.dp, vertical = 13.dp),
+        ) {
+            if (value.isEmpty()) {
+                Text(
+                    hint, color = Blz.dim, fontSize = 14.sp,
+                    letterSpacing = if (wide) 2.sp else 0.sp,
+                )
+            }
+            BasicTextField(
+                value = value,
+                onValueChange = onValue,
+                singleLine = true,
+                textStyle = TextStyle(
+                    color = Blz.ink, fontSize = 14.sp,
+                    letterSpacing = if (wide) 2.sp else 0.sp,
+                ),
+                cursorBrush = SolidColor(Blaze.Amber),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // The letter shortcuts stand down while this has focus, or
+                    // typing a room code would pause the music halfway through.
+                    .onFocusChanged { Typing.active = it.isFocused },
+            )
+        }
+    }
+}
+
+/** A button that takes the width it is given. */
+@Composable
+private fun Wide(
+    label: String,
+    filled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val (source, hovered) = rememberHovered()
+    Box(
+        modifier
+            .clip(RoundedCornerShape(14.dp))
+            .then(
+                if (filled) Modifier.background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)))
+                else Modifier.background(Blz.surfaceHigh),
+            )
+            .then(
+                if (filled) Modifier.hoverGlow(hovered, source)
+                else Modifier.hoverBackground(Blz.hover, hovered, source),
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 13.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = if (filled) Blaze.OnAmber else Blz.ink,
+            fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
+        )
+    }
 }
 
 @Composable
