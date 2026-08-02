@@ -84,6 +84,12 @@ fun SettingsScreen() {
             }
         }
 
+        // Everything with a preview lives together, so choosing an accent and
+        // seeing what it does to a slider is one glance rather than two screens.
+        item {
+            LookAndFeelSection { title, content -> Section(title) { content() } }
+        }
+
         item {
             Section("Storage") {
                 Line("Where everything is kept", Store.folder.absolutePath)
