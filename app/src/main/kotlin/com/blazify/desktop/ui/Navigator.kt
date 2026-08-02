@@ -46,10 +46,10 @@ object Navigator {
         private set
 
     /** Which page the settings should land on when they open. */
-    var settingsPage by mutableStateOf(SettingsPage.Account)
+    var settingsPage by mutableStateOf(SettingsPage.LookAndFeel)
         private set
 
-    fun openSettings(page: SettingsPage = SettingsPage.Account) {
+    fun openSettings(page: SettingsPage = SettingsPage.LookAndFeel) {
         settingsPage = page
         settingsOpen = true
         stack.clear()

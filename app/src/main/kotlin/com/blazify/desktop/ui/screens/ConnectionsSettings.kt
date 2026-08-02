@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.Typing
+import com.blazify.desktop.data.Presence
 import com.blazify.desktop.data.Scrobbler
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
@@ -57,6 +58,47 @@ fun ConnectionsSettingsSection(
     section("Last.fm", null) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (Scrobbler.signedIn) SignedIn() else SignIn()
+        }
+    }
+
+    section("Discord", null) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Toggle("Show what I'm listening to", Presence.enabled, Presence::choose)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(9.dp).clip(CircleShape).background(
+                        if (Presence.connected) Blaze.Amber else Blz.dim,
+                    ),
+                )
+                Text(
+                    when {
+                        !Presence.enabled -> "Off"
+                        Presence.connected -> "Talking to Discord on this computer"
+                        else -> Presence.trouble ?: "Looking for Discord…"
+                    },
+                    color = if (Presence.connected) Blaze.Amber else Blz.muted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 10.dp),
+                )
+            }
+
+            if (Presence.enabled) {
+                Toggle("Include the album cover", Presence.showArtwork, Presence::chooseArtwork)
+                Toggle("Offer a link to the song", Presence.showLink, Presence::chooseLink)
+                Entry(
+                    "Application id",
+                    "Whose name and icon appear beside the song",
+                    Presence.appId,
+                    onValue = Presence::chooseAppId,
+                )
+            }
+
+            Text(
+                "This talks to the Discord already running on this computer, over a pipe " +
+                    "it opens for exactly this. There is no account to connect and no " +
+                    "token to hand over — close Discord and nothing is sent anywhere.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
         }
     }
 

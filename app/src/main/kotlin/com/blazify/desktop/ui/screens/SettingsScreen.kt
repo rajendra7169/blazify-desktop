@@ -93,10 +93,13 @@ import com.blazify.desktop.ui.rememberHovered
  * happens to live.
  */
 enum class SettingsPage(val label: String, val icon: ImageVector) {
+    // First, because it is the page people actually come here for. An account
+    // is set up once and then never thought about again; how the thing looks is
+    // fiddled with for as long as it is owned.
+    LookAndFeel("Look and feel", Icons.Rounded.Palette),
     Account("Account", Icons.Rounded.Person),
     Together("Blaze Together", Icons.Rounded.People),
     Connections("Connections", Icons.Rounded.Link),
-    LookAndFeel("Look and feel", Icons.Rounded.Palette),
     PlayerAudio("Player and audio", Icons.Rounded.GraphicEq),
     Lyrics("Lyrics", Icons.Rounded.Lyrics),
     Content("Content", Icons.Rounded.LibraryMusic),

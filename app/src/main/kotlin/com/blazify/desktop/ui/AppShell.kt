@@ -42,6 +42,7 @@ import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.Playlists
+import com.blazify.desktop.data.Presence
 import com.blazify.desktop.data.Scrobbler
 import com.blazify.desktop.ui.screens.CollectionScreen
 import com.blazify.desktop.ui.screens.DownloadsScreen
@@ -92,6 +93,13 @@ fun AppShell() {
     // you changed page would be worse than no colour at all.
     LaunchedEffect(PlayerState.current?.thumbnail, Look.dynamicColour) {
         ArtworkColour.follow(PlayerState.current?.thumbnail.takeIf { Look.dynamicColour })
+    }
+
+    // The chat client is told when the song or the play state changes, and not
+    // otherwise — the end time goes with it, so it does its own ticking rather
+    // than being told the same song is still playing once a second.
+    LaunchedEffect(PlayerState.current?.id, PlayerState.playing) {
+        Presence.show(PlayerState.current, PlayerState.playing, PlayerState.positionSeconds)
     }
 
     // A play is only a play once it has been most of a play. Watched from here
