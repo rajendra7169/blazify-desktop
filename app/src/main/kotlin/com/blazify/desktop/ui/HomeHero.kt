@@ -30,18 +30,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.res.useResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -73,12 +68,6 @@ fun HomeHero(
     modifier: Modifier = Modifier,
 ) {
     val dark = Blz.dark
-    val measurer = rememberTextMeasurer()
-    // Read here rather than inside the drawing, which isn't a composable place.
-    // Strong enough to survive being painted over. The fades that blend the
-    // crowd into the page go down after this, and a faint mark simply did not
-    // come through them.
-    val markColour = Blz.ink.copy(alpha = if (dark) 0.34f else 0.22f)
     val hero = remember {
         runCatching { useResource("blazify_people.png") { loadImageBitmap(it) } }.getOrNull()
     }
@@ -112,42 +101,6 @@ fun HomeHero(
 
             hero?.let { picture ->
                 Canvas(Modifier.matchParentSize()) {
-                    // The name, measured rather than guessed.
-                    //
-                    // Choosing a size as a fraction of the window and hoping it
-                    // fits is what cut the B off one end and the y off the
-                    // other: how wide seven letters come out depends on the
-                    // font, the weight and the spacing, none of which a
-                    // fraction knows about. Measuring once at any size gives
-                    // the exact ratio to scale by, so it fills the width it is
-                    // given and never exceeds it.
-                    // Kept clear of the left of the hero, which is held at full
-                    // page colour so the greeting has something quiet to sit
-                    // on. A centred word put its first letters straight into
-                    // that and lost them.
-                    val target = size.width * 0.56f
-                    val probe = measurer.measure(
-                        "Blazify",
-                        TextStyle(fontSize = 200.sp, fontWeight = FontWeight.Bold, letterSpacing = 14.sp),
-                    )
-                    val fit = target / probe.size.width
-                    val mark = measurer.measure(
-                        "Blazify",
-                        TextStyle(
-                            fontSize = (200 * fit).sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (14 * fit).sp,
-                        ),
-                    )
-                    drawText(
-                        textLayoutResult = mark,
-                        color = markColour,
-                        topLeft = Offset(
-                            size.width * 0.40f,
-                            size.height * 0.26f,
-                        ),
-                    )
-
                     // Scaled to cover the hero rather than to match its width.
                     // Sizing off the width alone made the crowd a thin band on
                     // a narrow window and an enormous one on a wide screen —
@@ -174,12 +127,12 @@ fun HomeHero(
                             -(size.height * 0.10f).toInt(),
                         ),
                         dstSize = drawn,
-                        alpha = if (dark) 0.95f else 0.8f,
-                        // The picture is cut out on black. Added to what's
-                        // underneath, black contributes nothing and only the
-                        // figures land — no rectangle, and it sits correctly on
-                        // whatever colour the artwork has tinted the window.
-                        blendMode = BlendMode.Screen,
+                        // Painted normally now. The picture carries its own
+                        // transparency, so there is no black rectangle to get
+                        // rid of — and adding light, which is how that was
+                        // done before, would have erased the lettering
+                        // completely: it is pure black, and black adds nothing.
+                        alpha = if (dark) 0.95f else 0.85f,
                     )
                 }
             }
