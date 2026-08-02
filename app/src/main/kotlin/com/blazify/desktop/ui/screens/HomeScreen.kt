@@ -97,10 +97,11 @@ fun HomeScreen(
         // The greeting card's figure stands above the card on purpose, and a
         // list crops at its own edge — so the room it needs has to be part of
         // the list rather than part of the card.
-        // The hero reaches past this margin on both sides and starts at the
-        // very top, so it gets no padding of its own to fight.
+        // Only top and bottom. The sides are padded by each item that wants
+        // them, which leaves the hero free to be genuinely full width instead
+        // of trying to reach past a margin it was given.
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            start = 26.dp, end = 26.dp, top = 0.dp, bottom = 92.dp,
+            top = 0.dp, bottom = 92.dp,
         ),
         state = listState,
         verticalArrangement = Arrangement.spacedBy(22.dp),
@@ -121,8 +122,10 @@ fun HomeScreen(
         }
         if (HomeState.moods.isNotEmpty()) {
             item {
-                MoodChips(HomeState.moods, mood) { picked ->
-                    scope.launch { HomeState.choose(picked) }
+                Box(Modifier.padding(horizontal = 26.dp)) {
+                    MoodChips(HomeState.moods, mood) { picked ->
+                        scope.launch { HomeState.choose(picked) }
+                    }
                 }
             }
         }
@@ -132,25 +135,39 @@ fun HomeScreen(
             // Building them takes several requests while the feed takes one, so
             // without this the albums would win the race every time and be the
             // first thing on the page — which is exactly backwards.
-            if (HomeState.building && picks.isEmpty()) items(3) { SkeletonRail() }
-            items(picks) { shelf -> Shelf(shelf, onOpen, onPlayAll) }
+            if (HomeState.building && picks.isEmpty()) {
+                items(3) { Box(Modifier.padding(horizontal = 26.dp)) { SkeletonRail() } }
+            }
+            items(picks) { shelf ->
+                Box(Modifier.padding(horizontal = 26.dp)) { Shelf(shelf, onOpen, onPlayAll) }
+            }
         }
 
         when {
-            HomeState.loading -> items(2) { SkeletonRail() }
+            HomeState.loading -> items(2) {
+                Box(Modifier.padding(horizontal = 26.dp)) { SkeletonRail() }
+            }
             HomeState.problem != null -> item {
-                Text(HomeState.problem!!, color = Blz.muted, fontSize = 13.sp)
+                Box(Modifier.padding(horizontal = 26.dp)) {
+                    Text(HomeState.problem!!, color = Blz.muted, fontSize = 13.sp)
+                }
             }
             shelves.isEmpty() -> item {
-                Text("Nothing in the feed right now", color = Blz.dim, fontSize = 13.sp)
+                Box(Modifier.padding(horizontal = 26.dp)) {
+                    Text("Nothing in the feed right now", color = Blz.dim, fontSize = 13.sp)
+                }
             }
             // Interleaved rather than tipped in as a block: a run of eight
             // album shelves reads as a shop, so a song shelf is dealt back in
             // between them and the page keeps alternating.
-            else -> items(interleave(shelves, picks)) { shelf -> Shelf(shelf, onOpen, onPlayAll) }
+            else -> items(interleave(shelves, picks)) { shelf ->
+                Box(Modifier.padding(horizontal = 26.dp)) { Shelf(shelf, onOpen, onPlayAll) }
+            }
         }
 
-        if (HomeState.extending) item { SkeletonRail(count = 5) }
+        if (HomeState.extending) item {
+            Box(Modifier.padding(horizontal = 26.dp)) { SkeletonRail(count = 5) }
+        }
     }
 
     // Sits over the feed in the bottom corner, just above the transport strip.

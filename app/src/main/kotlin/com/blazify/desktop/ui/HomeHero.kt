@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.requiredHeight
-import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -76,10 +75,6 @@ fun HomeHero(
 
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val pane = maxWidth
-        // The list this sits in keeps a margin down both sides; the hero
-        // reaches past it so the picture meets the window rather than stopping
-        // short of it with a strip of background showing.
-        val bleed = 26.dp
 
         // Proportional rather than fixed, and deliberately shallow: this is a
         // greeting, and a greeting that pushes the music off the screen has
@@ -87,17 +82,16 @@ fun HomeHero(
         // become a stripe on a wide window or a wall on a narrow one.
         val height = (pane * 0.165f).coerceIn(214.dp, 302.dp)
 
+        // No offsets and nothing reaching past anything: the list gives this
+        // item the full width, so the hero simply fills it and clips its own
+        // overflow. Fighting the parent's margins with negative offsets and
+        // required sizes is what put a strip down one side, stretched the
+        // picture, and finally let it escape onto the rail.
         Box(
             Modifier
-                .offset(x = -bleed)
-                // Required, not merely asked for. A plain width is still capped
-                // by what the parent offers, so every attempt to reach past the
-                // margin was quietly trimmed back to it — which is where the
-                // dark strip on the right came from, and why the picture came
-                // out stretched: its height was worked out from a width it was
-                // never actually given.
-                .requiredWidth(pane + bleed * 2)
-                .height(height),
+                .fillMaxWidth()
+                .height(height)
+                .clipToBounds(),
         ) {
             // The picture goes down first and everything else is laid over the
             // whole hero, not over the picture. Fading the image to the page
@@ -110,17 +104,15 @@ fun HomeHero(
                 // the hero, which is the point — the crowd is cut off at the
                 // knees rather than shrunk to fit, so the figures stay the size
                 // they want to be and the list clips the rest.
-                val wide = pane + bleed * 2
-                val tall = wide * (picture.height.toFloat() / picture.width)
+                val tall = pane * (picture.height.toFloat() / picture.width)
 
                 Canvas(
                     Modifier
                         .align(Alignment.TopStart)
-                        // Both sides required, so the drawing keeps the
-                        // picture's own proportions instead of being squeezed
-                        // into whatever the parent happens to offer.
-                        .requiredWidth(wide)
-                        .requiredHeight(tall),
+                        // Its own proportions, and the box above clips
+                        // whatever hangs below the hero.
+                        .fillMaxWidth()
+                        .height(tall),
                 ) {
                     // The picture is cut out on black. Painted normally that
                     // black is a rectangle sitting on the page; added to what's
@@ -200,7 +192,7 @@ fun HomeHero(
             Column(
                 Modifier
                     .align(Alignment.CenterStart)
-                    .padding(start = bleed + 8.dp, end = 24.dp)
+                    .padding(start = 26.dp, end = 24.dp)
                     .widthIn(max = pane * 0.52f),
                 verticalArrangement = Arrangement.Center,
             ) {
