@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.sp
 import com.blazify.desktop.Typing
 import com.blazify.desktop.data.Account
 import com.blazify.desktop.data.BrowserSession
+import com.blazify.desktop.data.Backup
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LocalMusic
@@ -93,11 +94,8 @@ import com.blazify.desktop.ui.rememberHovered
  * happens to live.
  */
 enum class SettingsPage(val label: String, val icon: ImageVector) {
-    // First, because it is the page people actually come here for. An account
-    // is set up once and then never thought about again; how the thing looks is
-    // fiddled with for as long as it is owned.
-    LookAndFeel("Look and feel", Icons.Rounded.Palette),
     Account("Account", Icons.Rounded.Person),
+    LookAndFeel("Look and feel", Icons.Rounded.Palette),
     Together("Blaze Together", Icons.Rounded.People),
     Connections("Connections", Icons.Rounded.Link),
     PlayerAudio("Player and audio", Icons.Rounded.GraphicEq),
@@ -202,14 +200,50 @@ fun SettingsScreen() {
                     }
                 }
 
-                SettingsPage.Storage -> item {
-                    Section("Storage") {
-                        Line("Where everything is kept", Store.folder.absolutePath)
-                        Line("Downloaded songs", "${Downloads.items.size}  ·  ${size(Downloads.bytes)}")
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            if (Downloads.items.isNotEmpty()) {
-                                Button("Remove downloads", Downloads::removeAll)
+                SettingsPage.Storage -> {
+                    item {
+                        Section("Storage") {
+                            Line("Where everything is kept", Store.folder.absolutePath)
+                            Line("Downloaded songs", "${Downloads.items.size}  ·  ${size(Downloads.bytes)}")
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                if (Downloads.items.isNotEmpty()) {
+                                    Button("Remove downloads", Downloads::removeAll)
+                                }
                             }
+                        }
+                    }
+
+                    item {
+                        Section("Backup") {
+                            Text(
+                                "Everything you've liked, played, saved and made, plus how " +
+                                    "you've set the app up — one ordinary zip of ordinary " +
+                                    "JSON, for a new machine or a reinstall.",
+                                color = Blz.dim, fontSize = 12.sp, lineHeight = 18.sp,
+                            )
+                            Line("This backup would hold", Backup.summary())
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(if (Backup.busy) "Working…" else "Back up") {
+                                    if (!Backup.busy) {
+                                        chooseSaveFile(Backup.suggestedName())?.let(Backup::writeTo)
+                                    }
+                                }
+                                Button("Restore") {
+                                    if (!Backup.busy) chooseOpenFile()?.let(Backup::readFrom)
+                                }
+                            }
+
+                            Backup.outcome?.let {
+                                Text(it, color = Blaze.Amber, fontSize = 12.sp, lineHeight = 18.sp)
+                            }
+
+                            Text(
+                                "Your sign-in is left out on purpose. A copy of it in a file " +
+                                    "that gets emailed around is a copy of the account, and " +
+                                    "signing in again takes ten seconds.",
+                                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+                            )
                         }
                     }
                 }
@@ -454,6 +488,33 @@ private fun openInBrowser(url: String) {
  * which is why nobody presses it — the useful question is "put this bit back",
  * and that has to be asked next to the bit.
  */
+/**
+ * The system's own save dialog.
+ *
+ * Swing's rather than something drawn here: this is a file being put somewhere
+ * on a real disk, and people navigate their own machine faster in the picker
+ * they already know than in anything an application invents.
+ */
+private fun chooseSaveFile(suggested: String): java.io.File? {
+    val chooser = javax.swing.JFileChooser(System.getProperty("user.home")).apply {
+        dialogTitle = "Save a Blazify backup"
+        selectedFile = java.io.File(suggested)
+    }
+    if (chooser.showSaveDialog(null) != javax.swing.JFileChooser.APPROVE_OPTION) return null
+    val picked = chooser.selectedFile ?: return null
+    // Kept as a zip whatever it was named, so it opens by double-clicking.
+    return if (picked.name.endsWith(".zip", true)) picked
+    else java.io.File(picked.parentFile, picked.name + ".zip")
+}
+
+private fun chooseOpenFile(): java.io.File? {
+    val chooser = javax.swing.JFileChooser(System.getProperty("user.home")).apply {
+        dialogTitle = "Open a Blazify backup"
+    }
+    if (chooser.showOpenDialog(null) != javax.swing.JFileChooser.APPROVE_OPTION) return null
+    return chooser.selectedFile?.takeIf { it.isFile }
+}
+
 @Composable
 private fun Section(
     title: String,
