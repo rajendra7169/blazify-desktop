@@ -43,7 +43,11 @@ import com.blazify.desktop.data.OwnPlaylist
 import com.blazify.desktop.data.Playlists
 import com.blazify.desktop.data.Track
 import com.blazify.desktop.ui.Artwork
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.grid.items
 import com.blazify.desktop.ui.Blaze
+import com.blazify.desktop.ui.Skeleton
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.EmptyState
 import com.blazify.desktop.ui.hoverBackground
@@ -67,20 +71,49 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
     val saved = Library.saved
     val own = Playlists.all
     var mine by remember { mutableStateOf<List<Catalogue.Card>>(emptyList()) }
-    var loading by remember { mutableStateOf(Account.signedIn) }
+    // True until the first answer arrives, whatever the account is doing.
+    //
+    // It used to start at `Account.signedIn`, which is false for the second or
+    // two the stored session takes to be checked — so the page opened by saying
+    // the library was empty and then filled in behind that. "Nothing here" is a
+    // statement of fact and it has to wait until it is one.
+    var asked by remember { mutableStateOf(false) }
 
     // Re-asked whenever you sign in or out, since the answer is entirely
-    // different on each side of that.
-    LaunchedEffect(Account.cookie) {
-        loading = Account.signedIn
+    // different on each side of that, and once the check itself finishes.
+    LaunchedEffect(Account.cookie, Account.checking) {
+        if (Account.checking) return@LaunchedEffect
         mine = Catalogue.mine().getOrDefault(emptyList())
-        loading = false
+        asked = true
     }
+
+    val loading = !asked
 
     // A session that has lapsed is not the same as never having had one, and
     // telling someone to sign in when they already did is how an expired
     // cookie turns into "the app lost my playlists".
     val lapsed = Account.hasCredential && !Account.signedIn && !Account.checking
+
+    // Shelves in outline while the account is being asked. A grid that appears
+    // where an empty page was is the app correcting itself; a grid that fills
+    // in where its own outline was is the app loading.
+    if (loading && saved.isEmpty() && own.isEmpty()) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(190.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            items(8) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Skeleton(Modifier.fillMaxWidth().aspectRatio(1f), corner = 12.dp)
+                    Skeleton(Modifier.fillMaxWidth(0.75f).height(11.dp))
+                    Skeleton(Modifier.fillMaxWidth(0.45f).height(9.dp))
+                }
+            }
+        }
+        return
+    }
 
     if (saved.isEmpty() && mine.isEmpty() && own.isEmpty() && !loading) {
         EmptyState(

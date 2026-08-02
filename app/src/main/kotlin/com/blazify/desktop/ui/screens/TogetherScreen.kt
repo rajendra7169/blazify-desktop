@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
@@ -33,7 +34,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
@@ -74,21 +82,87 @@ fun TogetherScreen() {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(horizontal = 26.dp, vertical = 22.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Blaze Together", color = Blz.ink, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            Text(
-                "One room, one queue, everybody hearing the same second of the same song.",
-                color = Blz.muted, fontSize = 13.sp,
-            )
-        }
+        Hero()
 
         Together.trouble?.let {
             Text(it, color = Blaze.Amber, fontSize = 12.5.sp, lineHeight = 18.sp)
         }
 
         if (Together.code == null) Doorway() else Room()
+    }
+}
+
+/**
+ * The disc, breathing.
+ *
+ * The same mark the phone opens this screen with — a halo pulsing behind a
+ * gradient disc — because somebody who set a room up on their phone should
+ * recognise this page before they read a word of it. It is also the honest
+ * shape for the feature: something quietly alive, waiting for other people.
+ */
+@Composable
+private fun Hero() {
+    val breath = rememberInfiniteTransition(label = "togetherHero")
+    val halo by breath.animateFloat(
+        initialValue = 1f, targetValue = 1.22f,
+        animationSpec = infiniteRepeatable(
+            tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse,
+        ),
+        label = "halo",
+    )
+    val glow by breath.animateFloat(
+        initialValue = 0.22f, targetValue = 0.05f,
+        animationSpec = infiniteRepeatable(
+            tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse,
+        ),
+        label = "glow",
+    )
+    val disc by breath.animateFloat(
+        initialValue = 1f, targetValue = 1.04f,
+        animationSpec = infiniteRepeatable(
+            tween(1800, easing = FastOutSlowInEasing), RepeatMode.Reverse,
+        ),
+        label = "disc",
+    )
+
+    Column(
+        Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(Modifier.size(124.dp), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .size(112.dp)
+                    .graphicsLayer { scaleX = halo; scaleY = halo }
+                    .clip(CircleShape)
+                    .background(Blaze.Amber.copy(alpha = glow)),
+            )
+            Box(
+                Modifier
+                    .size(88.dp)
+                    .graphicsLayer { scaleX = disc; scaleY = disc }
+                    .clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Rounded.GroupAdd, null, Modifier.size(44.dp), tint = Blaze.OnAmber)
+            }
+        }
+        Text(
+            "Blaze Together", color = Blz.ink, fontSize = 26.sp,
+            fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp),
+        )
+        Text(
+            "Listen with your friends in real time. Start a room to host, or join one " +
+                "with a code.",
+            color = Blz.muted, fontSize = 13.sp, lineHeight = 19.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.widthIn(max = 460.dp),
+        )
     }
 }
 
