@@ -43,6 +43,7 @@ import com.blazify.desktop.data.OwnPlaylist
 import com.blazify.desktop.data.Playlists
 import com.blazify.desktop.data.Track
 import com.blazify.desktop.ui.Artwork
+import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.EmptyState
 import com.blazify.desktop.ui.hoverBackground
@@ -76,17 +77,38 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
         loading = false
     }
 
+    // A session that has lapsed is not the same as never having had one, and
+    // telling someone to sign in when they already did is how an expired
+    // cookie turns into "the app lost my playlists".
+    val lapsed = Account.hasCredential && !Account.signedIn && !Account.checking
+
     if (saved.isEmpty() && mine.isEmpty() && own.isEmpty() && !loading) {
         EmptyState(
             Icons.Rounded.LibraryMusic,
-            "Your library is empty",
-            if (Account.signedIn) {
-                "Save an album or playlist and it collects here, alongside anything you make."
-            } else {
-                "Sign in to bring your own playlists across, or save anything you find to keep it here."
+            if (lapsed) "Your session has expired" else "Your library is empty",
+            when {
+                lapsed ->
+                    "Your playlists are still on your account — this computer's sign-in has " +
+                        "lapsed, which YouTube does every few weeks. Settings › Account › " +
+                        "Use current browser puts it back."
+                Account.signedIn ->
+                    "Save an album or playlist and it collects here, alongside anything you make."
+                else ->
+                    "Sign in to bring your own playlists across, or save anything you find to keep it here."
             },
         )
         return
+    }
+
+    // Said above the grid too, or someone with one local playlist sees that
+    // one and concludes the other twenty are gone.
+    if (lapsed) {
+        Text(
+            "Signed out — your account's playlists aren't showing. " +
+                "Settings › Account › Use current browser.",
+            color = Blaze.Amber, fontSize = 12.sp,
+            modifier = Modifier.padding(start = 26.dp, end = 26.dp, top = 16.dp),
+        )
     }
 
     LazyVerticalGrid(

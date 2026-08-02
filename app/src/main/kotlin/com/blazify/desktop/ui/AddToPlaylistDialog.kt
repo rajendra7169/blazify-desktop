@@ -114,14 +114,32 @@ fun AddToPlaylistDialog(track: Track, onDismiss: () -> Unit) {
                 theirs == null -> Text("Looking for your playlists…", color = Blz.dim, fontSize = 12.5.sp)
                 Playlists.all.isEmpty() && theirs!!.isEmpty() ->
                     Text(
-                        if (Account.signedIn) "No playlists yet — make the first one."
-                        else "No playlists on this computer yet. Sign in to see the ones on your account.",
+                        when {
+                            // Told apart, because "make one" and "sign in
+                            // again" are opposite instructions and guessing
+                            // wrong wastes the whole dialog.
+                            Account.hasCredential && !Account.signedIn ->
+                                "Your sign-in has lapsed, so your account's playlists aren't " +
+                                    "listed. Settings › Account › Use current browser. You can " +
+                                    "still make one here."
+                            Account.signedIn -> "No playlists yet — make the first one."
+                            else -> "No playlists on this computer yet. Sign in to see the ones on your account."
+                        },
                         color = Blz.dim, fontSize = 12.5.sp, lineHeight = 18.sp,
                     )
                 else -> LazyColumn(
                     Modifier.heightIn(max = 280.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
+                    if (Account.hasCredential && !Account.signedIn) {
+                        item {
+                            Text(
+                                "Signed out — account playlists not listed.",
+                                color = Blaze.Amber, fontSize = 11.5.sp,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            )
+                        }
+                    }
                     if (theirs!!.isNotEmpty()) {
                         item { Heading("ON YOUR ACCOUNT") }
                         itemsIndexed(theirs!!, key = { at, it -> "acc-$at-${it.id}" }) { _, playlist ->

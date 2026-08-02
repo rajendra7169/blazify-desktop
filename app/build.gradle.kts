@@ -224,6 +224,13 @@ tasks.register<JavaExec>("sourceProbe") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("libraryProbe") {
+    group = "verification"
+    description = "Print what the signed-in account says its library holds"
+    mainClass.set("com.blazify.desktop.tools.library.LibraryProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("playProbe") {
     group = "verification"
     description = "Resolve a stream and try to play it, printing what the engine reports"

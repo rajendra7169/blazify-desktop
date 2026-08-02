@@ -3,7 +3,12 @@ package com.blazify.desktop.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -30,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloseFullscreen
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.VerticalAlignCenter
@@ -48,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -188,7 +195,11 @@ fun LyricsTheatre(
                 Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(Modifier.weight(1f)) {
+                // The cover, then the name. With the rest of the app hidden
+                // this row is the only thing saying what is playing, and a
+                // sleeve is recognised faster than a line of text is read.
+                track?.let { Artwork(it.thumbnail, size = 54.dp) }
+                Column(Modifier.weight(1f).padding(start = 14.dp)) {
                     track?.let {
                         Text(
                             it.title, color = Blz.ink, fontSize = 20.sp,
@@ -234,11 +245,15 @@ private fun Body(
     padding: PaddingValues,
 ) {
     when {
-        track == null -> Note("Play something to see its words", scale)
-        lyrics == null -> Note("Looking…", scale)
+        track == null -> Waiting("Nothing playing", "Start a song and its words appear here", scale, still = true)
+        lyrics == null -> Waiting("Looking for the words", "Asking your sources, best first", scale, still = false)
         lyrics.synced -> Synced(lyrics, position, onSeekTo, scale, padding)
         !lyrics.plain.isNullOrBlank() -> Plain(lyrics.plain, scale, padding)
-        else -> Note("No lyrics found for this one", scale)
+        else -> Waiting(
+            "No words for this one",
+            "None of your sources have it. Try another from the button above.",
+            scale, still = true,
+        )
     }
 }
 
@@ -515,12 +530,82 @@ private fun Plain(text: String, scale: Float, padding: PaddingValues) {
     }
 }
 
+/**
+ * Nothing to read yet, said properly.
+ *
+ * Centred, with a mark that breathes while there is something happening and
+ * holds still when there isn't — so waiting and having nothing look different
+ * from across the room. A line of grey text pinned to the top of an empty panel
+ * reads as a bug; this reads as an answer.
+ */
 @Composable
-private fun Note(text: String, scale: Float) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+private fun Waiting(title: String, detail: String, scale: Float, still: Boolean) {
+    val pulse = rememberInfiniteTransition(label = "lyricWait")
+    val breath by pulse.animateFloat(
+        initialValue = if (still) 1f else 0.82f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Reverse),
+        label = "breath",
+    )
+    val turn by pulse.animateFloat(
+        initialValue = 0f,
+        targetValue = if (still) 0f else 360f,
+        animationSpec = infiniteRepeatable(tween(5200, easing = LinearEasing), RepeatMode.Restart),
+        label = "turn",
+    )
+
+    val side = (74 * scale.coerceAtMost(1.7f)).dp
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            // A ring of the record's colour, turning while the sources are
+            // being asked. It is the same accent as everything else, so this
+            // never looks like a foreign spinner dropped into the page.
+            Box(
+                Modifier
+                    .size(side)
+                    .graphicsLayer {
+                        rotationZ = turn
+                        scaleX = breath
+                        scaleY = breath
+                        alpha = 0.85f
+                    }
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(
+                        Brush.sweepGradient(
+                            listOf(
+                                Blaze.Amber.copy(alpha = 0.55f),
+                                Color.Transparent,
+                                Blaze.Ember.copy(alpha = 0.35f),
+                                Color.Transparent,
+                                Blaze.Amber.copy(alpha = 0.55f),
+                            ),
+                        ),
+                    ),
+            )
+            Box(
+                Modifier.size(side * 0.74f).clip(RoundedCornerShape(999.dp)).background(Blz.page),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Rounded.Lyrics, null,
+                    Modifier.size(side * 0.34f).graphicsLayer { alpha = breath },
+                    tint = Blaze.Amber,
+                )
+            }
+        }
         Text(
-            text, color = Blz.dim, fontSize = (15 * scale.coerceAtMost(1.6f)).sp,
-            modifier = Modifier.padding(top = (10 * scale).dp),
+            title, color = Blz.ink, fontSize = (16 * scale.coerceAtMost(1.5f)).sp,
+            fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 20.dp),
+        )
+        Text(
+            detail, color = Blz.dim, fontSize = (12.5f * scale.coerceAtMost(1.4f)).sp,
+            lineHeight = (18 * scale.coerceAtMost(1.4f)).sp, textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 6.dp),
         )
     }
 }

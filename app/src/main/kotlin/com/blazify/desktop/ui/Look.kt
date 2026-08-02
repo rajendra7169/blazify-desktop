@@ -207,10 +207,11 @@ object Look {
     /**
      * Which of the looks the sheet uses.
      *
-     * Blaze by default: it is the one that was designed with the rest of the
-     * app rather than the one that asks least of it.
+     * Lift by default — the sung line grows, brightens and moves, and nothing
+     * is painted behind it. A block sliding down a panel of words is busier
+     * than the words are worth, so the one style that draws it is opt-in.
      */
-    var lyricsStyle by mutableStateOf(read("lyricsStyle", LyricsStyle.Blaze) { LyricsStyle.valueOf(it) })
+    var lyricsStyle by mutableStateOf(read("lyricsStyle", LyricsStyle.Lift) { LyricsStyle.valueOf(it) })
         private set
 
     fun chooseLyricsStyle(value: LyricsStyle) { lyricsStyle = value; put("lyricsStyle", value.name) }
@@ -354,7 +355,7 @@ object Look {
     }
 
     fun resetLyricsPlayback() {
-        chooseLyricsStyle(LyricsStyle.Blaze)
+        chooseLyricsStyle(LyricsStyle.Lift)
         chooseLyricsFollow(true)
         chooseLyricsTap(true)
         chooseLyricsGlow(false)
@@ -367,7 +368,7 @@ object Look {
     }
 
     fun reset() {
-        chooseLyricsStyle(LyricsStyle.Blaze)
+        chooseLyricsStyle(LyricsStyle.Lift)
         chooseAccent(Accent.Blaze)
         chooseDynamicColour(true)
         chooseTintedWindow(true)

@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -109,8 +110,10 @@ fun PlayerBar(
     timerOn: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+    val narrow = maxWidth < 1000.dp
     Row(
-        modifier
+        Modifier
             .fillMaxWidth()
             // Tall enough that a hovered control's circle has room to sit in.
             // At the old height they landed against the top edge, which read as
@@ -148,7 +151,7 @@ fun PlayerBar(
 
         Row(
             Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.End),
+            horizontalArrangement = Arrangement.spacedBy(if (narrow) 10.dp else 16.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TransportButton(
@@ -156,9 +159,14 @@ fun PlayerBar(
                 onClick = onOpenTimer,
                 tint = if (timerOn) Blaze.Amber else null,
             )
-            BarToggle(Icons.Rounded.CloseFullscreen, "Mini", false, WindowMode::toggleMini)
-            BarToggle(Icons.Rounded.Lyrics, "Lyrics", lyricsOpen, onToggleLyrics)
-            BarToggle(Icons.Rounded.QueueMusic, "Queue", queueOpen, onToggleQueue)
+            // Below this the three labels and the volume bar stop fitting
+            // beside the transport, and the row starts squeezing the title.
+            // The icons carry the same meaning in a third of the width, so the
+            // words are what goes.
+            val roomy = narrow.not()
+            BarToggle(Icons.Rounded.CloseFullscreen, "Mini", false, roomy, WindowMode::toggleMini)
+            BarToggle(Icons.Rounded.Lyrics, "Lyrics", lyricsOpen, roomy, onToggleLyrics)
+            BarToggle(Icons.Rounded.QueueMusic, "Queue", queueOpen, roomy, onToggleQueue)
             // The icon is the mute button, and it says which state you're in —
             // a speaker that never changes is decoration, not a control.
             TransportButton(
@@ -172,8 +180,12 @@ fun PlayerBar(
                 onClick = onToggleMute,
                 tint = if (volume <= 0f) Blaze.Amber else null,
             )
-            ScrubBar(volume, onVolume, Modifier.width(76.dp), fill = Blz.muted, thickness = 3.dp)
+            ScrubBar(
+                volume, onVolume, Modifier.width(if (narrow) 54.dp else 76.dp),
+                fill = Blz.muted, thickness = 3.dp,
+            )
         }
+    }
     }
 }
 
@@ -376,14 +388,25 @@ private fun PlayButton(playing: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun BarToggle(icon: ImageVector, label: String, on: Boolean, onClick: () -> Unit) {
+private fun BarToggle(
+    icon: ImageVector,
+    label: String,
+    on: Boolean,
+    labelled: Boolean,
+    onClick: () -> Unit,
+) {
     Row(
         Modifier.clip(RoundedCornerShape(7.dp)).clickable(onClick = onClick).padding(5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        // The label is still the icon's description when it isn't drawn, so
+        // nothing is lost to anyone reading the screen rather than looking at
+        // it.
         Icon(icon, label, Modifier.size(16.dp), tint = if (on) Blaze.Amber else Blz.muted)
-        Text(label, color = if (on) Blaze.Amber else Blz.muted, fontSize = 11.5.sp)
+        if (labelled) {
+            Text(label, color = if (on) Blaze.Amber else Blz.muted, fontSize = 11.5.sp)
+        }
     }
 }
 
