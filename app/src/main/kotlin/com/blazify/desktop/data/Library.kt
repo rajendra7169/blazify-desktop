@@ -3,6 +3,10 @@ package com.blazify.desktop.data
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Blazify Project (C) 2026
@@ -20,6 +24,12 @@ import androidx.compose.runtime.setValue
  * and re-sorting on the way out would only be undone on the way in.
  */
 object Library {
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** True while the account's own likes are being fetched. */
+    var syncing by mutableStateOf(false)
+        private set
 
     private const val LIKED = "liked.json"
     private const val HISTORY = "history.json"
@@ -39,10 +49,44 @@ object Library {
 
     fun isLiked(id: String) = liked.any { it.id == id }
 
+    /**
+     * Like or unlike a song.
+     *
+     * The list here changes first and the account is told afterwards. A heart
+     * that waits for the network before filling in feels broken on a slow
+     * connection, and the answer is never in doubt — the only thing that can
+     * go wrong is the account not hearing about it, which the next sync fixes.
+     */
     fun toggleLike(track: Track) {
-        liked = if (isLiked(track.id)) liked.filterNot { it.id == track.id }
-        else listOf(track) + liked
+        val wanted = !isLiked(track.id)
+        liked = if (wanted) listOf(track) + liked else liked.filterNot { it.id == track.id }
         Store.write(LIKED, liked)
+        scope.launch { Catalogue.setLiked(track.id, wanted) }
+    }
+
+    /**
+     * Bring the account's likes across.
+     *
+     * The account is taken as the truth for what it holds, and anything liked
+     * here while signed out is pushed up rather than dropped — so the two
+     * converge instead of one quietly winning.
+     */
+    fun syncWithAccount() {
+        if (!Account.signedIn || syncing) return
+        syncing = true
+        scope.launch {
+            Catalogue.myLikedSongs().onSuccess { theirs ->
+                val ids = theirs.map { it.id }.toSet()
+                val onlyHere = liked.filterNot { it.id in ids }
+
+                liked = theirs + onlyHere
+                Store.write(LIKED, liked)
+
+                // Push what this machine knew and the account didn't.
+                onlyHere.forEach { Catalogue.setLiked(it.id, true) }
+            }
+            syncing = false
+        }
     }
 
     /**

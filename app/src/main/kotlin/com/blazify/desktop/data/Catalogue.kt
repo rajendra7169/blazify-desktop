@@ -268,6 +268,20 @@ object Catalogue {
         }
     }
 
+    /**
+     * Like or unlike a song on the account.
+     *
+     * Signed out this does nothing and says so by succeeding: liking still
+     * works, it simply stays on this machine, and a failure here would be
+     * reporting a problem that isn't one.
+     */
+    suspend fun setLiked(videoId: String, liked: Boolean): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            if (!Account.signedIn) return@withContext Result.success(Unit)
+            ensureIdentity()
+            YouTube.likeVideo(videoId, liked).map { }
+        }
+
     /** Songs the account has liked, which the catalogue keeps as a playlist. */
     suspend fun myLikedSongs(): Result<List<Track>> = withContext(Dispatchers.IO) {
         if (!Account.hasCredential) return@withContext Result.success(emptyList())

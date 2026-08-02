@@ -161,6 +161,8 @@ object Account {
                 picture = it.thumbnailUrl
                 verified = true
                 problem = null
+                // Whoever this is, their likes are the ones to show.
+                Library.syncWithAccount()
             },
             onFailure = {
                 verified = false
