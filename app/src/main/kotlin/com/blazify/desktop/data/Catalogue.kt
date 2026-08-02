@@ -58,6 +58,9 @@ object Catalogue {
      * properly. It costs a single request on the first play of a session.
      */
     private suspend fun ensureIdentity() {
+        // Signing in happens before anything is fetched, so the session is
+        // already on the client by the time any of this runs.
+        Account.cookie
         if (YouTube.visitorData != null) return
         identityLock.withLock {
             if (YouTube.visitorData != null) return
