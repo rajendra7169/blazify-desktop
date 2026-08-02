@@ -135,7 +135,24 @@ fun PlayerBar(
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.weight(1f)) {
+        // The whole cell, not only the cover and the title: the empty space
+        // beside them is still "what's playing", and clicking a thing to see
+        // more of it should not depend on hitting the words. The buttons
+        // inside take their own clicks first, so nothing is stolen from them.
+        val (cellSource, cellHovered) = rememberHovered()
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .hoverBackground(Color.Transparent, cellHovered, cellSource)
+                .clickable(
+                    enabled = now != null,
+                    indication = null,
+                    interactionSource = cellSource,
+                    onClick = onExpand,
+                ),
+            contentAlignment = Alignment.CenterStart,
+        ) {
             NowPlayingCell(now, onToggleLike, onKeep, onAddToPlaylist, onExpand)
         }
 

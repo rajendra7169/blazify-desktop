@@ -3,6 +3,7 @@ package com.blazify.desktop.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
@@ -41,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -113,7 +115,29 @@ fun NowPlayingScreen(
         )
     }
 
-    Column(Modifier.fillMaxSize().then(background)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .then(background)
+            // Pull it down to put it away, the way the phone does. The gesture
+            // only reaches here when the page underneath has no scrolling left
+            // to do, so on a short window dragging still reads the screen and
+            // only sends it away once you are at the top of it.
+            .pointerInput(Unit) {
+                var travelled = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { travelled = 0f },
+                    onDragEnd = { travelled = 0f },
+                    onDragCancel = { travelled = 0f },
+                ) { _, delta ->
+                    travelled += delta
+                    if (travelled > 110.dp.toPx()) {
+                        travelled = 0f
+                        onClose()
+                    }
+                }
+            },
+    ) {
         // ── what this screen is, and the two ways out of its look ──
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp),
