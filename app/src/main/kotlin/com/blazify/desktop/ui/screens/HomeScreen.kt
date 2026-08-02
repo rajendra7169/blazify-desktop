@@ -34,6 +34,7 @@ import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.Look
 import com.blazify.desktop.ui.SkeletonRail
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverLift
@@ -130,10 +131,12 @@ fun HomeScreen(
         state = listState,
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(greeting(), color = Blz.ink, fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
-                Text("Picking up where you left off", color = Blz.muted, fontSize = 13.sp)
+        if (Look.showGreeting) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(greeting(), color = Blz.ink, fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Picking up where you left off", color = Blz.muted, fontSize = 13.sp)
+                }
             }
         }
         if (moods.isNotEmpty()) {

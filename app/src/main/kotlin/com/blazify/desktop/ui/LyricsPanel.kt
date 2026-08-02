@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -120,6 +121,12 @@ private fun Synced(lyrics: Lyrics, position: Double, onSeekTo: (Double) -> Unit)
         state.animateScrollToItem(current, scrollOffset = -(viewport / 3))
     }
 
+    val align = when (Look.lyricsAlign) {
+        LyricsAlign.Left -> TextAlign.Start
+        LyricsAlign.Centre -> TextAlign.Center
+        LyricsAlign.Right -> TextAlign.End
+    }
+
     LazyColumn(
         Modifier.fillMaxSize(),
         state = state,
@@ -144,6 +151,7 @@ private fun Synced(lyrics: Lyrics, position: Double, onSeekTo: (Double) -> Unit)
                 fontSize = if (active) 24.sp else 20.sp,
                 fontWeight = if (weight > 0.5f) FontWeight.Bold else FontWeight.Medium,
                 lineHeight = 31.sp,
+                textAlign = align,
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(6.dp))

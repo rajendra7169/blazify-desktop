@@ -22,7 +22,9 @@ import com.blazify.desktop.data.Catalogue
  */
 object Navigator {
 
-    var destination by mutableStateOf(Destination.Home)
+    // Wherever you asked to land. Someone who lives in their own library
+    // shouldn't have to walk past the feed every time they open the app.
+    var destination by mutableStateOf(Look.startTab)
         private set
 
     private val stack = mutableStateListOf<Catalogue.Card>()

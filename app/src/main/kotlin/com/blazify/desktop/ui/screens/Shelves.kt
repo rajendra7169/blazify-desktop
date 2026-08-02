@@ -51,6 +51,7 @@ import com.blazify.desktop.data.asTrack
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.Look
 import com.blazify.desktop.ui.SongMenu
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverLift
@@ -69,7 +70,9 @@ import kotlinx.coroutines.launch
  * than it would on a small screen — but the proportions between artwork, title
  * and subtitle are what make a shelf readable, and those are kept.
  */
-private val ArtSide = 172.dp
+/** Taken from the setting rather than fixed, so shelves resize with it. */
+private val artSide: androidx.compose.ui.unit.Dp
+    @Composable get() = Look.gridSize.art.dp
 private val TileGap = 14.dp
 private val LineHeight = 62.dp
 private val LineGap = 12.dp
@@ -298,7 +301,8 @@ private fun Tile(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
     val round = card.kind == Catalogue.Kind.Artist
     // Heights stay level down the rail; only widescreen stills run wider, so a
     // shelf holding both still reads as a single row rather than a staircase.
-    val artWidth = if (card.wide && !round) ArtSide * 16f / 9f else ArtSide
+    val side = artSide
+    val artWidth = if (card.wide && !round) side * 16f / 9f else side
 
     Column(
         Modifier
@@ -313,8 +317,8 @@ private fun Tile(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
         Artwork(
             card.thumbnail,
             size = artWidth,
-            height = ArtSide,
-            corner = if (round) ArtSide / 2 else 12.dp,
+            height = side,
+            corner = if (round) side / 2 else 12.dp,
             modifier = Modifier.hoverLift(hovered)
                 .then(if (round) Modifier.clip(CircleShape) else Modifier),
         )
