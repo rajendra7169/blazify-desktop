@@ -93,6 +93,30 @@ private val DayColors = BlazeColors(
 
 val LocalBlazeColors = staticCompositionLocalOf { NightColors }
 
+/** Every colour on its way to the next one, over the same easing. */
+@Composable
+private fun BlazeColors.eased(): BlazeColors {
+    val spec = androidx.compose.animation.core.tween<Color>(520)
+
+    @Composable
+    fun to(target: Color) = androidx.compose.animation.animateColorAsState(target, spec).value
+
+    return copy(
+        page = to(page),
+        rail = to(rail),
+        bar = to(bar),
+        surface = to(surface),
+        surfaceHigh = to(surfaceHigh),
+        hover = to(hover),
+        line = to(line),
+        ink = to(ink),
+        muted = to(muted),
+        dim = to(dim),
+        skeleton = to(skeleton),
+        skeletonSheen = to(skeletonSheen),
+    )
+}
+
 /** Shorthand so screens read `Blz.ink` rather than reaching through the local. */
 val Blz: BlazeColors
     @Composable @ReadOnlyComposable get() = LocalBlazeColors.current
@@ -132,13 +156,85 @@ private val BlackColors = NightColors.copy(
     skeletonSheen = Color(0xFF222228),
 )
 
+/**
+ * The whole window in the colour of what's playing.
+ *
+ * An accent dropped onto a grey window is decoration. A window built out of the
+ * song's own hue is a different thing — ground, rail, panels and accent all
+ * belong to one colour, and the app looks like the record rather than like an
+ * application that happens to be showing one.
+ *
+ * Only the hue is taken; everything else is set here. That is deliberate and it
+ * is what keeps this restful: a garish cover cannot produce a garish window,
+ * because the saturation and brightness of every surface are decided by these
+ * numbers and not by the picture. The grounds stay deep and only lightly
+ * coloured, the text stays near-white, and the contrast between them never
+ * moves whatever is playing.
+ */
+private fun tinted(base: BlazeColors, accent: Accent): BlazeColors {
+    val c = java.awt.Color(accent.head.toInt())
+    val hue = java.awt.Color.RGBtoHSB(c.red, c.green, c.blue, null)[0]
+
+    fun shade(saturation: Float, brightness: Float) =
+        Color(java.awt.Color.HSBtoRGB(hue, saturation, brightness))
+
+    return if (base.dark) {
+        base.copy(
+            // Deep and quiet. Enough colour to read as a colour, far short of
+            // anything you'd notice for an hour at a time.
+            page = shade(0.42f, 0.085f),
+            rail = shade(0.40f, 0.105f),
+            bar = shade(0.38f, 0.125f),
+            surface = shade(0.34f, 0.155f),
+            surfaceHigh = shade(0.30f, 0.20f),
+            hover = shade(0.28f, 0.235f),
+            line = shade(0.24f, 0.29f),
+            // Warmed a shade towards the hue rather than left pure white, so
+            // the text belongs to the window instead of sitting on top of it —
+            // and still reads at full strength against the ground.
+            ink = shade(0.04f, 0.97f),
+            muted = shade(0.12f, 0.70f),
+            dim = shade(0.16f, 0.48f),
+            skeleton = shade(0.32f, 0.18f),
+            skeletonSheen = shade(0.28f, 0.25f),
+        )
+    } else {
+        base.copy(
+            // The same idea inverted: a wash of the hue rather than a flood,
+            // and ink dark enough that nothing has to be squinted at.
+            page = shade(0.05f, 0.995f),
+            rail = shade(0.09f, 0.96f),
+            bar = shade(0.08f, 0.975f),
+            surface = shade(0.03f, 1f),
+            surfaceHigh = shade(0.11f, 0.945f),
+            hover = shade(0.14f, 0.915f),
+            line = shade(0.17f, 0.87f),
+            ink = shade(0.45f, 0.13f),
+            muted = shade(0.25f, 0.45f),
+            dim = shade(0.18f, 0.63f),
+            skeleton = shade(0.11f, 0.93f),
+            skeletonSheen = shade(0.06f, 0.98f),
+        )
+    }
+}
+
 @Composable
 fun BlazifyTheme(dark: Boolean = true, content: @Composable () -> Unit) {
-    val colors = when {
+    val base = when {
         !dark -> DayColors
         Look.pureBlack -> BlackColors
         else -> NightColors
     }
+    // Pure black is a deliberate choice of no colour at all, so it wins.
+    val wanted = ArtworkColour.accent
+        ?.takeIf { Look.tintedWindow && Look.dynamicColour && !Look.pureBlack }
+        ?.let { tinted(base, it) }
+        ?: base
+
+    // Eased between rather than swapped. A window that changes colour the
+    // instant a track does is startling; over half a second it reads as the
+    // room changing with the music, which is the whole point.
+    val colors = wanted.eased()
     androidx.compose.runtime.CompositionLocalProvider(LocalBlazeColors provides colors) {
         MaterialTheme(colorScheme = schemeFor(colors), content = content)
     }

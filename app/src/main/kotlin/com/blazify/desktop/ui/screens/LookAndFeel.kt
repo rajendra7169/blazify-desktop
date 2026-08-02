@@ -84,6 +84,7 @@ fun LookAndFeelSection(section: @Composable (String, @Composable () -> Unit) -> 
                 }
             }
             Switch("Take the colour from the artwork", Look.dynamicColour, Look::chooseDynamicColour)
+            Switch("Colour the whole window, not just the accent", Look.tintedWindow, Look::chooseTintedWindow)
             Text(
                 if (Look.dynamicColour) "Following the cover of whatever is playing"
                 else "${Look.picked.label} — used for whatever is playing, and nothing else",

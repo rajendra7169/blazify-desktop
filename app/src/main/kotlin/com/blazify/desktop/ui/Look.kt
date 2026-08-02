@@ -61,6 +61,20 @@ object Look {
     var dynamicColour by mutableStateOf(store.getBoolean("dynamic", true))
         private set
 
+    /**
+     * Whether the window itself takes the artwork's hue, not just the accent.
+     *
+     * The difference between an application showing a record and an
+     * application that looks like the record.
+     */
+    var tintedWindow by mutableStateOf(store.getBoolean("tinted", true))
+        private set
+
+    fun chooseTintedWindow(value: Boolean) {
+        tintedWindow = value
+        runCatching { store.putBoolean("tinted", value) }
+    }
+
     /** The accent in force: the artwork's when it's following one, else yours. */
     val accent: Accent
         get() = if (dynamicColour) ArtworkColour.accent ?: chosen else chosen
@@ -125,6 +139,7 @@ object Look {
     fun reset() {
         chooseAccent(Accent.Blaze)
         chooseDynamicColour(true)
+        chooseTintedWindow(true)
         chooseSliderStyle(SliderStyle.Capsule)
         choosePlayerBackground(PlayerBackground.Gradient)
         chooseLyricsAlign(LyricsAlign.Left)
