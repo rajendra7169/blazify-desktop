@@ -69,68 +69,88 @@ fun HomeHero(
         runCatching { useResource(name) { loadImageBitmap(it) } }.getOrNull()
     }
 
-    BoxWithConstraints(modifier.fillMaxWidth().height(330.dp)) {
-        val paneWidth = maxWidth
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val pane = maxWidth
         // The list this sits in keeps a margin down both sides; the hero
         // reaches past it so the picture meets the window rather than stopping
         // short of it with a strip of background showing.
         val bleed = 26.dp
 
+        // Proportional rather than fixed. On a narrow window a tall hero eats
+        // the whole screen before a single song is visible; on a wide one a
+        // short one looks like a stripe. Bounded at both ends so neither
+        // extreme can happen.
+        val height = (pane * 0.30f).coerceIn(240.dp, 400.dp)
+
         Box(
             Modifier
                 .offset(x = -bleed)
-                .width(paneWidth + bleed * 2)
-                .fillMaxHeight(),
+                .width(pane + bleed * 2)
+                .height(height),
         ) {
-            // A wash of the accent behind everything, heaviest at the top left
-            // where the words are and gone by the bottom where the shelves
-            // start, so the two don't meet at a line.
+            // The picture goes down first and everything else is laid over the
+            // whole hero, not over the picture. Fading the image to the page
+            // colour while a wash sat behind it at a different colour was what
+            // put a seam down the middle: two gradients meeting at an edge
+            // instead of one continuous surface.
+            hero?.let {
+                Image(
+                    it,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopCenter,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .width(pane * 0.52f)
+                        .fillMaxHeight(),
+                )
+            }
+
+            // Across the whole width: solid where the words are, gone by the
+            // far edge, so the picture emerges rather than starting.
             Box(
-                Modifier.fillMaxWidth().fillMaxHeight().background(
+                Modifier.matchParentSize().background(
+                    Brush.horizontalGradient(
+                        0f to Blz.page,
+                        0.34f to Blz.page,
+                        0.62f to Blz.page.copy(alpha = 0.70f),
+                        1f to Color.Transparent,
+                    ),
+                ),
+            )
+
+            // And down it, so the hero dissolves into the first shelf instead
+            // of ending at a line.
+            Box(
+                Modifier.matchParentSize().background(
                     Brush.verticalGradient(
+                        0f to Blz.page.copy(alpha = 0.35f),
+                        0.55f to Color.Transparent,
+                        0.88f to Blz.page.copy(alpha = 0.80f),
+                        1f to Blz.page,
+                    ),
+                ),
+            )
+
+            // A breath of the accent over all of it, tying the picture and the
+            // words to the same colour.
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.linearGradient(
                         listOf(
-                            Blaze.Amber.copy(alpha = if (dark) 0.30f else 0.20f),
-                            Blaze.Ember.copy(alpha = if (dark) 0.16f else 0.10f),
+                            Blaze.Amber.copy(alpha = if (dark) 0.20f else 0.14f),
+                            Blaze.Ember.copy(alpha = if (dark) 0.09f else 0.06f),
                             Color.Transparent,
                         ),
                     ),
                 ),
             )
 
-            hero?.let {
-                Box(Modifier.align(Alignment.BottomEnd).fillMaxHeight()) {
-                    Image(
-                        it,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        alignment = Alignment.TopCenter,
-                        modifier = Modifier.width(paneWidth * 0.42f).fillMaxHeight(),
-                    )
-                    // Faded back into the page on every side that meets it, so
-                    // there is no edge — the picture ends because the colour
-                    // takes over, not because the image stops.
-                    Box(
-                        Modifier.matchParentSize().background(
-                            Brush.horizontalGradient(listOf(Blz.page, Color.Transparent)),
-                        ),
-                    )
-                    Box(
-                        Modifier.matchParentSize().background(
-                            Brush.verticalGradient(
-                                0f to Color.Transparent,
-                                0.72f to Color.Transparent,
-                                1f to Blz.page,
-                            ),
-                        ),
-                    )
-                }
-            }
-
             Column(
                 Modifier
                     .align(Alignment.CenterStart)
                     .padding(start = bleed + 8.dp, end = 24.dp)
-                    .widthIn(max = 560.dp),
+                    .widthIn(max = pane * 0.52f),
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
@@ -143,9 +163,11 @@ fun HomeHero(
                 Text(
                     Account.name ?: "Welcome back",
                     color = Blz.ink,
-                    fontSize = 44.sp,
+                    // Sized off the window, so it stays the largest thing on the
+                    // screen without running off a small one.
+                    fontSize = (pane.value * 0.028f).coerceIn(28f, 46f).sp,
                     fontWeight = FontWeight.Bold,
-                    lineHeight = 48.sp,
+                    lineHeight = (pane.value * 0.031f).coerceIn(32f, 51f).sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 8.dp),
@@ -155,6 +177,8 @@ fun HomeHero(
                     color = Blz.muted,
                     fontSize = 14.5.sp,
                     lineHeight = 21.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 10.dp),
                 )
 
