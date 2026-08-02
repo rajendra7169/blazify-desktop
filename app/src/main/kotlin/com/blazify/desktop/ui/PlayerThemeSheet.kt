@@ -75,7 +75,7 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
         Row(
             Modifier
                 .width(720.dp)
-                .height(470.dp)
+                .height(524.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(Blz.bar)
                 .clickable(enabled = false) {},
@@ -139,33 +139,84 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                             // with the whole screen in miniature.
                             FullArtPreview(track)
                         } else {
+                            // Everything the Full art card shows, shown the way
+                            // these looks show it: the stage, then the song, the
+                            // real position and the transport underneath. All
+                            // inside the frame, so the panel below never moves.
                             Column(
-                                Modifier.fillMaxSize(),
+                                Modifier.fillMaxSize().padding(horizontal = 12.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center,
                             ) {
                                 PlayerStage(
                                     theme = theme,
                                     artwork = track?.thumbnail,
-                                    side = 190.dp,
+                                    side = 152.dp,
                                     playing = PlayerState.playing,
                                     progress = PlayerState.progress,
                                 )
+
+                                Text(
+                                    track?.title ?: "Nothing playing",
+                                    color = Blz.ink, fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(top = 14.dp),
+                                )
+                                Text(
+                                    track?.artist.orEmpty(),
+                                    color = Blz.muted, fontSize = 11.sp,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+
+                                // Ring draws the progress round the artwork, so
+                                // a bar underneath would be the same fact twice.
+                                // The rest get the bar.
+                                if (theme != PlayerTheme.Ring) {
+                                    Box(
+                                        Modifier
+                                            .padding(top = 10.dp)
+                                            .fillMaxWidth()
+                                            .height(4.dp)
+                                            .clip(RoundedCornerShape(999.dp))
+                                            .background(Blz.surfaceHigh),
+                                    ) {
+                                        Box(
+                                            Modifier
+                                                .fillMaxWidth(PlayerState.progress.coerceIn(0f, 1f))
+                                                .height(4.dp)
+                                                .clip(RoundedCornerShape(999.dp))
+                                                .background(
+                                                    Brush.linearGradient(
+                                                        listOf(Blaze.Amber, Blaze.Ember),
+                                                    ),
+                                                ),
+                                        )
+                                    }
+                                    Row(Modifier.fillMaxWidth().padding(top = 3.dp)) {
+                                        Text(PlayerState.elapsed, color = Blz.dim, fontSize = 9.sp)
+                                        Box(Modifier.weight(1f))
+                                        Text(PlayerState.total, color = Blz.dim, fontSize = 9.sp)
+                                    }
+                                }
+
                                 // Drawn but not live — the preview is about the
                                 // artwork, and a play button that worked here
                                 // would move the song while you looked at it.
                                 Row(
-                                    Modifier.padding(top = 18.dp),
+                                    Modifier.padding(top = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 ) {
                                     Icon(
                                         Icons.Rounded.SkipPrevious, null,
-                                        Modifier.size(20.dp), tint = Blz.dim,
+                                        Modifier.size(18.dp), tint = Blz.dim,
                                     )
                                     Box(
                                         Modifier
-                                            .size(40.dp)
+                                            .size(36.dp)
                                             .clip(CircleShape)
                                             .background(
                                                 Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)),
@@ -175,12 +226,12 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                                         Icon(
                                             if (PlayerState.playing) Icons.Rounded.Pause
                                             else Icons.Rounded.PlayArrow,
-                                            null, Modifier.size(22.dp), tint = Blaze.OnAmber,
+                                            null, Modifier.size(20.dp), tint = Blaze.OnAmber,
                                         )
                                     }
                                     Icon(
                                         Icons.Rounded.SkipNext, null,
-                                        Modifier.size(20.dp), tint = Blz.dim,
+                                        Modifier.size(18.dp), tint = Blz.dim,
                                     )
                                 }
                             }
