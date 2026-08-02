@@ -77,3 +77,28 @@ private fun String.atSize(width: Int, height: Int): String {
     val h = height.coerceIn(64, 1080)
     return Regex("=w\\d+-h\\d+").replace(this, "=w$w-h$h")
 }
+
+/**
+ * The cover as a wall rather than a tile.
+ *
+ * Cropped to fill whatever it is given and asked for at a generous size, since
+ * this one is stretched across a window rather than shown at forty pixels.
+ * Nothing is drawn when there is no cover — the ground underneath is already
+ * the right colour, and a grey rectangle the size of the screen is worse than
+ * none.
+ */
+@Composable
+fun Backdrop(url: String?, modifier: Modifier = Modifier) {
+    if (url == null) return
+    SubcomposeAsyncImage(
+        model = url.atSize(1200, 1200),
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = modifier,
+    ) {
+        when (painter.state.value) {
+            is AsyncImagePainter.State.Error -> Unit
+            else -> SubcomposeAsyncImageContent()
+        }
+    }
+}

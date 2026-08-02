@@ -58,6 +58,23 @@ enum class RomanizeMode(val label: String, val blurb: String) {
     Replace("Latin only", "The Latin letters instead of the original"),
 }
 
+/**
+ * What the player is built around.
+ *
+ * The artwork is the only thing on that screen with any character of its own,
+ * so the choice is really about what to do with it: leave it a square, ring it
+ * with the progress, let it fill the window, or put it on something that turns.
+ * None of them changes what the controls do — a look that moved the play button
+ * would be a different application, not a different skin.
+ */
+enum class PlayerTheme(val label: String, val blurb: String) {
+    Classic("Classic", "A square of artwork, the way a sleeve is printed"),
+    Ring("Ring", "Round, with the song's progress drawn around it"),
+    FullArt("Full art", "The cover fills the window, controls laid over it"),
+    Record("Record", "A vinyl disc that turns while the music plays"),
+    Cassette("Cassette", "Reels that wind from one side to the other"),
+}
+
 /** Where lyric lines sit across the panel. */
 enum class LyricsAlign(val label: String) { Left("Left"), Centre("Centre"), Right("Right") }
 
@@ -117,6 +134,18 @@ object Look {
 
     var sliderStyle by mutableStateOf(read("slider", SliderStyle.Capsule) { SliderStyle.valueOf(it) })
         private set
+
+    /**
+     * Which of the looks the full player wears.
+     *
+     * Classic to begin with: it is the one that gets out of the way, and a
+     * spinning record is a delight the second time and a distraction the
+     * fiftieth. The rest are there for whoever wants them.
+     */
+    var playerTheme by mutableStateOf(read("playerTheme", PlayerTheme.Classic) { PlayerTheme.valueOf(it) })
+        private set
+
+    fun choosePlayerTheme(value: PlayerTheme) { playerTheme = value; put("playerTheme", value.name) }
 
     var playerBackground by mutableStateOf(
         read("playerBg", PlayerBackground.Gradient) { PlayerBackground.valueOf(it) },
@@ -366,7 +395,10 @@ object Look {
 
     fun resetSlider() = chooseSliderStyle(SliderStyle.Capsule)
 
-    fun resetPlayer() = choosePlayerBackground(PlayerBackground.Gradient)
+    fun resetPlayer() {
+        choosePlayerBackground(PlayerBackground.Gradient)
+        choosePlayerTheme(PlayerTheme.Classic)
+    }
 
     fun resetShelves() = chooseGridSize(GridSize.Big)
 
@@ -410,6 +442,7 @@ object Look {
         chooseTintedWindow(true)
         chooseSliderStyle(SliderStyle.Capsule)
         choosePlayerBackground(PlayerBackground.Gradient)
+        choosePlayerTheme(PlayerTheme.Classic)
         chooseLyricsAlign(LyricsAlign.Left)
         chooseLyricsPoints(17f)
         chooseLyricsLineHeight(1.5f)

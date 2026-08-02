@@ -41,7 +41,10 @@ import com.blazify.desktop.ui.GridSize
 import com.blazify.desktop.ui.Look
 import com.blazify.desktop.ui.LyricsAlign
 import com.blazify.desktop.ui.LyricsStyle
+import com.blazify.desktop.PlayerState
 import com.blazify.desktop.ui.PlayerBackground
+import com.blazify.desktop.ui.PlayerStage
+import com.blazify.desktop.ui.PlayerTheme
 import com.blazify.desktop.ui.RomanizeMode
 import com.blazify.desktop.ui.ScrubBar
 import com.blazify.desktop.ui.SliderStyle
@@ -118,6 +121,28 @@ fun LookAndFeelSection(
 
     section("The full player", Look::resetPlayer) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("What it's built around", color = Blz.ink, fontSize = 13.5.sp)
+            Choices(
+                PlayerTheme.entries.map { it.label },
+                Look.playerTheme.label,
+            ) { picked ->
+                Look.choosePlayerTheme(PlayerTheme.entries.first { it.label == picked })
+            }
+            Text(Look.playerTheme.blurb, color = Blz.dim, fontSize = 11.5.sp)
+
+            // Drawn at a readable size with whatever is playing, so the choice
+            // is visible here as well as behind the palette on the player.
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                PlayerStage(
+                    theme = Look.playerTheme,
+                    artwork = PlayerState.current?.thumbnail,
+                    side = 132.dp,
+                    playing = PlayerState.playing,
+                    progress = PlayerState.progress,
+                )
+            }
+
+            Text("The ground behind it", color = Blz.ink, fontSize = 13.5.sp)
             Choices(
                 PlayerBackground.entries.map { it.label },
                 Look.playerBackground.label,

@@ -152,7 +152,7 @@ fun NowPlayingScreen(
     // A wash of the accent behind the artwork, or the plain page, or true
     // black. The gradient is bottom-heavy so the controls sit on colour and
     // the cover sits on something closer to the page it came from.
-    val background: Modifier = when (Look.playerBackground) {
+    val background: Modifier = when (if (Look.playerTheme == PlayerTheme.FullArt) PlayerBackground.FollowTheme else Look.playerBackground) {
         PlayerBackground.FollowTheme -> Modifier.background(Blz.page)
         PlayerBackground.PureBlack -> Modifier.background(Color.Black)
         PlayerBackground.Gradient -> Modifier.background(
@@ -166,6 +166,25 @@ fun NowPlayingScreen(
         )
     }
 
+    Box(Modifier.fillMaxSize()) {
+    if (Look.playerTheme == PlayerTheme.FullArt) {
+        // The cover behind the lot, taken well down so white type still reads
+        // over a bright sleeve. Scrimmed rather than blurred: a blur costs a
+        // pass over a large bitmap every frame, and the point here is the
+        // colour rather than the detail.
+        Backdrop(track?.thumbnail, Modifier.fillMaxSize())
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    listOf(
+                        Blz.page.copy(alpha = 0.72f),
+                        Blz.page.copy(alpha = 0.86f),
+                        Blz.page.copy(alpha = 0.96f),
+                    ),
+                ),
+            ),
+        )
+    }
     Column(
         Modifier
             .fillMaxSize()
@@ -222,10 +241,7 @@ fun NowPlayingScreen(
                     )
                 }
             }
-            Box {
-                Round(Icons.Rounded.Palette, "Player look", { themeOpen = true }, 20.dp)
-                PlayerLookMenu(themeOpen) { themeOpen = false }
-            }
+            Round(Icons.Rounded.Palette, "Player look", { themeOpen = true }, 20.dp)
         }
 
         // Scrollable, so a short window loses nothing. A centred column that
@@ -240,7 +256,13 @@ fun NowPlayingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Artwork(track?.thumbnail, size = 340.dp, corner = 20.dp)
+            PlayerStage(
+                theme = Look.playerTheme,
+                artwork = track?.thumbnail,
+                side = 340.dp,
+                playing = PlayerState.playing,
+                progress = PlayerState.progress,
+            )
 
             Row(
                 Modifier.padding(top = 26.dp).widthIn(max = 560.dp).fillMaxWidth(),
@@ -382,57 +404,11 @@ fun NowPlayingScreen(
             Box(Modifier.size(20.dp))
         }
     }
-}
 
-/**
- * How the player is dressed.
- *
- * The three grounds it can sit on, chosen here rather than only in the settings
- * — this is the screen they change, and a look you have to leave the screen to
- * try is a look nobody tries. More of these are coming; the menu is where they
- * will go.
- */
-@Composable
-private fun PlayerLookMenu(open: Boolean, onDismiss: () -> Unit) {
-    DropdownMenu(
-        expanded = open,
-        onDismissRequest = onDismiss,
-        modifier = Modifier.width(220.dp).background(Blz.bar),
-    ) {
-        Text(
-            "PLAYER LOOK", color = Blz.dim, fontSize = 10.sp,
-            fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-        )
-        PlayerBackground.entries.forEach { option ->
-            val on = option == Look.playerBackground
-            val (source, hovered) = rememberHovered()
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .hoverBackground(Blz.hover, hovered, source)
-                    .clickable { Look.choosePlayerBackground(option); onDismiss() }
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    option.label, color = if (on) Blaze.Amber else Blz.ink,
-                    fontSize = 13.sp, modifier = Modifier.weight(1f),
-                )
-                if (on) Icon(Icons.Rounded.Check, null, Modifier.size(15.dp), tint = Blaze.Amber)
-            }
-        }
+    if (themeOpen) PlayerThemeSheet { themeOpen = false }
     }
 }
 
-/**
- * An icon that says what it is.
- *
- * The word sits under the glyph rather than beside it, so five of them stay a
- * row rather than becoming a paragraph — and so the icons themselves stay
- * evenly spaced, which is what makes the row scannable at a glance.
- */
 @Composable
 private fun Labelled(
     icon: ImageVector,
