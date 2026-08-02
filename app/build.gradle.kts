@@ -90,10 +90,18 @@ val fetchWindowsAudio by tasks.registering {
     val cache = layout.buildDirectory.file("vlc-$version-win64.zip").get().asFile
 
     outputs.dir(into)
-    onlyIf { !File(into, "libvlc.dll").exists() }
 
     doLast {
+        // Made whether or not anything is fetched: the packager copies this
+        // folder, and a folder that isn't there fails the copy rather than
+        // being treated as empty.
         into.mkdirs()
+
+        if (File(into, "libvlc.dll").exists()) {
+            println("the Windows audio library is already here")
+            return@doLast
+        }
+
         if (!cache.exists() || cache.length() < 1_000_000) {
             cache.parentFile.mkdirs()
             println("fetching the Windows audio library once (~78 MB)")
@@ -144,8 +152,12 @@ val fetchWindowsAudio by tasks.registering {
     }
 }
 
-tasks.matching { it.name in setOf("packageMsi", "packageExe", "createDistributable") }
-    .configureEach { dependsOn(fetchWindowsAudio) }
+// prepareAppResources is the task that actually copies the folder, and it runs
+// well before packaging — depending only on the packaging tasks let it run
+// first and fail on a folder that didn't exist yet.
+tasks.matching {
+    it.name in setOf("prepareAppResources", "packageMsi", "packageExe", "createDistributable")
+}.configureEach { dependsOn(fetchWindowsAudio) }
 
 /**
  * Declare what the finished package needs but doesn't link against.
