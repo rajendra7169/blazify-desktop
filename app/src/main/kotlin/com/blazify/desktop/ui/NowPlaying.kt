@@ -3,6 +3,8 @@ package com.blazify.desktop.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -138,8 +140,15 @@ fun NowPlayingScreen(
             }
         }
 
+        // Scrollable, so a short window loses nothing. A centred column that
+        // doesn't fit doesn't shrink — it puts its lower half past the bottom
+        // edge, which looks exactly like the controls having vanished.
         Column(
-            Modifier.weight(1f).fillMaxWidth().padding(horizontal = 40.dp),
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {

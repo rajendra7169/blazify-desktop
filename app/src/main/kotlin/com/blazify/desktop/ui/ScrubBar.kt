@@ -149,18 +149,24 @@ fun ScrubBar(
             )
         }
         if (handle > 0f) {
-            Box(
-                Modifier
-                    .fillMaxWidth(shown)
-                    .fillMaxHeight(),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
+            // matchParentSize, never fillMaxHeight. A child that fills the
+            // height is measured against whatever height is going spare, and
+            // in a centred column that is the whole screen — so the bar grew to
+            // fill the window the moment the pointer touched it and shoved
+            // every control below it out of sight. matchParentSize takes the
+            // size the bar already has and cannot change it.
+            Box(Modifier.matchParentSize()) {
                 Box(
-                    Modifier
-                        .size((10 * handle).dp)
-                        .clip(CircleShape)
-                        .background(Blz.ink),
-                )
+                    Modifier.fillMaxWidth(shown).fillMaxHeight(),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Box(
+                        Modifier
+                            .size((10 * handle).dp)
+                            .clip(CircleShape)
+                            .background(Blz.ink),
+                    )
+                }
             }
         }
     }
