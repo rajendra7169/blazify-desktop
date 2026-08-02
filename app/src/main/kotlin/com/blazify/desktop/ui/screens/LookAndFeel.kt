@@ -36,6 +36,8 @@ import com.blazify.desktop.data.LyricsProvider
 import com.blazify.desktop.data.LyricsProviders
 import com.blazify.desktop.data.Romanize
 import com.blazify.desktop.data.Streams
+import com.blazify.desktop.data.Translate
+import androidx.compose.ui.focus.onFocusChanged
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.Destination
 import com.blazify.desktop.ui.GridSize
@@ -380,6 +382,56 @@ fun LyricsSettingsSection(
         }
     }
 
+    section("Understanding them", null) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Switch("Translate them", Translate.on, Translate::choose)
+            Text(
+                "Puts the meaning under each line. Romanising tells you how to sing a " +
+                    "song; this tells you what you're singing — so when both are on, the " +
+                    "sounds win, because three lines per lyric is a paragraph rather than " +
+                    "a sheet.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
+
+            if (Translate.on) {
+                Text("Into", color = Blz.ink, fontSize = 13.5.sp)
+                TypeIn("Language", "English", Translate.language, Translate::chooseLanguage)
+
+                Text("Through", color = Blz.ink, fontSize = 13.5.sp)
+                Choices(
+                    Translate.Service.entries.map { it.label },
+                    Translate.service.label,
+                ) { picked ->
+                    Translate.chooseService(
+                        Translate.Service.entries.first { it.label == picked },
+                    )
+                }
+                TypeIn("API key", "Your own key", Translate.apiKey, Translate::chooseApiKey, secret = true)
+                TypeIn("Model", Translate.service.suggested, Translate.model, Translate::chooseModel)
+                if (Translate.service == Translate.Service.Custom) {
+                    TypeIn(
+                        "Endpoint",
+                        "https://…/v1/chat/completions",
+                        Translate.endpoint,
+                        Translate::chooseEndpoint,
+                    )
+                }
+
+                Translate.trouble?.let {
+                    Text(it, color = Blaze.Amber, fontSize = 11.5.sp, lineHeight = 17.sp)
+                }
+
+                Text(
+                    "The key is yours and stays on this computer. Each song costs one " +
+                        "request — the whole sheet goes at once, both because a line at a " +
+                        "time would be a hundred requests and because a translator that " +
+                        "can't see the line before doesn't know who \"it\" is.",
+                    color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+                )
+            }
+        }
+    }
+
     section("Reading them", Look::resetRomanize) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Switch(
@@ -514,6 +566,49 @@ private fun Dial(
             Modifier.fillMaxWidth(),
             thickness = 5.dp,
         )
+    }
+}
+
+/**
+ * A line to type in, labelled above rather than inside.
+ *
+ * A placeholder that disappears the moment you use the field is a label you
+ * have to remember.
+ */
+@Composable
+private fun TypeIn(
+    label: String,
+    hint: String,
+    value: String,
+    onValue: (String) -> Unit,
+    secret: Boolean = false,
+) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(label, color = Blz.muted, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Blz.surfaceHigh)
+                .padding(horizontal = 13.dp, vertical = 11.dp),
+        ) {
+            if (value.isEmpty()) Text(hint, color = Blz.dim, fontSize = 12.5.sp)
+            androidx.compose.foundation.text.BasicTextField(
+                value = value,
+                onValueChange = onValue,
+                singleLine = true,
+                visualTransformation = if (secret) {
+                    androidx.compose.ui.text.input.PasswordVisualTransformation()
+                } else {
+                    androidx.compose.ui.text.input.VisualTransformation.None
+                },
+                textStyle = androidx.compose.ui.text.TextStyle(color = Blz.ink, fontSize = 12.5.sp),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(Blaze.Amber),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { com.blazify.desktop.Typing.active = it.isFocused },
+            )
+        }
     }
 }
 

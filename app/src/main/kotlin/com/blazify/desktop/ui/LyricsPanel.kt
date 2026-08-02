@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.sp
 import com.blazify.desktop.data.Lyrics
 import com.blazify.desktop.data.LyricsSource
 import com.blazify.desktop.data.Romanize
+import com.blazify.desktop.data.Translate
 import com.blazify.desktop.data.Track
 import kotlinx.coroutines.delay
 
@@ -112,6 +113,15 @@ fun LyricsPanel(
     LaunchedEffect(track?.id, preference) {
         lyrics = null
         lyrics = track?.let { LyricsSource.of(it) }
+        // The whole sheet at once, once — see Translate.
+        track?.let { song ->
+            lyrics?.let { words ->
+                Translate.prepare(
+                    song.id,
+                    words.lines.map { it.text }.ifEmpty { words.plain?.lines().orEmpty() },
+                )
+            }
+        }
     }
 
     Column(
@@ -166,6 +176,14 @@ fun LyricsTheatre(
     LaunchedEffect(track?.id, preference) {
         lyrics = null
         lyrics = track?.let { LyricsSource.of(it) }
+        track?.let { song ->
+            lyrics?.let { words ->
+                Translate.prepare(
+                    song.id,
+                    words.lines.map { it.text }.ifEmpty { words.plain?.lines().orEmpty() },
+                )
+            }
+        }
     }
 
     BoxWithConstraints(
@@ -247,7 +265,7 @@ private fun Body(
     when {
         track == null -> Waiting("Nothing playing", "Start a song and its words appear here", scale, still = true)
         lyrics == null -> Waiting("Looking for the words", "Asking your sources, best first", scale, still = false)
-        lyrics.synced -> Synced(lyrics, position, onSeekTo, scale, padding)
+        lyrics.synced -> Synced(lyrics, track.id, position, onSeekTo, scale, padding)
         !lyrics.plain.isNullOrBlank() -> Plain(lyrics.plain, scale, padding)
         else -> Waiting(
             "No words for this one",
@@ -260,6 +278,7 @@ private fun Body(
 @Composable
 private fun Synced(
     lyrics: Lyrics,
+    trackId: String?,
     position: Double,
     onSeekTo: (Double) -> Unit,
     scale: Float,
@@ -358,7 +377,12 @@ private fun Synced(
             } else {
                 null
             }
-            val stacked = latin != null && Look.romanizeMode == RomanizeMode.Both
+            // Romanising wins when both are on: the sounds and the meaning
+            // stacked under one line is three lines of text per lyric, which is
+            // a paragraph, not a sheet.
+            val meaning = if (latin == null) trackId?.let { Translate.lineFor(it, at) } else null
+            val second = latin ?: meaning
+            val stacked = second != null && (meaning != null || Look.romanizeMode == RomanizeMode.Both)
 
             Column(
                 Modifier
@@ -399,7 +423,7 @@ private fun Synced(
                 },
             ) {
                 Text(
-                    if (stacked || latin == null) original else latin,
+                    if (stacked || second == null) original else second,
                     color = ink,
                     fontSize = (base * grown).sp,
                     fontWeight = if (active && style != LyricsStyle.Plain) FontWeight.Bold else FontWeight.Medium,
@@ -407,12 +431,12 @@ private fun Synced(
                     textAlign = align,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (stacked) {
+                if (stacked && second != null) {
                     // Smaller and dimmer than the line it belongs to, so a
                     // glance still lands on the words being sung and the
-                    // pronunciation is there for the glance after it.
+                    // second reading is there for the glance after it.
                     Text(
-                        latin,
+                        second,
                         color = ink.copy(alpha = ink.alpha * 0.62f),
                         fontSize = (base * grown * 0.78f).sp,
                         lineHeight = (base * Look.lyricsLineHeight * 0.8f).sp,
