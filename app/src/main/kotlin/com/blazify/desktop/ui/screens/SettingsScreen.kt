@@ -91,6 +91,10 @@ fun SettingsScreen() {
         }
 
         item {
+            EqualiserSection { title, content -> Section(title) { content() } }
+        }
+
+        item {
             Section("Storage") {
                 Line("Where everything is kept", Store.folder.absolutePath)
                 Line("Downloaded songs", "${Downloads.items.size}  ·  ${size(Downloads.bytes)}")
