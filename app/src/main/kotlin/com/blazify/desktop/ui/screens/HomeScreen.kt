@@ -45,10 +45,6 @@ import java.time.LocalTime
  * Licensed under GPL-3.0
  */
 
-private val Moods = listOf(
-    "Relax", "Party", "Gym", "Focus", "Sleep", "Drive", "Romance", "Feel good",
-)
-
 @Composable
 fun HomeScreen(
     onOpen: (Catalogue.Card) -> Unit,
@@ -59,20 +55,34 @@ fun HomeScreen(
     var loading by remember { mutableStateOf(true) }
     var extending by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<String?>(null) }
-    var mood by remember { mutableStateOf(Moods.first()) }
+
+    // Once the catalogue's own shelves are exhausted the feed carries on with
+    // seeded ones, so scrolling never hits a dead stop.
+    var discovered by remember { mutableStateOf(0) }
+    // The moods the catalogue itself offers, and which one is picked. They were
+    // decoration before — a fixed list of words that filtered nothing.
+    var moods by remember { mutableStateOf<List<Catalogue.Mood>>(emptyList()) }
+    var mood by remember { mutableStateOf<Catalogue.Mood?>(null) }
     val listState = rememberLazyListState()
 
-    LaunchedEffect(Unit) {
-        Catalogue.home().fold(
-            onSuccess = { shelves = it.shelves; more = it.more },
+    // Re-fetched when the mood changes: it's a different feed, not a filter we
+    // could apply to the one already here.
+    LaunchedEffect(mood) {
+        loading = true
+        problem = null
+        shelves = emptyList()
+        discovered = 0
+        Catalogue.home(mood = mood?.params).fold(
+            onSuccess = {
+                shelves = it.shelves
+                more = it.more
+                if (it.moods.isNotEmpty()) moods = it.moods
+            },
             onFailure = { problem = "Couldn't reach the catalogue" },
         )
         loading = false
     }
 
-    // Once the catalogue's own shelves are exhausted the feed carries on with
-    // seeded ones, so scrolling never hits a dead stop.
-    var discovered by remember { mutableStateOf(0) }
 
     // Watching the layout itself rather than a true/false "near the end" flag.
     // That flag goes true and STAYS true, and a flow only emits on change — so
@@ -97,7 +107,7 @@ fun HomeScreen(
             extending = true
             val token = more
             if (token != null) {
-                Catalogue.home(after = token).onSuccess { next ->
+                Catalogue.home(after = token, mood = mood?.params).onSuccess { next ->
                     // Shelves repeat across pages often enough to notice; keeping
                     // them out is cheaper than letting the feed stutter.
                     val seen = shelves.map { it.title }.toSet()
@@ -126,7 +136,9 @@ fun HomeScreen(
                 Text("Picking up where you left off", color = Blz.muted, fontSize = 13.sp)
             }
         }
-        item { MoodChips(mood) { mood = it } }
+        if (moods.isNotEmpty()) {
+            item { MoodChips(moods, mood) { mood = it } }
+        }
 
         when {
             loading -> items(2) { SkeletonRail() }
@@ -142,10 +154,15 @@ fun HomeScreen(
 }
 
 @Composable
-private fun MoodChips(selected: String, onSelect: (String) -> Unit) {
+private fun MoodChips(
+    moods: List<Catalogue.Mood>,
+    selected: Catalogue.Mood?,
+    onSelect: (Catalogue.Mood?) -> Unit,
+) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Moods.forEach { name ->
-            val on = name == selected
+        moods.forEach { entry ->
+            val on = entry.params == selected?.params
+            val name = entry.title
             val (source, hovered) = rememberHovered()
             Box(
                 Modifier
@@ -155,7 +172,9 @@ private fun MoodChips(selected: String, onSelect: (String) -> Unit) {
                         else Brush.linearGradient(listOf(Blz.surface, Blz.surface)),
                     )
                     .then(if (on) Modifier else Modifier.hoverBackground(Blz.hover, hovered, source))
-                    .clickable { onSelect(name) }
+                    // Picking the one already on turns it off, which is the
+                    // only way back to the unfiltered feed once you've chosen.
+                    .clickable { onSelect(if (on) null else entry) }
                     // Slim. These are a filter, not a headline — they were
                     // sitting taller than the mark in the rail, which put the
                     // emphasis in completely the wrong place.
