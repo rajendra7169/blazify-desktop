@@ -63,11 +63,11 @@ fun GreetingCard(modifier: Modifier = Modifier) {
         runCatching { useResource(name) { loadImageBitmap(it) } }.getOrNull()
     }
 
-    Box(modifier.fillMaxWidth().height(184.dp)) {
+    Box(modifier.fillMaxWidth().height(196.dp)) {
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(184.dp)
+                .height(196.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(Brush.linearGradient(listOf(start, end))),
         )
@@ -82,10 +82,10 @@ fun GreetingCard(modifier: Modifier = Modifier) {
             Text(
                 greeting(),
                 color = onCard,
-                fontSize = 27.sp,
+                fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.3.sp,
-                lineHeight = 31.sp,
+                lineHeight = 35.sp,
             )
             Text(
                 // Whoever is signed in, or nobody in particular.
@@ -115,13 +115,16 @@ fun GreetingCard(modifier: Modifier = Modifier) {
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 26.dp)
-                    .requiredWidth(224.dp)
-                    .requiredHeight(268.dp)
+                    .padding(end = 34.dp)
+                    // Larger than on a phone. The card is several times wider
+                    // here, and a small figure at one end of it leaves the
+                    // middle looking like something failed to load.
+                    .requiredWidth(300.dp)
+                    .requiredHeight(360.dp)
                     // A required height overflows evenly at both ends; shifting
                     // up by half of it puts the bottom edge flush with the card
                     // and leaves the rest standing above it.
-                    .offset(y = (-42).dp)
+                    .offset(y = (-82).dp)
                     .clip(RoundedCornerShape(12.dp)),
             )
         }

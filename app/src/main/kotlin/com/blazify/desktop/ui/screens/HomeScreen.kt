@@ -94,8 +94,11 @@ fun HomeScreen(
     Box(Modifier.fillMaxSize()) {
     LazyColumn(
         Modifier.fillMaxSize(),
+        // The greeting card's figure stands above the card on purpose, and a
+        // list crops at its own edge — so the room it needs has to be part of
+        // the list rather than part of the card.
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            start = 26.dp, end = 26.dp, top = 22.dp, bottom = 92.dp,
+            start = 26.dp, end = 26.dp, top = 86.dp, bottom = 92.dp,
         ),
         state = listState,
         verticalArrangement = Arrangement.spacedBy(22.dp),
