@@ -48,6 +48,16 @@ class InnerTube {
     )
     var visitorData: String? = null
     var dataSyncId: String? = null
+    /**
+     * A signed-in token, when the account was joined by signing in rather than
+     * by handing over a browser session.
+     *
+     * Takes precedence over the cookie: it is the newer and the stronger of the
+     * two, and having both set means someone signed in properly after having
+     * pasted a session, which is a decision worth honouring.
+     */
+    var accessToken: String? = null
+
     var cookie: String? = null
         set(value) {
             field = value
@@ -156,6 +166,10 @@ class InnerTube {
             append("Referer", YouTubeClient.REFERER_YOUTUBE_MUSIC)
             visitorData?.let { append("X-Goog-Visitor-Id", it) }
             if (setLogin && client.loginSupported) {
+                accessToken?.let { token ->
+                    append("Authorization", "Bearer $token")
+                    return@headers
+                }
                 cookie?.let { cookie ->
                     append("cookie", cookie)
                     if ("SAPISID" !in cookieMap) return@let
