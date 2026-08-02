@@ -63,6 +63,9 @@ object Library {
         Store.write(LIKED, liked)
         scope.launch { Catalogue.setLiked(track.id, wanted) }
         Scrobbler.love(track, wanted)
+        // Liking something can mean keeping it, if that was asked for. Only on
+        // the way in — unliking should not throw away a copy you may still want.
+        if (wanted && Playback.keepWhatILike && !Downloads.has(track.id)) Downloads.start(track)
     }
 
     /**

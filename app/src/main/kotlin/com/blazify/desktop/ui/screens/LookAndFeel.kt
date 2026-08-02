@@ -35,6 +35,7 @@ import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.data.LyricsProvider
 import com.blazify.desktop.data.LyricsProviders
 import com.blazify.desktop.data.Romanize
+import com.blazify.desktop.data.Playback
 import com.blazify.desktop.data.Streams
 import com.blazify.desktop.data.Translate
 import androidx.compose.ui.focus.onFocusChanged
@@ -176,6 +177,60 @@ fun LookAndFeelSection(
             }
             Switch("Pure black", Look.pureBlack, Look::choosePureBlack)
             Switch("Greeting on the home screen", Look.showGreeting, Look::chooseShowGreeting)
+        }
+    }
+}
+
+/**
+ * What the player does without being asked.
+ */
+@Composable
+fun PlaybackSettingsSection(
+    section: @Composable (String, (() -> Unit)?, @Composable () -> Unit) -> Unit,
+) {
+    section("On its own", Playback::reset) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Switch(
+                "Keep playing when the queue runs out",
+                Playback.keepGoing,
+                Playback::chooseKeepGoing,
+            )
+            Text(
+                "Carries on from the last song you heard rather than the first — an hour " +
+                    "into a queue, what it started with isn't the thread any more.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
+
+            Switch("Skip a song that won't play", Playback.skipBroken, Playback::chooseSkipBroken)
+            Switch(
+                "Keep a copy of anything I like",
+                Playback.keepWhatILike,
+                Playback::chooseKeepWhatILike,
+            )
+            Text(
+                "Only on the way in. Unliking never deletes a copy — you may still want it.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
+        }
+    }
+
+    section("Between songs", null) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Dial(
+                "Fade in",
+                if (Playback.fadeSeconds <= 0f) "Off" else "%.1fs".format(Playback.fadeSeconds),
+                Playback.fadeSeconds, 0f, 8f, Playback::chooseFade,
+            )
+            Text(
+                "Zero is a straight cut, which is what a sequenced album wants — a fade " +
+                    "over a segue is a producer's work being talked over.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
+            Switch(
+                "Ease the volume in when a song starts",
+                Playback.easeIn,
+                Playback::chooseEaseIn,
+            )
         }
     }
 }

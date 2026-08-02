@@ -8,6 +8,7 @@ import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LyricsSource
+import com.blazify.desktop.data.Playback
 import com.blazify.desktop.data.Scrobbler
 import com.blazify.desktop.together.Did
 import com.blazify.desktop.together.Together
@@ -330,6 +331,60 @@ object PlayerState {
     }
 
     /**
+     * Bring a song in rather than have it arrive.
+     *
+     * A short ramp on the way in, which is enough to stop a track landing like
+     * a slammed door — and a longer one when a fade has been asked for. It sets
+     * the volume back to where it was, never above it: the number on the slider
+     * is the number that plays.
+     */
+    private fun fadeUp() {
+        val seconds = when {
+            Playback.fadeSeconds > 0f -> Playback.fadeSeconds
+            Playback.easeIn -> 0.35f
+            else -> return
+        }
+        val target = volume
+        scope.launch {
+            val steps = (seconds * 20).toInt().coerceIn(4, 160)
+            AudioEngine.setVolume(0.0)
+            repeat(steps) { step ->
+                delay((seconds * 1000 / steps).toLong())
+                AudioEngine.setVolume(target.toDouble() * (step + 1) / steps)
+            }
+            AudioEngine.setVolume(target.toDouble())
+        }
+    }
+
+    /** True while the queue is being lengthened, so it is only done once. */
+    private var extending = false
+
+    /**
+     * Carry on past the end of the queue.
+     *
+     * Built from the last thing played rather than the first, because what you
+     * want next follows from what you just heard — an hour into a queue, the
+     * song it started with is not the thread any more.
+     */
+    private fun extend() {
+        if (extending) return
+        val seed = queue.lastOrNull() ?: return
+        extending = true
+        scope.launch {
+            Catalogue.relatedTo(seed.id).onSuccess { more ->
+                val fresh = more.filterNot { song -> queue.any { it.id == song.id } }
+                if (fresh.isNotEmpty()) {
+                    queue = queue + fresh
+                    ordered = queue
+                    index += 1
+                    start()
+                }
+            }
+            extending = false
+        }
+    }
+
+    /**
      * What happens when a track runs out on its own.
      *
      * Distinct from pressing next: reaching the end of a song is when repeat
@@ -344,6 +399,11 @@ object PlayerState {
             repeat == Repeat.One -> start()
             index + 1 in queue.indices -> next()
             repeat == Repeat.All && queue.isNotEmpty() -> { index = 0; start() }
+
+            // Nothing left and nothing repeating. Rather than stop dead, keep
+            // going from where the queue ended up — silence at the end of an
+            // album is a decision the album made, not one you made.
+            Playback.keepGoing && queue.isNotEmpty() -> extend()
         }
     }
 
@@ -378,6 +438,7 @@ object PlayerState {
         }
         if (onDisk != null) {
             AudioEngine.play(onDisk)
+            fadeUp()
             Library.played(track)
             return
         }
@@ -386,12 +447,19 @@ object PlayerState {
             Catalogue.streamUrl(track.id).fold(
                 onSuccess = {
                     AudioEngine.play(it)
+                    fadeUp()
                     // Recorded once it's actually playing rather than on the
                     // click, so a track that never resolves doesn't leave a
                     // false entry in a list of what you listened to.
                     Library.played(track)
                 },
-                onFailure = { failure = "Couldn't play ${track.title}" },
+                onFailure = {
+                    failure = "Couldn't play ${track.title}"
+                    // Sitting on a song that will not play, waiting to be
+                    // rescued, is the worst of the options — so move on unless
+                    // that was asked for.
+                    if (Playback.skipBroken && index + 1 in queue.indices) next()
+                },
             )
         }
     }

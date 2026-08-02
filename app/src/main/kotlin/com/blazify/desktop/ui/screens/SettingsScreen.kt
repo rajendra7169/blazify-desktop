@@ -181,6 +181,11 @@ fun SettingsScreen() {
                 }
 
                 SettingsPage.PlayerAudio -> {
+                    item {
+                        PlaybackSettingsSection { title, reset, content ->
+                            Section(title, reset) { content() }
+                        }
+                    }
                     item { EqualiserSection { title, reset, content -> Section(title, reset) { content() } } }
                     item {
                         StreamSettingsSection { title, reset, content ->
