@@ -59,6 +59,7 @@ fun AppShell() {
     var lyricsOpen by remember { mutableStateOf(false) }
     var queueOpen by remember { mutableStateOf(false) }
     var timerOpen by remember { mutableStateOf(false) }
+    var addingOpen by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(Blz.page)) {
@@ -142,6 +143,7 @@ fun AppShell() {
             onToggleLyrics = { lyricsOpen = !lyricsOpen },
             onToggleQueue = { queueOpen = !queueOpen },
             onOpenTimer = { timerOpen = true },
+            onAddToPlaylist = { addingOpen = true },
             lyricsOpen = lyricsOpen,
             queueOpen = queueOpen,
             timerOn = SleepTimer.running,
@@ -151,6 +153,9 @@ fun AppShell() {
         // Over everything, including the transport — a dialog that the bar
         // could be clicked through is not a dialog.
         if (timerOpen) SleepTimerDialog(onDismiss = { timerOpen = false })
+        PlayerState.current?.takeIf { addingOpen }?.let {
+            AddToPlaylistDialog(it, onDismiss = { addingOpen = false })
+        }
     }
 }
 

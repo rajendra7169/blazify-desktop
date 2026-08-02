@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
@@ -96,6 +97,7 @@ fun PlayerBar(
     onToggleLyrics: () -> Unit,
     onToggleQueue: () -> Unit,
     onOpenTimer: () -> Unit,
+    onAddToPlaylist: () -> Unit,
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
     shuffling: Boolean,
@@ -116,7 +118,7 @@ fun PlayerBar(
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.weight(1f)) { NowPlayingCell(now, onToggleLike, onKeep) }
+        Box(Modifier.weight(1f)) { NowPlayingCell(now, onToggleLike, onKeep, onAddToPlaylist) }
 
         // Weighted rather than fixed, so the bar you drag grows with the
         // window instead of stranding it at one width on a wide screen. The
@@ -160,7 +162,12 @@ fun PlayerBar(
 }
 
 @Composable
-private fun NowPlayingCell(now: NowPlaying?, onToggleLike: () -> Unit, onKeep: () -> Unit) {
+private fun NowPlayingCell(
+    now: NowPlaying?,
+    onToggleLike: () -> Unit,
+    onKeep: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
         Artwork(now?.artwork, size = 44.dp, corner = 7.dp)
         Column(Modifier.widthIn(max = 220.dp)) {
@@ -184,6 +191,10 @@ private fun NowPlayingCell(now: NowPlaying?, onToggleLike: () -> Unit, onKeep: (
                 onClick = onToggleLike,
             )
             KeepButton(now, onKeep)
+            TransportButton(
+                Icons.Rounded.PlaylistAdd, "Add to playlist", 18.dp,
+                onClick = onAddToPlaylist,
+            )
         }
     }
 }
