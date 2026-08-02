@@ -14,11 +14,20 @@ import androidx.compose.ui.graphics.Color
  * Licensed under GPL-3.0
  */
 
-/** The brand accent. Reserved for whatever is live right now — never decoration. */
+/**
+ * The accent. Reserved for whatever is live right now — never decoration.
+ *
+ * Blaze amber is the default and what the app is named for, but the colour is
+ * chosen rather than fixed: every screen reads these three, so picking a
+ * different accent repaints all of it at once.
+ */
 object Blaze {
-    val Amber = Color(0xFFFFA726)
-    val Ember = Color(0xFFFF7043)
-    val OnAmber = Color(0xFF1A1005)
+    val Amber: Color get() = Look.accent.start
+    val Ember: Color get() = Look.accent.end
+    val OnAmber: Color get() = Look.accent.ink
+
+    /** The amber the app is named for, whatever the accent happens to be. */
+    val Brand = Color(0xFFFFA726)
 }
 
 /** Whether the window follows the desktop, or is pinned to one appearance. */
@@ -50,7 +59,7 @@ data class BlazeColors(
 
 private val NightColors = BlazeColors(
     dark = true,
-    // Near-black, not pure black: amber vibrates against #000.
+    // Near-black, not pure black: a saturated accent vibrates against #000.
     page = Color(0xFF0A0A0B),
     rail = Color(0xFF0E0E10),
     bar = Color(0xFF111114),
@@ -104,9 +113,32 @@ private fun schemeFor(c: BlazeColors) = if (c.dark) {
     )
 }
 
+/**
+ * The dark palette taken all the way down.
+ *
+ * Only the grounds change — the surfaces above them keep their separation, or
+ * the rail and the transport strip would dissolve into the page and the layout
+ * would lose its shape entirely.
+ */
+private val BlackColors = NightColors.copy(
+    page = Color(0xFF000000),
+    rail = Color(0xFF000000),
+    bar = Color(0xFF050506),
+    surface = Color(0xFF0C0C0E),
+    surfaceHigh = Color(0xFF151518),
+    hover = Color(0xFF151518),
+    line = Color(0xFF1E1E22),
+    skeleton = Color(0xFF121215),
+    skeletonSheen = Color(0xFF222228),
+)
+
 @Composable
 fun BlazifyTheme(dark: Boolean = true, content: @Composable () -> Unit) {
-    val colors = if (dark) NightColors else DayColors
+    val colors = when {
+        !dark -> DayColors
+        Look.pureBlack -> BlackColors
+        else -> NightColors
+    }
     androidx.compose.runtime.CompositionLocalProvider(LocalBlazeColors provides colors) {
         MaterialTheme(colorScheme = schemeFor(colors), content = content)
     }
