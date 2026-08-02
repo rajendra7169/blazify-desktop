@@ -38,6 +38,7 @@ object Backup {
     private val PARTS = listOf(
         "liked.json",
         "history.json",
+        "plays.json",
         "playlists.json",
         "saved.json",
         "local.json",

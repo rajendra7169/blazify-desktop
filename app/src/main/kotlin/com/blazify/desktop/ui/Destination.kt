@@ -5,6 +5,7 @@ import androidx.compose.material.icons.rounded.Computer
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.People
@@ -35,6 +36,7 @@ enum class Destination(
     Liked("Liked songs", Icons.Rounded.Favorite, Section.Yours),
     Downloads("Downloads", Icons.Rounded.Download, Section.Yours),
     OnThisComputer("On this computer", Icons.Rounded.Computer, Section.Yours),
+    TopSongs("Top songs", Icons.Rounded.TrendingUp, Section.Yours),
     History("History", Icons.Rounded.History, Section.Yours);
 
     enum class Section(val title: String?) { Browse(null), Yours("Yours") }

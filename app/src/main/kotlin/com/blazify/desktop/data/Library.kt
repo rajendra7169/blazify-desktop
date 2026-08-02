@@ -101,6 +101,10 @@ object Library {
      * last hear this" rather than a tally.
      */
     fun played(track: Track) {
+        // Counted every time, even when the history doesn't move — playing the
+        // same song four times in a row is four plays, and it is exactly the
+        // case a "most played" list exists to catch.
+        Plays.note(track)
         if (history.firstOrNull()?.id == track.id) return
         history = (listOf(track) + history.filterNot { it.id == track.id }).take(HISTORY_LIMIT)
         Store.write(HISTORY, history)
@@ -109,7 +113,20 @@ object Library {
     fun clearHistory() {
         history = emptyList()
         Store.write(HISTORY, history)
+        // The counts are the history counted. Clearing one and keeping the
+        // other would leave a top list built from songs you can no longer see.
+        Plays.forget()
     }
+
+    /**
+     * Everything ever seen, for the counts to be matched against.
+     *
+     * A play is stored as an id, so turning one back into a song means finding
+     * it somewhere — the history holds most of them, and what you liked or
+     * kept covers nearly all of the rest.
+     */
+    fun known(): List<Track> =
+        (history + liked + Downloads.items + LocalMusic.tracks).distinctBy { it.id }
 
     fun isSaved(id: String) = saved.any { it.id == id }
 

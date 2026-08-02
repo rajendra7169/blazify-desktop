@@ -52,6 +52,7 @@ import com.blazify.desktop.ui.screens.LibraryScreen
 import com.blazify.desktop.ui.screens.LocalScreen
 import com.blazify.desktop.ui.screens.SettingsScreen
 import com.blazify.desktop.ui.screens.TogetherScreen
+import com.blazify.desktop.ui.screens.TopSongsScreen
 import com.blazify.desktop.ui.screens.TrackListScreen
 
 /**
@@ -353,6 +354,11 @@ private fun Content(destination: Destination) {
             emptyIcon = Icons.Rounded.Favorite,
             emptyDetail = "Press the heart beside anything that's playing, or right-click " +
                 "a song anywhere and like it from there.",
+            onPlay = PlayerState::play,
+            onShuffle = PlayerState::shuffle,
+        )
+
+        Destination.TopSongs -> TopSongsScreen(
             onPlay = PlayerState::play,
             onShuffle = PlayerState::shuffle,
         )
