@@ -65,7 +65,24 @@ import com.blazify.desktop.PlayerState
 fun NowPlayingScreen(lyricsOpen: Boolean, onToggleLyrics: () -> Unit, onClose: () -> Unit) {
     val track = PlayerState.current
 
-    Row(Modifier.fillMaxSize().background(Blz.page)) {
+    // A wash of the accent behind the artwork, or the plain page, or true
+    // black. The gradient is bottom-heavy so the controls sit on colour and
+    // the cover sits on something closer to the page it came from.
+    val background: Modifier = when (Look.playerBackground) {
+        PlayerBackground.FollowTheme -> Modifier.background(Blz.page)
+        PlayerBackground.PureBlack -> Modifier.background(Color.Black)
+        PlayerBackground.Gradient -> Modifier.background(
+            Brush.verticalGradient(
+                listOf(
+                    Blz.page,
+                    Blaze.Amber.copy(alpha = 0.10f),
+                    Blaze.Ember.copy(alpha = 0.22f),
+                ),
+            ),
+        )
+    }
+
+    Row(Modifier.fillMaxSize().then(background)) {
         Column(
             Modifier.weight(1f).fillMaxHeight().padding(horizontal = 40.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
