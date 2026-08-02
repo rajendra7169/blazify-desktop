@@ -12,11 +12,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -30,21 +34,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.PlayerState
 import com.blazify.desktop.Typing
 import com.blazify.desktop.data.Catalogue
-import com.blazify.desktop.data.Track
+import com.blazify.desktop.data.asTrack
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.SkeletonRows
 import com.blazify.desktop.ui.hoverBackground
+import com.blazify.desktop.ui.hoverLift
 import com.blazify.desktop.ui.rememberHovered
 import kotlinx.coroutines.delay
 
@@ -53,17 +60,27 @@ import kotlinx.coroutines.delay
  * Licensed under GPL-3.0
  */
 
+/**
+ * Search.
+ *
+ * What you're looking for decides how it's drawn: songs are a list, because
+ * you're picking one to play and a list is quickest to read down. Everything
+ * else is a grid of artwork, because you recognise an album by its cover long
+ * before you read its name.
+ */
 @Composable
-fun ExploreScreen() {
+fun ExploreScreen(onOpen: (Catalogue.Card) -> Unit) {
     var query by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<Track>>(emptyList()) }
+    var scope by remember { mutableStateOf(Catalogue.Scope.Songs) }
+    var results by remember { mutableStateOf<List<Catalogue.Card>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
 
     // Search as you type, but only once you've stopped. Firing on every
     // keystroke would send a request per letter and show results for a prefix
-    // nobody meant to search for.
-    LaunchedEffect(query) {
+    // nobody meant to search for. Changing what you're looking for re-runs it
+    // straight away — the words haven't changed, so there's nothing to wait for.
+    LaunchedEffect(query, scope) {
         val typed = query.trim()
         if (typed.length < 2) {
             results = emptyList(); searching = false; message = null
@@ -72,7 +89,7 @@ fun ExploreScreen() {
         searching = true
         message = null
         delay(350)
-        Catalogue.search(typed).fold(
+        Catalogue.search(typed, scope).fold(
             onSuccess = {
                 results = it
                 message = if (it.isEmpty()) "Nothing matched that" else null
@@ -84,9 +101,10 @@ fun ExploreScreen() {
 
     Column(
         Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SearchField(query) { query = it }
+        ScopeChips(scope) { scope = it }
 
         when {
             searching && results.isEmpty() -> SkeletonRows(count = 8)
@@ -95,15 +113,55 @@ fun ExploreScreen() {
                 "Search for a song, an artist, anything.",
                 color = Blz.dim, fontSize = 13.sp,
             )
-            else -> LazyColumn(Modifier.fillMaxSize()) {
-                itemsIndexed(results, key = { _, t -> t.id }) { i, track ->
-                    TrackRow(
-                        position = i + 1,
-                        track = track,
-                        playing = PlayerState.current?.id == track.id,
-                        onPlay = { PlayerState.play(results, i) },
-                    )
+            scope == Catalogue.Scope.Songs || scope == Catalogue.Scope.Videos -> {
+                LazyColumn(Modifier.fillMaxSize()) {
+                    itemsIndexed(results, key = { _, card -> card.id }) { at, card ->
+                        TrackRow(
+                            position = at + 1,
+                            card = card,
+                            playing = PlayerState.current?.id == card.id,
+                            onPlay = { PlayerState.play(results.map { it.asTrack() }, at) },
+                        )
+                    }
                 }
+            }
+            else -> LazyVerticalGrid(
+                columns = GridCells.Adaptive(180.dp),
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                items(results, key = { it.id }, span = { GridItemSpan(1) }) { card ->
+                    ResultTile(card, onOpen)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScopeChips(selected: Catalogue.Scope, onSelect: (Catalogue.Scope) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Catalogue.Scope.entries.forEach { scope ->
+            val on = scope == selected
+            val (source, hovered) = rememberHovered()
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(
+                        if (on) Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))
+                        else Brush.linearGradient(listOf(Blz.surface, Blz.surface)),
+                    )
+                    .then(if (on) Modifier else Modifier.hoverBackground(Blz.hover, hovered, source))
+                    .clickable { onSelect(scope) }
+                    .padding(horizontal = 13.dp, vertical = 6.dp),
+            ) {
+                Text(
+                    scope.label,
+                    color = if (on) Blaze.OnAmber else Blz.muted,
+                    fontSize = 12.sp,
+                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                )
             }
         }
     }
@@ -142,7 +200,47 @@ private fun SearchField(value: String, onChange: (String) -> Unit) {
 }
 
 @Composable
-private fun TrackRow(position: Int, track: Track, playing: Boolean, onPlay: () -> Unit) {
+private fun ResultTile(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
+    val (source, hovered) = rememberHovered()
+    val round = card.kind == Catalogue.Kind.Artist
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable { onOpen(card) }
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp),
+        horizontalAlignment = if (round) Alignment.CenterHorizontally else Alignment.Start,
+    ) {
+        Artwork(
+            card.thumbnail,
+            size = 158.dp,
+            corner = if (round) 79.dp else 12.dp,
+            modifier = Modifier.hoverLift(hovered)
+                .then(if (round) Modifier.clip(CircleShape) else Modifier),
+        )
+        Column(
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+            horizontalAlignment = if (round) Alignment.CenterHorizontally else Alignment.Start,
+        ) {
+            Text(
+                card.title, color = Blz.ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                textAlign = if (round) TextAlign.Center else TextAlign.Start,
+            )
+            Text(
+                card.subtitle, color = Blz.muted, fontSize = 12.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                textAlign = if (round) TextAlign.Center else TextAlign.Start,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TrackRow(position: Int, card: Catalogue.Card, playing: Boolean, onPlay: () -> Unit) {
     val (source, hovered) = rememberHovered()
     val accent = if (playing) Blaze.Amber else Blz.ink
 
@@ -152,7 +250,7 @@ private fun TrackRow(position: Int, track: Track, playing: Boolean, onPlay: () -
             .clip(RoundedCornerShape(7.dp))
             .hoverBackground(Blz.hover, hovered, source)
             .clickable(onClick = onPlay)
-            .padding(horizontal = 9.dp, vertical = 7.dp),
+            .padding(horizontal = 9.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(13.dp),
     ) {
@@ -163,21 +261,19 @@ private fun TrackRow(position: Int, track: Track, playing: Boolean, onPlay: () -
                 fontSize = 11.5.sp,
             )
         }
-        Artwork(track.thumbnail, size = 38.dp)
-        Column(Modifier.weight(1f)) {
+        Artwork(card.thumbnail, size = 42.dp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                track.title, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                card.title, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Medium,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Text(
-                track.artist, color = Blz.muted, fontSize = 11.5.sp,
+                card.subtitle, color = Blz.muted, fontSize = 12.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
-        Text(track.duration, color = Blz.muted, fontSize = 12.sp)
-        Icon(
-            Icons.Rounded.MoreVert, "More", Modifier.size(17.dp),
-            tint = if (hovered.value) Blz.muted else Blz.muted.copy(alpha = 0f),
-        )
+        if (card.duration.isNotEmpty()) {
+            Text(card.duration, color = Blz.dim, fontSize = 12.sp)
+        }
     }
 }

@@ -175,7 +175,7 @@ private fun Content(destination: Destination) {
             },
             onPlayAll = PlayerState::playAll,
         )
-        Destination.Explore -> ExploreScreen()
+        Destination.Explore -> ExploreScreen(onOpen = Navigator::open)
 
         Destination.Library -> LibraryScreen(onOpen = Navigator::open)
 
