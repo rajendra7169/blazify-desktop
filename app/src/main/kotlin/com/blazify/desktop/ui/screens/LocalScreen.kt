@@ -107,7 +107,7 @@ fun LocalScreen(onPlay: (List<Track>, Int) -> Unit, onShuffle: (List<Track>) -> 
             }
         }
 
-        itemsIndexed(tracks, key = { _, track -> track.id }) { at, track ->
+        itemsIndexed(tracks, key = { at, track -> "$at-${track.id}" }) { at, track ->
             LocalRow(track) { onPlay(tracks, at) }
         }
     }

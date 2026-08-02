@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -112,19 +113,21 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
         // both what an account holds and anything picked up along the way.
         if (own.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) { Heading("Made here") }
-            items(own, key = { "own-" + it.id }) { playlist -> OwnTile(playlist, onOpenPlaylist) }
+            itemsIndexed(own, key = { at, it -> "own-$at-${it.id}" }) { _, playlist ->
+                OwnTile(playlist, onOpenPlaylist)
+            }
         }
 
         // What's on the account next: those are playlists someone built, and
         // they outrank anything picked up along the way.
         if (mine.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) { Heading("Your playlists") }
-            items(mine, key = { "mine-" + it.kind.name + it.id }) { card -> SavedTile(card, onOpen) }
+            itemsIndexed(mine, key = { at, it -> "mine-$at-${it.id}" }) { _, card -> SavedTile(card, onOpen) }
         }
 
         if (saved.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) { Heading("Saved") }
-            items(saved, key = { "saved-" + it.kind.name + it.id }) { card -> SavedTile(card, onOpen) }
+            itemsIndexed(saved, key = { at, it -> "saved-$at-${it.id}" }) { _, card -> SavedTile(card, onOpen) }
         }
     }
 }

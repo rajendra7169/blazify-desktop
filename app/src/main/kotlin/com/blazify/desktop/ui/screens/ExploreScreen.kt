@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -145,7 +146,7 @@ fun ExploreScreen(
             message != null -> Text(message!!, color = Blz.muted, fontSize = 13.sp)
             scope == Catalogue.Scope.Songs || scope == Catalogue.Scope.Videos -> {
                 LazyColumn(Modifier.fillMaxSize()) {
-                    itemsIndexed(results, key = { _, card -> card.id }) { at, card ->
+                    itemsIndexed(results, key = { at, card -> "$at-${card.id}" }) { at, card ->
                         SongMenu(card.asTrack()) {
                         TrackRow(
                             position = at + 1,
@@ -163,7 +164,10 @@ fun ExploreScreen(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                items(results, key = { it.id }, span = { GridItemSpan(1) }) { card ->
+                itemsIndexed(
+                    results,
+                    key = { at: Int, card: Catalogue.Card -> "$at-${card.id}" },
+                ) { _, card ->
                     ResultTile(card, onOpen)
                 }
             }
@@ -200,7 +204,7 @@ private fun BrowseTab(
                         fontWeight = FontWeight.Bold,
                     )
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        items(browse.releases, key = { it.id }) { card ->
+                        itemsIndexed(browse.releases, key = { at, card -> "$at-${card.id}" }) { _, card ->
                             Box(Modifier.width(172.dp)) { ResultTile(card, onOpen) }
                         }
                     }

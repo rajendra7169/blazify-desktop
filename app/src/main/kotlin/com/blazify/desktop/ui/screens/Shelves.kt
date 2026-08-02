@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed as itemsIndexedInRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -232,7 +233,7 @@ private fun SongGrid(
             horizontalArrangement = Arrangement.spacedBy(LineGap),
             verticalArrangement = Arrangement.spacedBy(LineGap),
         ) {
-            itemsIndexed(shelf.cards, key = { _, card -> card.kind.name + card.id }) { at, card ->
+            itemsIndexed(shelf.cards, key = { at, card -> "$at-${card.kind.name}-${card.id}" }) { at, card ->
                 SongMenu(card.asTrack()) {
                     SongLine(card, lineWidth) { onPlayAll(shelf.cards, at) }
                 }
@@ -291,7 +292,12 @@ private fun CardRail(
     onOpen: (Catalogue.Card) -> Unit,
 ) {
     LazyRow(state = state, horizontalArrangement = Arrangement.spacedBy(TileGap)) {
-        items(shelf.cards, key = { it.kind.name + it.id }) { card -> Tile(card, onOpen) }
+        itemsIndexedInRow(
+            shelf.cards,
+            key = { at: Int, card: Catalogue.Card -> "$at-${card.kind.name}-${card.id}" },
+        ) { _, card ->
+            Tile(card, onOpen)
+        }
     }
 }
 

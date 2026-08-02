@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -87,7 +87,7 @@ fun AddToPlaylistDialog(track: Track, onDismiss: () -> Unit) {
                     Modifier.heightIn(max = 260.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    items(Playlists.all, key = { it.id }) { playlist ->
+                    itemsIndexed(Playlists.all, key = { at, it -> "$at-${it.id}" }) { _, playlist ->
                         val inside = Playlists.contains(playlist.id, track.id)
                         val (source, hovered) = rememberHovered()
                         Row(

@@ -85,7 +85,7 @@ fun DownloadsScreen(onPlay: (List<Track>, Int) -> Unit, onShuffle: (List<Track>)
             }
         }
 
-        itemsIndexed(kept, key = { _, track -> track.id }) { at, track ->
+        itemsIndexed(kept, key = { at, track -> "$at-${track.id}" }) { at, track ->
             KeptRow(track) { onPlay(kept, at) }
         }
     }
