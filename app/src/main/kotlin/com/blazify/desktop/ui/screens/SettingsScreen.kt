@@ -10,24 +10,37 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.blazify.desktop.Typing
+import com.blazify.desktop.data.Account
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LocalMusic
 import com.blazify.desktop.data.Store
+import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.ThemeMode
@@ -56,6 +69,8 @@ fun SettingsScreen() {
         item {
             Text("Settings", color = Blz.ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
         }
+
+        item { AccountSection() }
 
         item {
             Section("Appearance") {
@@ -109,6 +124,83 @@ fun SettingsScreen() {
                 Line("Blazify", "Version 1.0.0")
             }
         }
+    }
+}
+
+/**
+ * Signing in.
+ *
+ * There is no browser to sign in through here, so the session is pasted from
+ * one you already have. That asks something of the person, so the steps are
+ * spelled out rather than assumed — and the field is only shown when they've
+ * asked for it, because a box demanding a secret is an alarming thing to meet
+ * on a settings screen you opened to change the theme.
+ */
+@Composable
+private fun AccountSection() {
+    var pasting by remember { mutableStateOf(false) }
+    var pasted by remember { mutableStateOf("") }
+
+    Section("Account") {
+        if (Account.signedIn) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Account.picture?.let {
+                    Artwork(it, size = 40.dp, corner = 20.dp, modifier = Modifier.clip(CircleShape))
+                    Spacer(Modifier.size(12.dp))
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        Account.name ?: if (Account.checking) "Checking…" else "Signed in",
+                        color = Blz.ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    )
+                    Account.email?.let { Text(it, color = Blz.muted, fontSize = 12.sp) }
+                }
+                Button("Sign out", Account::signOut)
+            }
+            Text(
+                "Your playlists, your history and a feed built out of what you actually listen to.",
+                color = Blz.dim, fontSize = 11.5.sp,
+            )
+        } else if (!pasting) {
+            Line("Signed in", "No — the feed is what's popular, not what's yours")
+            Button("Sign in") { pasting = true }
+        } else {
+            Text(
+                "Sign in at music.youtube.com in your browser, open its developer tools, " +
+                    "find any request to the site, and copy the whole Cookie header. Paste it here.",
+                color = Blz.muted, fontSize = 12.5.sp, lineHeight = 18.sp,
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Blz.surfaceHigh)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            ) {
+                if (pasted.isEmpty()) {
+                    Text("Cookie: VISITOR_INFO1_LIVE=…; SAPISID=…", color = Blz.dim, fontSize = 12.sp)
+                }
+                BasicTextField(
+                    value = pasted,
+                    onValueChange = { pasted = it },
+                    textStyle = TextStyle(color = Blz.ink, fontSize = 12.sp),
+                    cursorBrush = SolidColor(Blaze.Amber),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { Typing.active = it.isFocused },
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button("Sign in") { Account.signIn(pasted); pasted = "" }
+                Button("Cancel") { pasting = false; pasted = "" }
+            }
+            Text(
+                "Kept on this machine only, and sent nowhere but the catalogue.",
+                color = Blz.dim, fontSize = 11.5.sp,
+            )
+        }
+
+        Account.problem?.let { Text(it, color = Blaze.Ember, fontSize = 12.sp) }
     }
 }
 
