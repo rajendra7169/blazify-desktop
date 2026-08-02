@@ -335,8 +335,16 @@ object Catalogue {
                 val built = mutableListOf<Shelf>()
                 val used = mutableSetOf<String>()
 
-                fun keep(title: String, label: String?, songs: List<Track>) {
-                    val fresh = songs.filterNot { it.id in used }.take(16)
+                /**
+                 * Add a shelf, in one of the two shapes a shelf comes in.
+                 *
+                 * Deep means a grid of compact lines — a lot of songs in a
+                 * little space, for reading down. Shallow means a row of
+                 * artwork at full size, for looking at. Alternating the two is
+                 * what stops the page becoming one long ledger.
+                 */
+                fun keep(title: String, label: String?, songs: List<Track>, deep: Boolean = true) {
+                    val fresh = songs.filterNot { it.id in used }.take(if (deep) 16 else 12)
                     if (fresh.size < 4) return
                     used += fresh.map { it.id }
                     built += Shelf(
@@ -345,7 +353,7 @@ object Catalogue {
                         cards = fresh.map {
                             Card(it.id, it.title, it.artist, it.thumbnail, Kind.Song, it.durationSeconds)
                         },
-                        rows = 4,
+                        rows = if (deep) 4 else 1,
                     )
                 }
 
@@ -373,14 +381,14 @@ object Catalogue {
                     .flatMap { relatedTo(it.id).getOrNull().orEmpty() }
                     .distinctBy { it.id }
                     .shuffled()
-                keep("Your daily discover", null, discovered)
+                keep("Your daily discover", null, discovered, deep = false)
 
                 // Forgotten favourites — the far end of the history, which is
                 // the part worth being reminded of.
                 keep("Forgotten favourites", null, history.drop(20).shuffled())
 
                 // Keep listening — plainly what was on recently, no fetching.
-                keep("Keep listening", null, history.take(16))
+                keep("Keep listening", null, history.take(12), deep = false)
 
                 // Listen again — further back than "keep listening", and
                 // shuffled, so it turns up things rather than repeating them.
@@ -390,9 +398,14 @@ object Catalogue {
                 // itself rather than claiming to be a recommendation engine.
                 // Enough of these that the page still has song shelves to give
                 // once the album ones start arriving underneath.
-                (history.drop(1).take(4).ifEmpty { borrowed.drop(1) }).forEach { seed ->
-                    keep(seed.artist.substringBefore(",").ifBlank { seed.title }, "SIMILAR TO",
-                        relatedTo(seed.id).getOrNull().orEmpty().shuffled())
+                (history.drop(1).take(4).ifEmpty { borrowed.drop(1) }).forEachIndexed { at, seed ->
+                    keep(
+                        seed.artist.substringBefore(",").ifBlank { seed.title },
+                        "SIMILAR TO",
+                        relatedTo(seed.id).getOrNull().orEmpty().shuffled(),
+                        // Every other one, so a run of them still alternates.
+                        deep = at % 2 == 0,
+                    )
                 }
 
                 built

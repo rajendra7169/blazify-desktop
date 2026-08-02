@@ -147,7 +147,10 @@ fun HomeScreen(
 
     Box(Modifier.fillMaxSize()) {
     LazyColumn(
-        Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
+        Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 26.dp, end = 26.dp, top = 22.dp, bottom = 92.dp,
+        ),
         state = listState,
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
@@ -230,8 +233,11 @@ private fun MoodChips(
     selected: Catalogue.Mood?,
     onSelect: (Catalogue.Mood?) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        moods.forEach { entry ->
+    // Scrolled rather than wrapped: ten of these stacked across the top pushed
+    // the music down the page, which is the wrong way round for a screen whose
+    // whole job is the music.
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(moods) { entry ->
             val on = entry.params == selected?.params
             val name = entry.title
             val (source, hovered) = rememberHovered()
@@ -249,13 +255,13 @@ private fun MoodChips(
                     // Slim. These are a filter, not a headline — they were
                     // sitting taller than the mark in the rail, which put the
                     // emphasis in completely the wrong place.
-                    .padding(horizontal = 11.dp, vertical = 4.dp),
+                    .padding(horizontal = 14.dp, vertical = 7.dp),
             ) {
                 Text(
                     name,
                     color = if (on) Blaze.OnAmber else Blz.muted,
-                    fontSize = 11.sp,
-                    fontWeight = if (on) FontWeight.Medium else FontWeight.Normal,
+                    fontSize = 12.sp,
+                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
                 )
             }
         }
