@@ -9,11 +9,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -23,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -140,6 +145,7 @@ fun HomeScreen(
         }
     }
 
+    Box(Modifier.fillMaxSize()) {
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
         state = listState,
@@ -179,6 +185,42 @@ fun HomeScreen(
         }
 
         if (extending) item { SkeletonRail(count = 5) }
+    }
+
+    // Sits over the feed in the bottom corner, just above the transport strip.
+    // Everything on this page is songs, and the one thing you might want that
+    // isn't a particular one of them is all of them, in no order.
+    val everything = (picks + shelves).filter { it.isSongs }.flatMap { it.cards }
+    if (everything.isNotEmpty()) {
+        ShuffleButton(
+            Modifier.align(Alignment.BottomEnd).padding(end = 26.dp, bottom = 22.dp),
+        ) { onPlayAll(everything.shuffled(), 0) }
+    }
+    }
+}
+
+/**
+ * Shuffle everything on the page.
+ *
+ * Round and filled, so it reads as the one thing you can do to the whole
+ * screen rather than as another control belonging to a shelf.
+ */
+@Composable
+private fun ShuffleButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)))
+            .hoverLift(hovered, to = 1.05f)
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(onClick = onClick)
+            .padding(start = 18.dp, end = 22.dp, top = 14.dp, bottom = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        Icon(Icons.Rounded.Shuffle, "Shuffle everything", Modifier.size(20.dp), tint = Blaze.OnAmber)
+        Text("Shuffle", color = Blaze.OnAmber, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
