@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -265,11 +266,17 @@ private fun QueueRow(
     onRemove: () -> Unit,
 ) {
     val (source, hovered) = rememberHovered()
+    // Whether this row's menu is open, held by the row rather than by the
+    // button. The pointer leaves the row the moment it moves onto the menu, and
+    // a button that only exists while the row is hovered takes its own menu
+    // down with it — which is why the dots opened nothing you could reach.
+    var menuOpen by remember { mutableStateOf(false) }
+
     Row(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .then(if (playing) Modifier.background(Blz.surfaceHigh) else Modifier)
+            .then(if (playing || menuOpen) Modifier.background(Blz.surfaceHigh) else Modifier)
             .hoverBackground(Blz.hover, hovered, source)
             .clickable(onClick = onJump)
             .padding(horizontal = 8.dp, vertical = 7.dp),
@@ -312,8 +319,21 @@ private fun QueueRow(
         // shouldn't depend on which screen you found it on. Removing it from
         // here is in there too, which is why there's no separate cross.
         Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
-            if (hovered.value) {
-                SongSheetButton(track, hovered = true, onRemove = onRemove)
+            if (hovered.value || menuOpen) {
+                val (dotSource, dotHovered) = rememberHovered()
+                Box {
+                    Box(
+                        Modifier
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .hoverBackground(Blz.hover, dotHovered, dotSource)
+                            .clickable { menuOpen = true },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Rounded.MoreVert, "More", Modifier.size(18.dp), tint = Blz.ink)
+                    }
+                    SongSheet(track, menuOpen, { menuOpen = false }, onRemove)
+                }
             } else {
                 Text(track.duration, color = Blz.dim, fontSize = 11.5.sp)
             }
