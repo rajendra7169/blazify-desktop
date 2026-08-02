@@ -97,12 +97,16 @@ fun HomeHero(
                 Image(
                     it,
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    alignment = Alignment.TopCenter,
+                    // Fitted rather than cropped now she's small: cropping a
+                    // narrow box takes the sides off the figure instead of
+                    // making her smaller, which is the opposite of the ask.
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.BottomCenter,
                     modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .width(pane * 0.52f)
-                        .fillMaxHeight(),
+                        .align(Alignment.BottomEnd)
+                        .padding(end = pane * 0.04f)
+                        .width(pane * 0.26f)
+                        .fillMaxHeight(0.92f),
                 )
             }
 
@@ -112,36 +116,39 @@ fun HomeHero(
                 Modifier.matchParentSize().background(
                     Brush.horizontalGradient(
                         0f to Blz.page,
-                        0.34f to Blz.page,
-                        0.62f to Blz.page.copy(alpha = 0.70f),
+                        0.46f to Blz.page,
+                        0.68f to Blz.page.copy(alpha = 0.55f),
                         1f to Color.Transparent,
                     ),
                 ),
             )
 
-            // And down it, so the hero dissolves into the first shelf instead
-            // of ending at a line.
+            // A breath of the accent, gone well before the bottom. Vertical
+            // rather than diagonal, because a diagonal one is still part-way
+            // through its colour when it reaches the bottom edge — and a wash
+            // that stops mid-colour is precisely what draws a line across the
+            // page and turns one screen into two.
             Box(
                 Modifier.matchParentSize().background(
                     Brush.verticalGradient(
-                        0f to Blz.page.copy(alpha = 0.35f),
-                        0.55f to Color.Transparent,
-                        0.88f to Blz.page.copy(alpha = 0.80f),
-                        1f to Blz.page,
+                        0f to Blaze.Amber.copy(alpha = if (dark) 0.20f else 0.14f),
+                        0.45f to Blaze.Ember.copy(alpha = if (dark) 0.07f else 0.05f),
+                        0.80f to Color.Transparent,
+                        1f to Color.Transparent,
                     ),
                 ),
             )
 
-            // A breath of the accent over all of it, tying the picture and the
-            // words to the same colour.
+            // The last thing down, so nothing above can put its own edge back:
+            // whatever is left of the picture and the wash is taken to the page
+            // colour by the bottom, and the shelves begin on the same surface.
             Box(
                 Modifier.matchParentSize().background(
-                    Brush.linearGradient(
-                        listOf(
-                            Blaze.Amber.copy(alpha = if (dark) 0.20f else 0.14f),
-                            Blaze.Ember.copy(alpha = if (dark) 0.09f else 0.06f),
-                            Color.Transparent,
-                        ),
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.62f to Color.Transparent,
+                        0.86f to Blz.page.copy(alpha = 0.72f),
+                        1f to Blz.page,
                     ),
                 ),
             )
