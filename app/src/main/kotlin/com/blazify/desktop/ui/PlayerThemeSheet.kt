@@ -190,21 +190,15 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
 
                 // Below the frame and outside the crossfade, so the words stay
                 // put while the picture above them changes.
+                // Only the blurb. The list on the left already gives the look
+                // its name and the card already gives the song its own, so a
+                // heading here could only repeat one of them — which is what
+                // put "Full art" on screen twice.
                 Text(
-                    // Full art already names the song inside the card, so this
-                    // line names the look instead. Same line either way, so
-                    // nothing moves as the pointer travels down the list.
-                    if (previewing == PlayerTheme.FullArt) previewing.label
-                    else track?.title ?: "Nothing playing",
-                    color = Blz.ink, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 14.dp),
-                )
-                Text(
-                    previewing.blurb, color = Blz.dim, fontSize = 12.sp,
+                    previewing.blurb, color = Blz.dim, fontSize = 12.5.sp,
                     textAlign = TextAlign.Center,
-                    maxLines = 2, lineHeight = 16.sp,
-                    modifier = Modifier.padding(top = 4.dp),
+                    maxLines = 2, lineHeight = 17.sp,
+                    modifier = Modifier.padding(top = 16.dp),
                 )
             }
         }
