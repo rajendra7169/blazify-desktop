@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -302,6 +303,18 @@ private fun CardRail(
     }
 }
 
+/**
+ * The six colours playlist cards cycle through.
+ *
+ * A playlist has no artwork of its own worth the name — the catalogue sends a
+ * collage or a stock tile — so the phone gives each one a colour instead, and
+ * the same six in the same order mean a playlist looks the same in both places.
+ */
+private val PlaylistColours = listOf(
+    Color(0xFFB71C5A), Color(0xFF00838F), Color(0xFF283593),
+    Color(0xFF8D6E63), Color(0xFF6A1B9A), Color(0xFFEF6C00),
+)
+
 @Composable
 private fun Tile(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
     val (source, hovered) = rememberHovered()
@@ -321,14 +334,53 @@ private fun Tile(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(9.dp),
         horizontalAlignment = if (round) Alignment.CenterHorizontally else Alignment.Start,
     ) {
-        Artwork(
-            card.thumbnail,
-            size = artWidth,
-            height = side,
-            corner = if (round) side / 2 else 12.dp,
-            modifier = Modifier.hoverLift(hovered)
-                .then(if (round) Modifier.clip(CircleShape) else Modifier),
-        )
+        if (card.kind == Catalogue.Kind.Playlist) {
+            // Artwork washed into a colour of its own rather than shown plain,
+            // so a rail of playlists reads as a set rather than as a jumble of
+            // whatever pictures the catalogue happened to send.
+            val seed = PlaylistColours[
+                (card.id.hashCode().let { if (it == Int.MIN_VALUE) 0 else kotlin.math.abs(it) })
+                    % PlaylistColours.size
+            ]
+            Box(
+                Modifier
+                    .size(artWidth, side)
+                    .hoverLift(hovered)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(seed),
+            ) {
+                Artwork(card.thumbnail, size = artWidth, height = side, corner = 0.dp)
+                Box(
+                    Modifier.matchParentSize().background(
+                        Brush.verticalGradient(
+                            listOf(
+                                seed.copy(alpha = 0.10f),
+                                seed.copy(alpha = 0.55f),
+                                seed.copy(alpha = 0.92f),
+                            ),
+                        ),
+                    ),
+                )
+                Text(
+                    card.title,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                )
+            }
+        } else {
+            Artwork(
+                card.thumbnail,
+                size = artWidth,
+                height = side,
+                corner = if (round) side / 2 else 12.dp,
+                modifier = Modifier.hoverLift(hovered)
+                    .then(if (round) Modifier.clip(CircleShape) else Modifier),
+            )
+        }
         Column(
             verticalArrangement = Arrangement.spacedBy(3.dp),
             horizontalAlignment = if (round) Alignment.CenterHorizontally else Alignment.Start,
