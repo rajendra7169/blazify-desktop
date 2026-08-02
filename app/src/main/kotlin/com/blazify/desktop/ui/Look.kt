@@ -44,6 +44,20 @@ enum class LyricsStyle(val label: String, val blurb: String) {
     Blaze("Blaze", "Lift, glow and the record's own colour behind it"),
 }
 
+/**
+ * What to do with a line once it has been turned into Latin letters.
+ *
+ * Both by default. Someone who can hear the language but not read it wants the
+ * sounds; someone learning to read it wants the original with the sounds
+ * underneath, and that is the same person six months apart. Replacing the line
+ * outright throws away something they might want, so it is offered rather than
+ * assumed.
+ */
+enum class RomanizeMode(val label: String, val blurb: String) {
+    Both("Both", "The original, with the Latin underneath"),
+    Replace("Latin only", "The Latin letters instead of the original"),
+}
+
 /** Where lyric lines sit across the panel. */
 enum class LyricsAlign(val label: String) { Left("Left"), Centre("Centre"), Right("Right") }
 
@@ -140,6 +154,11 @@ object Look {
             .split(",").filter { it.isNotBlank() }.toSet(),
     )
         private set
+
+    var romanizeMode by mutableStateOf(read("romanizeMode", RomanizeMode.Both) { RomanizeMode.valueOf(it) })
+        private set
+
+    fun chooseRomanizeMode(value: RomanizeMode) { romanizeMode = value; put("romanizeMode", value.name) }
 
     fun chooseRomanized(value: Set<String>) {
         romanized = value
@@ -364,6 +383,7 @@ object Look {
 
     fun resetRomanize() {
         chooseRomanize(false)
+        chooseRomanizeMode(RomanizeMode.Both)
         chooseRomanized(Romanize.Script.entries.map { it.label }.toSet())
     }
 
@@ -383,6 +403,7 @@ object Look {
         chooseLyricsOrder(LyricsProviders.all.map { it.name })
         chooseLyricsSpacing(7)
         chooseRomanize(false)
+        chooseRomanizeMode(RomanizeMode.Both)
         chooseLyricsGlow(false)
         chooseRomanized(Romanize.Script.entries.map { it.label }.toSet())
         chooseLyricsLead(0.45f)

@@ -345,16 +345,23 @@ private fun Synced(
             val (source, hovered) = rememberHovered()
 
             val base = Look.lyricsPoints * scale
-            Text(
-                // Turned into the Latin alphabet when asked, and left alone
-                // when there's nothing to turn.
-                (if (Look.romanize) Romanize.of(line.text, Look.romanized) else line.text).ifBlank { "·" },
-                color = colour.copy(alpha = colour.alpha * faded),
-                fontSize = (base * grown).sp,
-                fontWeight = if (active && style != LyricsStyle.Plain) FontWeight.Bold else FontWeight.Medium,
-                lineHeight = (base * Look.lyricsLineHeight).sp,
-                textAlign = align,
-                modifier = Modifier
+            val ink = colour.copy(alpha = colour.alpha * faded)
+
+            // Turned into the Latin alphabet when asked, and left alone when
+            // there's nothing to turn. Held as a pair rather than one string:
+            // showing the sounds under the original is the useful arrangement
+            // for anyone reading along to learn a script, and that needs two
+            // lines with two sizes.
+            val original = line.text.ifBlank { "·" }
+            val latin = if (Look.romanize) {
+                Romanize.of(line.text, Look.romanized).takeIf { it != line.text }
+            } else {
+                null
+            }
+            val stacked = latin != null && Look.romanizeMode == RomanizeMode.Both
+
+            Column(
+                Modifier
                     .fillMaxWidth()
                     .offset(x = shifted)
                     .clip(RoundedCornerShape(8.dp))
@@ -385,7 +392,35 @@ private fun Synced(
                         },
                     )
                     .padding(horizontal = 10.dp, vertical = (7 * scale).dp),
-            )
+                horizontalAlignment = when (Look.lyricsAlign) {
+                    LyricsAlign.Left -> Alignment.Start
+                    LyricsAlign.Centre -> Alignment.CenterHorizontally
+                    LyricsAlign.Right -> Alignment.End
+                },
+            ) {
+                Text(
+                    if (stacked || latin == null) original else latin,
+                    color = ink,
+                    fontSize = (base * grown).sp,
+                    fontWeight = if (active && style != LyricsStyle.Plain) FontWeight.Bold else FontWeight.Medium,
+                    lineHeight = (base * Look.lyricsLineHeight).sp,
+                    textAlign = align,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (stacked) {
+                    // Smaller and dimmer than the line it belongs to, so a
+                    // glance still lands on the words being sung and the
+                    // pronunciation is there for the glance after it.
+                    Text(
+                        latin,
+                        color = ink.copy(alpha = ink.alpha * 0.62f),
+                        fontSize = (base * grown * 0.78f).sp,
+                        lineHeight = (base * Look.lyricsLineHeight * 0.8f).sp,
+                        textAlign = align,
+                        modifier = Modifier.fillMaxWidth().padding(top = 1.dp),
+                    )
+                }
+            }
         }
     }
 
@@ -518,14 +553,32 @@ private fun Plain(text: String, scale: Float, padding: PaddingValues) {
     ) {
         items(text.lines()) { line ->
             val base = Look.lyricsPoints * scale
-            Text(
-                (if (Look.romanize) Romanize.of(line, Look.romanized) else line).ifBlank { " " },
-                color = Blz.muted,
-                fontSize = base.sp,
-                lineHeight = (base * Look.lyricsLineHeight).sp,
-                textAlign = align,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            )
+            val latin = if (Look.romanize) {
+                Romanize.of(line, Look.romanized).takeIf { it != line }
+            } else {
+                null
+            }
+            val stacked = latin != null && Look.romanizeMode == RomanizeMode.Both
+            Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                Text(
+                    (if (stacked || latin == null) line else latin).ifBlank { " " },
+                    color = Blz.muted,
+                    fontSize = base.sp,
+                    lineHeight = (base * Look.lyricsLineHeight).sp,
+                    textAlign = align,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (stacked) {
+                    Text(
+                        latin,
+                        color = Blz.dim,
+                        fontSize = (base * 0.78f).sp,
+                        lineHeight = (base * Look.lyricsLineHeight * 0.8f).sp,
+                        textAlign = align,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         }
     }
 }

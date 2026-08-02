@@ -42,6 +42,7 @@ import com.blazify.desktop.ui.Look
 import com.blazify.desktop.ui.LyricsAlign
 import com.blazify.desktop.ui.LyricsStyle
 import com.blazify.desktop.ui.PlayerBackground
+import com.blazify.desktop.ui.RomanizeMode
 import com.blazify.desktop.ui.ScrubBar
 import com.blazify.desktop.ui.SliderStyle
 import com.blazify.desktop.ui.hoverBackground
@@ -271,6 +272,14 @@ fun LyricsSettingsSection(
             )
 
             if (Look.romanize) {
+                Choices(
+                    RomanizeMode.entries.map { it.label },
+                    Look.romanizeMode.label,
+                ) { picked ->
+                    Look.chooseRomanizeMode(RomanizeMode.entries.first { it.label == picked })
+                }
+                Text(Look.romanizeMode.blurb, color = Blz.dim, fontSize = 11.5.sp)
+
                 Row(
                     Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,

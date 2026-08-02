@@ -7,6 +7,7 @@ import com.blazify.desktop.audio.AudioEngine
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
+import com.blazify.desktop.data.LyricsSource
 import com.blazify.desktop.data.LocalMusic
 import com.blazify.desktop.data.Track
 import com.blazify.desktop.data.asTrack
@@ -330,6 +331,14 @@ object PlayerState {
         val track = current ?: return
         failure = null
         seekTarget = null
+
+        // The words are fetched now rather than when the panel is opened, and
+        // the next song's are fetched with them. Several services asked over
+        // the network take a few seconds however well it's done — the fix is
+        // for those seconds to happen while the song is starting instead of
+        // while somebody is staring at an empty panel.
+        LyricsSource.warm(track)
+        LyricsSource.warm(queue.getOrNull(index + 1))
         if (!AudioEngine.available()) {
             failure = "Audio support is missing — install VLC and restart Blazify"
             return

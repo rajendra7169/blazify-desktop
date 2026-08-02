@@ -2,7 +2,13 @@ package com.blazify.desktop.data
 
 import com.blazify.desktop.ui.Look
 import androidx.compose.runtime.mutableStateMapOf
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -47,20 +53,25 @@ data class Lyrics(
 /**
  * Where the words come from.
  *
- * Several services, asked in the order you set, stopping at the first that
- * answers. A timed transcript is what everyone actually wants, so a source that
- * returns one ends the search — but a source returning only flat text does not:
- * the plain copy is held and the list carries on, in case something further
- * down has it with timings. Better a slower answer than a page that can't
- * follow the song.
+ * Every source is asked **at once**, not one after another. Asked in turn, the
+ * wait is the sum of everything that had nothing — and the sources that answer
+ * fastest are rarely the ones with the best words, so the sheet either arrived
+ * late or arrived worse. Asked together, the wait is the slowest single source
+ * and the order in Settings still decides who wins.
  *
- * Results are held for the session. Looking the same song up twice in one
- * sitting is common — skip back, reopen the panel — and none of it changes
- * between one look and the next.
+ * A timed transcript beats a flat one from a source above it, since a sheet
+ * that cannot follow the song is barely a sheet. Beyond that the order is
+ * exactly the order you set.
+ *
+ * Results are held for the session, and fetched before the panel is opened —
+ * see [warm]. Between the two, opening the words is normally instant.
  */
 object LyricsSource {
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     private val cache = mutableMapOf<String, Lyrics>()
+    private val working = mutableSetOf<String>()
 
     /**
      * Which source answered, per song.
@@ -97,6 +108,20 @@ object LyricsSource {
         credits.remove(id)
     }
 
+    /**
+     * Fetch the words before anybody asks for them.
+     *
+     * Called when a song starts and again for whatever is queued next, so
+     * opening the panel shows a sheet rather than a spinner. Costs nothing when
+     * the panel is never opened — a handful of requests against services that
+     * would have been asked anyway.
+     */
+    fun warm(track: Track?) {
+        val id = track?.id ?: return
+        if (id in cache || id in working) return
+        scope.launch { of(track) }
+    }
+
     suspend fun of(track: Track): Lyrics = withContext(Dispatchers.IO) {
         cache[track.id]?.let { return@withContext it }
 
@@ -112,37 +137,36 @@ object LyricsSource {
             return@withContext words
         }
 
-        var flat: Lyrics? = null
-        var flatFrom: String? = null
-        var found = Lyrics()
-        var from: String? = null
+        synchronized(working) { working += track.id }
+        try {
+            val chain = Look.lyricsChain()
+            val answers = coroutineScope {
+                chain.map { provider ->
+                    async {
+                        // One source throwing must never stop the rest, and no
+                        // words at all is an ordinary outcome rather than a
+                        // failure worth reporting.
+                        val raw = runCatching { provider.find(track) }.getOrNull()
+                        provider.name to (raw?.takeIf { it.isNotBlank() }?.let(::read) ?: Lyrics())
+                    }
+                }.awaitAll()
+            }.filterNot { it.second.empty }
 
-        for (provider in Look.lyricsChain()) {
-            // No words is an ordinary outcome, not a failure worth reporting —
-            // and one source throwing must never stop the rest being asked.
-            val raw = runCatching { provider.find(track) }.getOrNull()
-            if (raw.isNullOrBlank()) continue
-
-            val parsed = read(raw)
-            if (parsed.synced) {
-                found = parsed
-                from = provider.name
-                break
+            // The order set in Settings decides, except that a timed transcript
+            // beats a flat one — following along is the whole point, and a
+            // preferred source with only a flat copy hasn't really answered.
+            val best = answers.minByOrNull { (name, words) ->
+                val place = chain.indexOfFirst { it.name == name }.takeIf { it >= 0 } ?: chain.size
+                place + if (words.synced) 0 else chain.size + 1
             }
-            if (flat == null && !parsed.plain.isNullOrBlank()) {
-                flat = parsed
-                flatFrom = provider.name
-            }
-        }
 
-        if (!found.synced && flat != null) {
-            found = flat
-            from = flatFrom
+            val found = best?.second ?: Lyrics()
+            best?.first?.let { credits[track.id] = it }
+            cache[track.id] = found
+            found
+        } finally {
+            synchronized(working) { working -= track.id }
         }
-
-        from?.let { credits[track.id] = it }
-        cache[track.id] = found
-        found
     }
 
     /**
@@ -165,8 +189,7 @@ object LyricsSource {
      * Read a timed transcript.
      *
      * Every line is stamped `[mm:ss.cc]`. Empty lines are kept: a pause between
-     * verses is part of following along. A stamp with nothing after it and no
-     * further stamps is metadata, not a lyric.
+     * verses is part of following along.
      */
     private fun parse(text: String): List<LyricLine> {
         val stamp = Regex("\\[(\\d+):(\\d+)(?:[.:](\\d+))?]")
