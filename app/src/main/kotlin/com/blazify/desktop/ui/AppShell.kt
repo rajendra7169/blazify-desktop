@@ -211,7 +211,13 @@ fun AppShell() {
             onToggleQueue = { queueOpen = !queueOpen },
             onOpenTimer = { timerOpen = true },
             onAddToPlaylist = { addingOpen = true },
-            onExpand = { full = !full },
+            // Opening the player closes the settings behind it, so putting it
+            // away lands you on a page you can browse rather than back in a
+            // list of preferences you had already finished with.
+            onExpand = {
+                if (!full) Navigator.closeSettings()
+                full = !full
+            },
             lyricsOpen = lyricsOpen,
             queueOpen = queueOpen,
             timerOn = SleepTimer.running,
