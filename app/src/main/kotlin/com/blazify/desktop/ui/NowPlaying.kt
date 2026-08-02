@@ -168,19 +168,22 @@ fun NowPlayingScreen(
 
     Box(Modifier.fillMaxSize()) {
     if (Look.playerTheme == PlayerTheme.FullArt) {
-        // The cover behind the lot, taken well down so white type still reads
-        // over a bright sleeve. Scrimmed rather than blurred: a blur costs a
-        // pass over a large bitmap every frame, and the point here is the
-        // colour rather than the detail.
+        // The cover behind the lot. Scrimmed rather than blurred — a blur is a
+        // pass over a large bitmap every frame, and what's wanted here is the
+        // colour, not softness.
+        //
+        // The scrim is light at the top where the picture is and heavier at the
+        // bottom where the words and controls are. Even coverage was the first
+        // attempt and it hid the artwork completely, which rather defeats a
+        // look called Full art.
         Backdrop(track?.thumbnail, Modifier.fillMaxSize())
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
-                    listOf(
-                        Blz.page.copy(alpha = 0.72f),
-                        Blz.page.copy(alpha = 0.86f),
-                        Blz.page.copy(alpha = 0.96f),
-                    ),
+                    0f to Blz.page.copy(alpha = 0.30f),
+                    0.42f to Blz.page.copy(alpha = 0.42f),
+                    0.72f to Blz.page.copy(alpha = 0.80f),
+                    1f to Blz.page.copy(alpha = 0.94f),
                 ),
             ),
         )
@@ -256,13 +259,20 @@ fun NowPlayingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            PlayerStage(
-                theme = Look.playerTheme,
-                artwork = track?.thumbnail,
-                side = 340.dp,
-                playing = PlayerState.playing,
-                progress = PlayerState.progress,
-            )
+            // Full art is the cover already, filling the window behind this —
+            // a second copy of it in the middle would be the same picture
+            // twice. Everything else gets its stage.
+            if (Look.playerTheme != PlayerTheme.FullArt) {
+                PlayerStage(
+                    theme = Look.playerTheme,
+                    artwork = track?.thumbnail,
+                    side = 340.dp,
+                    playing = PlayerState.playing,
+                    progress = PlayerState.progress,
+                )
+            } else {
+                Box(Modifier.size(1.dp, 200.dp))
+            }
 
             Row(
                 Modifier.padding(top = 26.dp).widthIn(max = 560.dp).fillMaxWidth(),

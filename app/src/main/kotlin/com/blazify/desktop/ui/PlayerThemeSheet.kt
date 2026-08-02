@@ -4,6 +4,8 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,13 +73,13 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
         Row(
             Modifier
                 .width(720.dp)
-                .height(430.dp)
+                .height(470.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(Blz.bar)
                 .clickable(enabled = false) {},
         ) {
             Column(
-                Modifier.width(268.dp).fillMaxHeight().padding(18.dp),
+                Modifier.width(276.dp).fillMaxHeight().padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
@@ -85,6 +87,12 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                     fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
                     modifier = Modifier.padding(start = 10.dp, bottom = 10.dp),
                 )
+                // Scrolls, so a look added later cannot fall off the bottom the
+                // way the last one just did.
+                Column(
+                    Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                 PlayerTheme.entries.forEach { theme ->
                     ThemeRow(
                         theme = theme,
@@ -95,6 +103,7 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                         Look.choosePlayerTheme(theme)
                         onDismiss()
                     }
+                }
                 }
             }
 

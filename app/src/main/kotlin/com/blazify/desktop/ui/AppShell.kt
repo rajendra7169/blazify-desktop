@@ -239,6 +239,10 @@ fun AppShell() {
             )
         }
 
+        // Above every screen, because somebody knocking is waiting on an
+        // answer and you will not be looking at the room page when they do.
+        KnockDialog()
+
         // Over everything, including the transport — a dialog that the bar
         // could be clicked through is not a dialog.
         if (timerOpen) SleepTimerDialog(onDismiss = { timerOpen = false })
