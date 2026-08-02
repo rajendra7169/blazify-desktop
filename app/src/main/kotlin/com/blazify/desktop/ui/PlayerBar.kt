@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.CloseFullscreen
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
@@ -94,12 +95,14 @@ fun PlayerBar(
     onPrevious: () -> Unit,
     onToggleLyrics: () -> Unit,
     onToggleQueue: () -> Unit,
+    onOpenTimer: () -> Unit,
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
     shuffling: Boolean,
     repeat: Int,
     lyricsOpen: Boolean,
     queueOpen: Boolean,
+    timerOn: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -130,6 +133,11 @@ fun PlayerBar(
             horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            TransportButton(
+                Icons.Rounded.Bedtime, "Sleep timer", 17.dp,
+                onClick = onOpenTimer,
+                tint = if (timerOn) Blaze.Amber else null,
+            )
             BarToggle(Icons.Rounded.CloseFullscreen, "Mini", false, WindowMode::toggleMini)
             BarToggle(Icons.Rounded.Lyrics, "Lyrics", lyricsOpen, onToggleLyrics)
             BarToggle(Icons.Rounded.QueueMusic, "Queue", queueOpen, onToggleQueue)

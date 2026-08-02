@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.PlayerState
+import com.blazify.desktop.SleepTimer
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
@@ -57,8 +58,10 @@ fun AppShell() {
     var railCollapsed by remember { mutableStateOf(false) }
     var lyricsOpen by remember { mutableStateOf(false) }
     var queueOpen by remember { mutableStateOf(false) }
+    var timerOpen by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().background(Blz.page)) {
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().background(Blz.page)) {
         Row(Modifier.weight(1f)) {
             Sidebar(
                 current = Navigator.destination,
@@ -138,9 +141,16 @@ fun AppShell() {
             repeat = PlayerState.repeat.ordinal,
             onToggleLyrics = { lyricsOpen = !lyricsOpen },
             onToggleQueue = { queueOpen = !queueOpen },
+            onOpenTimer = { timerOpen = true },
             lyricsOpen = lyricsOpen,
             queueOpen = queueOpen,
+            timerOn = SleepTimer.running,
         )
+    }
+
+        // Over everything, including the transport — a dialog that the bar
+        // could be clicked through is not a dialog.
+        if (timerOpen) SleepTimerDialog(onDismiss = { timerOpen = false })
     }
 }
 
