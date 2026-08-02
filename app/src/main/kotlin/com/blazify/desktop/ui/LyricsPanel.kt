@@ -1,6 +1,8 @@
 package com.blazify.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -25,7 +27,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloseFullscreen
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.OpenInFull
+import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.VerticalAlignCenter
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +56,7 @@ import com.blazify.desktop.data.Lyrics
 import com.blazify.desktop.data.LyricsSource
 import com.blazify.desktop.data.Romanize
 import com.blazify.desktop.data.Track
+import kotlinx.coroutines.delay
 
 /**
  * Blazify Project (C) 2026
@@ -89,9 +97,11 @@ fun LyricsPanel(
     onClose: () -> Unit,
     onExpand: () -> Unit,
 ) {
+    val preference = track?.id?.let { LyricsSource.preferenceFor(it) }
     var lyrics by remember(track?.id) { mutableStateOf<Lyrics?>(null) }
 
-    LaunchedEffect(track?.id) {
+    LaunchedEffect(track?.id, preference) {
+        lyrics = null
         lyrics = track?.let { LyricsSource.of(it) }
     }
 
@@ -116,6 +126,7 @@ fun LyricsPanel(
                     )
                 }
             }
+            track?.let { SourceButton(it) }
             RoundIcon(Icons.Rounded.OpenInFull, "Full screen", onExpand)
             RoundIcon(Icons.Rounded.Close, "Close", onClose)
         }
@@ -140,9 +151,11 @@ fun LyricsTheatre(
     onSeekTo: (Double) -> Unit,
     onClose: () -> Unit,
 ) {
+    val preference = track?.id?.let { LyricsSource.preferenceFor(it) }
     var lyrics by remember(track?.id) { mutableStateOf<Lyrics?>(null) }
 
-    LaunchedEffect(track?.id) {
+    LaunchedEffect(track?.id, preference) {
+        lyrics = null
         lyrics = track?.let { LyricsSource.of(it) }
     }
 
@@ -186,6 +199,7 @@ fun LyricsTheatre(
                         )
                     }
                 }
+                track?.let { SourceButton(it) }
                 RoundIcon(Icons.Rounded.CloseFullscreen, "Leave full screen", onClose)
             }
 
@@ -239,13 +253,35 @@ private fun Synced(
     // as it starts rather than once it's over.
     val current = lyrics.lineAt(position + Look.lyricsLead)
 
+    // Whether the sheet is still following the song.
+    //
+    // Reading ahead to see what's coming is a normal thing to want, and a sheet
+    // that yanks itself back a second later makes it impossible. So the first
+    // touch of the scroll wheel stops it following and says so — and getting
+    // back is one click rather than a wait.
+    var following by remember(lyrics) { mutableStateOf(true) }
+    var driving by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state) {
+        snapshotFlow { state.isScrollInProgress }.collect { moving ->
+            if (moving && !driving) following = false
+        }
+    }
+
     // Kept a third of the way down rather than centred: the line being sung
     // matters less than the two coming after it, and reading downward wants
     // room ahead of the eye, not behind it.
-    LaunchedEffect(current) {
-        if (current < 0 || !Look.lyricsFollow) return@LaunchedEffect
+    LaunchedEffect(current, following) {
+        if (current < 0 || !Look.lyricsFollow || !following) return@LaunchedEffect
         val viewport = state.layoutInfo.viewportSize.height
+        driving = true
         state.animateScrollToItem(current, scrollOffset = -(viewport / 3))
+        // The list settles a frame or two after the animation returns, and
+        // letting go of the flag too early reads that settling as a person
+        // scrolling — which would switch following off the instant it was
+        // switched on.
+        delay(120)
+        driving = false
     }
 
     val align = when (Look.lyricsAlign) {
@@ -254,6 +290,7 @@ private fun Synced(
         LyricsAlign.Right -> TextAlign.End
     }
 
+    Box(Modifier.fillMaxSize()) {
     LazyColumn(
         Modifier.fillMaxSize(),
         state = state,
@@ -320,6 +357,120 @@ private fun Synced(
                     .padding(horizontal = 10.dp, vertical = (7 * scale).dp),
             )
         }
+    }
+
+        // Only while it has been left behind, and over the words rather than
+        // beside them — a permanent button for a temporary state is clutter
+        // for everyone who never scrolled.
+        androidx.compose.animation.AnimatedVisibility(
+            visible = !following && Look.lyricsFollow,
+            enter = fadeIn(tween(140)),
+            exit = fadeOut(tween(120)),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp),
+        ) {
+            ResyncPill { following = true }
+        }
+    }
+}
+
+/**
+ * Back to the line being sung.
+ *
+ * Says which way it will move rather than naming a mode: "sync" is a word about
+ * the machinery, and the thing anyone wants here is to be looking at the words
+ * that are happening.
+ */
+@Composable
+private fun ResyncPill(onClick: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)))
+            .hoverGlow(hovered, source)
+            .clickable(onClick = onClick)
+            .padding(start = 14.dp, end = 18.dp, top = 9.dp, bottom = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Icon(Icons.Rounded.VerticalAlignCenter, null, Modifier.size(16.dp), tint = Blaze.OnAmber)
+        Text(
+            "Back to the song", color = Blaze.OnAmber, fontSize = 12.5.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+/**
+ * Where these particular words came from, and where else to look.
+ *
+ * The list is every source that's switched on, so when a set of lyrics is for
+ * the wrong take of a song the fix is here rather than three screens away in
+ * the settings — and it applies to this song only, which is the scope the
+ * problem actually has.
+ */
+@Composable
+private fun SourceButton(track: Track) {
+    var open by remember { mutableStateOf(false) }
+    val chain = Look.lyricsChain()
+    val chosen = LyricsSource.preferenceFor(track.id)
+    val credit = LyricsSource.creditFor(track.id)
+
+    Box {
+        RoundIcon(Icons.Rounded.Translate, "Lyrics source") { open = true }
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            modifier = Modifier.width(240.dp).background(Blz.bar),
+        ) {
+            MenuLine("LYRICS FROM")
+            MenuChoice(
+                label = "Whichever has them",
+                detail = credit?.takeIf { chosen == null }?.let { "Using $it" },
+                on = chosen == null,
+            ) {
+                LyricsSource.prefer(track.id, null)
+                open = false
+            }
+            chain.forEach { provider ->
+                MenuChoice(provider.name, null, chosen == provider.name) {
+                    LyricsSource.prefer(track.id, provider.name)
+                    open = false
+                }
+            }
+            if (chain.size < 2) {
+                MenuLine("Turn more on in Settings › Lyrics")
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuLine(text: String) {
+    Text(
+        text, color = Blz.dim, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+        letterSpacing = 1.sp,
+        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+    )
+}
+
+@Composable
+private fun MenuChoice(label: String, detail: String?, on: Boolean, onClick: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, color = if (on) Blaze.Amber else Blz.ink, fontSize = 13.sp)
+            detail?.let { Text(it, color = Blz.dim, fontSize = 11.sp) }
+        }
+        if (on) Icon(Icons.Rounded.Check, null, Modifier.size(15.dp), tint = Blaze.Amber)
     }
 }
 

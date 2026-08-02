@@ -1,6 +1,7 @@
 package com.blazify.desktop.data
 
 import com.blazify.desktop.ui.Look
+import androidx.compose.runtime.mutableStateMapOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -73,6 +74,23 @@ object LyricsSource {
 
     fun creditFor(id: String): String? = credits[id]
 
+    /**
+     * A source chosen by hand for one song.
+     *
+     * Per song rather than a setting, because this is not a preference — it is
+     * "these are the wrong words for this track", which is about the track. It
+     * is dropped when the app closes for the same reason.
+     */
+    private val chosen = mutableStateMapOf<String, String>()
+
+    fun preferenceFor(id: String): String? = chosen[id]
+
+    fun prefer(id: String, provider: String?) {
+        if (provider == null) chosen.remove(id) else chosen[id] = provider
+        cache.remove(id)
+        credits.remove(id)
+    }
+
     /** Forget one song, so the next look asks again. */
     fun forget(id: String) {
         cache.remove(id)
@@ -81,6 +99,18 @@ object LyricsSource {
 
     suspend fun of(track: Track): Lyrics = withContext(Dispatchers.IO) {
         cache[track.id]?.let { return@withContext it }
+
+        // One source, named for this song, and no falling back to the others:
+        // asking for LrcLib and quietly being given KuGou is worse than being
+        // told LrcLib hasn't got it.
+        val only = chosen[track.id]?.let { LyricsProviders.byName(it) }
+        if (only != null) {
+            val raw = runCatching { only.find(track) }.getOrNull()
+            val words = if (raw.isNullOrBlank()) Lyrics() else read(raw)
+            if (!words.empty) credits[track.id] = only.name
+            cache[track.id] = words
+            return@withContext words
+        }
 
         var flat: Lyrics? = null
         var flatFrom: String? = null
