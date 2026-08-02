@@ -165,7 +165,20 @@ object Catalogue {
     }
 
     /** A page of shelves, plus the token that fetches the next lot. */
-    data class Feed(val shelves: List<Shelf>, val more: String?)
+    data class Feed(
+        val shelves: List<Shelf>,
+        val more: String?,
+        val moods: List<Mood> = emptyList(),
+    )
+
+    /**
+     * One of the moods offered above the feed.
+     *
+     * [params] is what the catalogue wants back to answer with that mood; the
+     * one with none is the unfiltered feed, which is why it can't simply be
+     * assumed to be the first in the list.
+     */
+    data class Mood(val title: String, val params: String?)
 
     /**
      * The feed.
@@ -174,9 +187,9 @@ object Catalogue {
      * songs, so shelves are tiles rather than rows — which is also what a wide
      * window has the space for.
      */
-    suspend fun home(after: String? = null): Result<Feed> = withContext(Dispatchers.IO) {
+    suspend fun home(after: String? = null, mood: String? = null): Result<Feed> = withContext(Dispatchers.IO) {
         ensureIdentity()
-        YouTube.home(continuation = after).map { page ->
+        YouTube.home(continuation = after, params = mood).map { page ->
             Feed(
                 shelves = page.sections.mapNotNull { section ->
                     val cards = section.items.mapNotNull { it.asCard() }
@@ -190,8 +203,32 @@ object Catalogue {
                     )
                 },
                 more = page.continuation,
+                moods = page.chips.orEmpty().map { chip ->
+                    Mood(chip.title, chip.endpoint?.params)
+                },
             )
         }
+    }
+
+    /**
+     * The playlists, albums and artists on the signed-in account.
+     *
+     * Empty signed out, which is the honest answer rather than an error: there
+     * is no library without an account for it to belong to.
+     */
+    suspend fun mine(): Result<List<Card>> = withContext(Dispatchers.IO) {
+        if (!Account.signedIn) return@withContext Result.success(emptyList())
+        ensureIdentity()
+        YouTube.library("FEmusic_liked_playlists").map { page ->
+            page.items.mapNotNull { it.asCard() }
+        }
+    }
+
+    /** Songs the account has liked, which the catalogue keeps as a playlist. */
+    suspend fun myLikedSongs(): Result<List<Track>> = withContext(Dispatchers.IO) {
+        if (!Account.signedIn) return@withContext Result.success(emptyList())
+        ensureIdentity()
+        YouTube.playlist("LM").map { page -> page.songs.map { it.asTrack() } }
     }
 
     private fun com.blazify.innertube.models.YTItem.asCard(): Card? = when (this) {
