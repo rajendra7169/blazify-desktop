@@ -4,6 +4,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
@@ -66,16 +67,41 @@ object Paxsenix : LyricsProvider {
     @Volatile
     private var token: String? = null
 
+    private val kept by lazy { java.io.File(Store.folder, "apple-key") }
+
+    /**
+     * Fetch the key before anything needs it.
+     *
+     * Reading it means downloading Apple's whole player bundle, which is the
+     * single slowest thing this app does — around ten seconds on a cold start
+     * and the reason a lyric sheet used to sit empty. Done at launch it costs
+     * nothing anybody waits for, and it is kept on disk afterwards so it is
+     * paid at most once rather than once per run.
+     */
+    fun warmKey() {
+        if (token != null) return
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            runCatching { token() }
+        }
+    }
+
     /**
      * The web player's own key, read from the web player.
      *
      * Its bundle name changes with every release, so the page is fetched to
      * find out what the bundle is currently called before the key can be read
-     * out of it. Cached for the session and thrown away on a refusal, which is
-     * what a rotated key looks like from here.
+     * out of it. Kept until it is refused, which is what a rotated key looks
+     * like from here.
      */
     private suspend fun token(): String = gate.withLock {
         token?.let { return it }
+
+        runCatching { kept.takeIf { it.exists() }?.readText()?.trim() }
+            .getOrNull()?.takeIf { it.startsWith("eyJ") }
+            ?.let {
+                token = it
+                return it
+            }
 
         val page = LyricsProviders.http.get("https://beta.music.apple.com") {
             header("User-Agent", AGENT)
@@ -92,6 +118,7 @@ object Paxsenix : LyricsProvider {
             .find(script)?.value ?: error("No key in Apple's player")
 
         token = found
+        runCatching { kept.writeText(found) }
         found
     }
 
@@ -111,6 +138,7 @@ object Paxsenix : LyricsProvider {
         // A refused key is the ordinary way this fails — Apple rotates them.
         // One retry with a fresh one, then give up rather than loop.
         token = null
+        runCatching { kept.delete() }
         return runCatching { ask(token(), query) }.getOrDefault(emptyList())
     }
 

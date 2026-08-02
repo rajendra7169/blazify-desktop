@@ -22,6 +22,7 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.blazify.desktop.data.Account
+import com.blazify.desktop.data.Paxsenix
 import com.blazify.desktop.ui.AppShell
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.BlazifyTheme
@@ -51,6 +52,10 @@ private class Tinted(private val inner: Painter, private val colour: androidx.co
 fun main() {
     // Before the window, so the very first fetch already knows whose it is.
     Account.restore()
+    // Apple's key takes a while to read and everything else waits on it. Read
+    // now, while the window is still being built and nobody is looking at an
+    // empty lyric sheet.
+    Paxsenix.warmKey()
     run()
 }
 
