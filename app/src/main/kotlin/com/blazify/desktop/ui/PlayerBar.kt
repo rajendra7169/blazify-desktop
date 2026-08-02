@@ -110,7 +110,11 @@ fun PlayerBar(
     ) {
         Box(Modifier.weight(1f)) { NowPlayingCell(now, onToggleLike, onKeep) }
 
-        Transport(now, onPlayPause, onSeek, onNext, onPrevious)
+        // Weighted rather than fixed, so the bar you drag grows with the
+        // window instead of stranding it at one width on a wide screen. The
+        // side columns match each other, which keeps the play button centred
+        // on the window rather than on whatever space a long title left over.
+        Transport(now, onPlayPause, onSeek, onNext, onPrevious, Modifier.weight(1.6f))
 
         Row(
             Modifier.weight(1f),
@@ -174,12 +178,13 @@ private fun Transport(
     onSeek: (Float) -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
         // The bar you drag is the control people use most, and a short one is
         // both harder to aim at and coarser to seek with — every pixel is worth
-        // more seconds. It gets the width.
-        Modifier.width(620.dp),
+        // more seconds. It gets whatever the window can spare.
+        modifier.widthIn(min = 360.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
