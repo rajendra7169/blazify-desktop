@@ -83,7 +83,7 @@ fun HomeHero(
         // greeting, and a greeting that pushes the music off the screen has
         // its priorities the wrong way round. Bounded at both ends so it can't
         // become a stripe on a wide window or a wall on a narrow one.
-        val height = (pane * 0.185f).coerceIn(196.dp, 268.dp)
+        val height = (pane * 0.165f).coerceIn(214.dp, 302.dp)
 
         Box(
             Modifier
@@ -101,17 +101,6 @@ fun HomeHero(
             // colour while a wash sat behind it at a different colour was what
             // put a seam down the middle: two gradients meeting at an edge
             // instead of one continuous surface.
-            // The name straight across, edge to edge, at a size that stops
-            // being a word and becomes the surface the rest of it sits on.
-            Text(
-                "Blazify",
-                color = Blz.ink.copy(alpha = if (dark) 0.075f else 0.055f),
-                fontSize = (pane.value * 0.155f).sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-6).sp,
-                maxLines = 1,
-                modifier = Modifier.align(Alignment.Center),
-            )
 
             hero?.let { picture ->
                 // Full width at its own proportions. That makes it taller than
@@ -124,7 +113,10 @@ fun HomeHero(
                 Canvas(
                     Modifier
                         .align(Alignment.TopStart)
-                        .fillMaxWidth()
+                        // Both sides stated, so the drawing keeps the picture's
+                        // own proportions instead of inheriting whatever the
+                        // parent happens to offer.
+                        .width(wide)
                         .height(tall),
                 ) {
                     // The picture is cut out on black. Painted normally that
@@ -142,6 +134,22 @@ fun HomeHero(
                     )
                 }
             }
+
+            // The name straight across, edge to edge, at a size that stops
+            // being a word and becomes the surface the rest of it sits on.
+            Text(
+                "Blazify",
+                // Over the picture rather than under it. Underneath, the
+                // crowd is drawn by adding light, which lifted the whole area
+                // and rubbed the letters out — the word was there and simply
+                // could not be seen.
+                color = Blz.ink.copy(alpha = if (dark) 0.13f else 0.09f),
+                fontSize = (pane.value * 0.155f).sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-6).sp,
+                maxLines = 1,
+                modifier = Modifier.align(Alignment.Center),
+            )
 
             // Across the whole width: solid where the words are, gone by the
             // far edge, so the picture emerges rather than starting.
