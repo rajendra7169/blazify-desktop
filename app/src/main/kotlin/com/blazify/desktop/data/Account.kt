@@ -31,10 +31,12 @@ import java.io.File
 object Account {
 
     private const val FILE = "account"
+    private const val REFRESH_FILE = "account-refresh"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val store: File get() = File(Store.folder, FILE)
+    private val refreshStore: File get() = File(Store.folder, REFRESH_FILE)
 
     var cookie by mutableStateOf<String?>(null)
         private set
@@ -54,7 +56,53 @@ object Account {
     var problem by mutableStateOf<String?>(null)
         private set
 
-    val signedIn: Boolean get() = !cookie.isNullOrBlank()
+    /** Where we are in a sign-in that's under way, if one is. */
+    var pending by mutableStateOf<GoogleSignIn.Request?>(null)
+        private set
+
+    private var refreshToken: String? = null
+
+    val signedIn: Boolean get() = !cookie.isNullOrBlank() || refreshToken != null
+
+    /**
+     * Start a sign-in and see it through.
+     *
+     * The code and the address are published as soon as Google hands them over,
+     * so they can be shown while the waiting happens — the person has to go and
+     * do something with them, and making them wait for a spinner first would be
+     * making them wait for nothing.
+     */
+    fun signInWithGoogle(openBrowser: (String) -> Unit) {
+        problem = null
+        checking = true
+        scope.launch {
+            GoogleSignIn.request().fold(
+                onSuccess = { request ->
+                    pending = request
+                    openBrowser(request.url)
+                    GoogleSignIn.await(request).fold(
+                        onSuccess = { keep(it) },
+                        onFailure = { problem = it.message ?: "That didn't go through" },
+                    )
+                },
+                onFailure = { problem = "Couldn't reach Google to start signing in" },
+            )
+            pending = null
+            checking = false
+        }
+    }
+
+    fun cancelSignIn() {
+        pending = null
+        checking = false
+    }
+
+    private fun keep(tokens: GoogleSignIn.Tokens) {
+        refreshToken = tokens.refresh.ifBlank { refreshToken }
+        YouTube.accessToken = tokens.access
+        runCatching { refreshToken?.let { refreshStore.writeText(it) } }
+        refresh()
+    }
 
     /**
      * Put the stored session back on the client.
@@ -64,6 +112,23 @@ object Account {
      * it is too late to sign in.
      */
     fun restore() {
+        // A signed-in account is preferred to a pasted session when both are
+        // on disk: it's the stronger of the two and the one that can renew.
+        val stored = runCatching {
+            refreshStore.takeIf { it.exists() }?.readText()?.trim()?.ifBlank { null }
+        }.getOrNull()
+
+        if (stored != null) {
+            refreshToken = stored
+            scope.launch {
+                GoogleSignIn.refresh(stored).fold(
+                    onSuccess = { YouTube.accessToken = it.access; refresh() },
+                    onFailure = { problem = "Signed out by Google — sign in again" },
+                )
+            }
+            return
+        }
+
         runCatching { store.takeIf { it.exists() }?.readText()?.trim()?.ifBlank { null } }
             .getOrNull()
             ?.let {
@@ -97,6 +162,10 @@ object Account {
     }
 
     fun signOut() {
+        refreshToken = null
+        pending = null
+        YouTube.accessToken = null
+        runCatching { refreshStore.delete() }
         cookie = null
         name = null
         email = null
