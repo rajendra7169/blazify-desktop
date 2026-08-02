@@ -3,6 +3,10 @@ package com.blazify.desktop.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -35,14 +39,18 @@ import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -65,6 +73,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.blazify.desktop.data.Downloads
+import kotlinx.coroutines.launch
 import com.blazify.desktop.PlayerState
 
 /**
@@ -98,6 +107,48 @@ fun NowPlayingScreen(
     val track = PlayerState.current
     var themeOpen by remember { mutableStateOf(false) }
 
+    // How far down the screen has been pulled, in pixels.
+    //
+    // The screen follows the pointer rather than waiting for it to pass a
+    // threshold and then blinking away. That is the whole difference between a
+    // gesture and a shortcut: you can see how far you have to go, you can see
+    // it give when you get there, and letting go early puts it back instead of
+    // doing nothing at all.
+    val slide = remember { Animatable(0f) }
+    var tall by remember { mutableStateOf(1f) }
+    val scope = rememberCoroutineScope()
+
+    // In from the bottom, the way it will leave.
+    LaunchedEffect(Unit) {
+        slide.snapTo(tall.coerceAtLeast(600f))
+        slide.animateTo(0f, spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow))
+    }
+
+    // Past a third of the way down it is going, and it is easier to say that
+    // in distance than in speed — a slow deliberate drag should count as much
+    // as a flick.
+    val enough = tall * 0.28f
+
+    // The button leaves the same way the gesture does, so the screen has one
+    // way of going rather than two that look different.
+    fun dismiss() {
+        scope.launch {
+            slide.animateTo(tall, tween(220, easing = FastOutLinearInEasing))
+            onClose()
+        }
+    }
+
+    fun settle() {
+        scope.launch {
+            if (slide.value > enough) {
+                slide.animateTo(tall, tween(190, easing = FastOutLinearInEasing))
+                onClose()
+            } else {
+                slide.animateTo(0f, spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMedium))
+            }
+        }
+    }
+
     // A wash of the accent behind the artwork, or the plain page, or true
     // black. The gradient is bottom-heavy so the controls sit on colour and
     // the cover sits on something closer to the page it came from.
@@ -118,22 +169,35 @@ fun NowPlayingScreen(
     Column(
         Modifier
             .fillMaxSize()
+            .onSizeChanged { tall = it.height.toFloat().coerceAtLeast(1f) }
+            .graphicsLayer {
+                val gone = (slide.value / tall).coerceIn(0f, 1f)
+                translationY = slide.value
+                // It shrinks and dims a little as it goes, so it reads as
+                // receding rather than as a panel being pushed off a shelf.
+                val shrink = 1f - gone * 0.06f
+                scaleX = shrink
+                scaleY = shrink
+                alpha = 1f - gone * 0.35f
+            }
             .then(background)
             // Pull it down to put it away, the way the phone does. The gesture
             // only reaches here when the page underneath has no scrolling left
             // to do, so on a short window dragging still reads the screen and
             // only sends it away once you are at the top of it.
             .pointerInput(Unit) {
-                var travelled = 0f
                 detectVerticalDragGestures(
-                    onDragStart = { travelled = 0f },
-                    onDragEnd = { travelled = 0f },
-                    onDragCancel = { travelled = 0f },
-                ) { _, delta ->
-                    travelled += delta
-                    if (travelled > 110.dp.toPx()) {
-                        travelled = 0f
-                        onClose()
+                    onDragEnd = { settle() },
+                    onDragCancel = { settle() },
+                ) { change, delta ->
+                    change.consume()
+                    scope.launch {
+                        // Downward only, and the further it has come the less
+                        // each pixel moves it — the drag gets heavier towards
+                        // the end, which is what stops an over-enthusiastic
+                        // flick from throwing it off the screen.
+                        val eased = if (delta > 0) delta * (1f - (slide.value / tall) * 0.45f) else delta
+                        slide.snapTo((slide.value + eased).coerceAtLeast(0f))
                     }
                 }
             },
@@ -143,7 +207,7 @@ fun NowPlayingScreen(
             Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Round(Icons.Rounded.KeyboardArrowDown, "Back to the strip", onClose, 24.dp)
+            Round(Icons.Rounded.KeyboardArrowDown, "Back to the strip", ::dismiss, 24.dp)
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     "NOW PLAYING", color = Blz.dim, fontSize = 10.5.sp,
