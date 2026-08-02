@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -212,6 +216,8 @@ private fun Content(destination: Destination) {
                 empty = "Nothing in here yet",
                 onPlay = PlayerState::play,
                 onShuffle = PlayerState::shuffle,
+                emptyIcon = Icons.Rounded.QueueMusic,
+                emptyDetail = "Right-click any song and add it to this playlist.",
                 action = "Delete playlist" to {
                     Playlists.delete(id)
                     Navigator.closePlaylist()
@@ -258,6 +264,9 @@ private fun Content(destination: Destination) {
             title = "Liked songs",
             tracks = Library.liked,
             empty = "Songs you like will collect here",
+            emptyIcon = Icons.Rounded.Favorite,
+            emptyDetail = "Press the heart beside anything that's playing, or right-click " +
+                "a song anywhere and like it from there.",
             onPlay = PlayerState::play,
             onShuffle = PlayerState::shuffle,
         )
@@ -266,6 +275,9 @@ private fun Content(destination: Destination) {
             title = "History",
             tracks = Library.history,
             empty = "Nothing played yet",
+            emptyIcon = Icons.Rounded.History,
+            emptyDetail = "Everything you play lands here, newest first, so you can find " +
+                "your way back to something you can't name.",
             onPlay = PlayerState::play,
             onShuffle = PlayerState::shuffle,
             action = "Clear" to Library::clearHistory,
