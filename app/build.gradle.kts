@@ -16,6 +16,9 @@ dependencies {
     implementation(compose.components.resources)
     implementation(libs.kotlinx.coroutines)
     implementation(libs.kotlinx.serialization.json)
+
+    // Reading the cookie store browsers keep, which is an ordinary SQLite file.
+    implementation(libs.sqlite.jdbc)
     implementation(libs.ktor.client.okhttp)
 
     // Audio. The catalogue serves fragmented MP4, which the lighter JVM media
