@@ -124,6 +124,91 @@ fun PlayerThemeSheet(onDismiss: () -> Unit) {
                         .background(Blz.page),
                 ) {
                     Backdrop(track?.thumbnail, Modifier.fillMaxSize())
+
+                    // The same two passes the player itself draws: a flat floor
+                    // so a pale sleeve can't swallow what sits on it, then a
+                    // gradient that keeps the middle clear and darkens the foot
+                    // where the controls go.
+                    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.30f)))
+                    Box(
+                        Modifier.fillMaxSize().background(
+                            Brush.verticalGradient(
+                                0f to Color.Transparent,
+                                0.45f to Color.Black.copy(alpha = 0.20f),
+                                0.75f to Color.Black.copy(alpha = 0.62f),
+                                1f to Color.Black.copy(alpha = 0.90f),
+                            ),
+                        ),
+                    )
+
+                    Column(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(horizontal = 22.dp, vertical = 18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // Where the song has got to. Drawn rather than live — a
+                        // preview you could scrub would move the music while you
+                        // were deciding how it looks.
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(Color.White.copy(alpha = 0.26f)),
+                        ) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth(PlayerState.progress.coerceIn(0f, 1f))
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(
+                                        Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)),
+                                    ),
+                            )
+                        }
+                        Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                            Text(
+                                PlayerState.elapsed,
+                                color = Color.White.copy(alpha = 0.60f), fontSize = 9.sp,
+                            )
+                            Box(Modifier.weight(1f))
+                            Text(
+                                PlayerState.total,
+                                color = Color.White.copy(alpha = 0.60f), fontSize = 9.sp,
+                            )
+                        }
+                        Row(
+                            Modifier.padding(top = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            Icon(
+                                Icons.Rounded.SkipPrevious, null,
+                                Modifier.size(22.dp), tint = Color.White,
+                            )
+                            Box(
+                                Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)),
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    if (PlayerState.playing) Icons.Rounded.Pause
+                                    else Icons.Rounded.PlayArrow,
+                                    null, Modifier.size(24.dp), tint = Blaze.OnAmber,
+                                )
+                            }
+                            Icon(
+                                Icons.Rounded.SkipNext, null,
+                                Modifier.size(22.dp), tint = Color.White,
+                            )
+                        }
+                    }
                 }
             } else {
             Column(
