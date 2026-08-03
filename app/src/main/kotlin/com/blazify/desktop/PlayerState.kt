@@ -66,6 +66,15 @@ object PlayerState {
     /** Where playback actually is, in seconds. What the lyrics follow. */
     val positionSeconds: Double get() = AudioEngine.position
 
+    /**
+     * Whether the player is waiting on the stream rather than playing it.
+     *
+     * Worth surfacing: a long recording takes a moment to gather itself before
+     * the first note, and a transport that looks frozen with no explanation is
+     * the difference between "it is loading" and "it is broken".
+     */
+    val buffering: Boolean get() = AudioEngine.buffering || AudioEngine.loading
+
     /** Step forward or back by a few seconds, the way the arrow keys do. */
     fun nudge(seconds: Double) {
         val duration = AudioEngine.duration

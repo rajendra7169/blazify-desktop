@@ -69,6 +69,18 @@ object AudioEngine {
     /** Whether this media has reported a position yet. */
     private var heardOnce = false
 
+    /**
+     * Whether the player is filling its buffer rather than playing.
+     *
+     * VLC announces "playing" as soon as it has accepted the media, which is
+     * several seconds before a large file has enough of itself to make a sound.
+     * The clock used to start at that announcement, so a long recording showed
+     * a counter ticking over silence and then jumped back to zero when the
+     * audio actually began. It is a real state and it has to be a real flag.
+     */
+    var buffering by mutableStateOf(false)
+        private set
+
     /** True when the player has gone quiet while it was supposed to be playing. */
     var stalled by mutableStateOf(false)
         private set
@@ -92,6 +104,14 @@ object AudioEngine {
                 // least once for this media. Before that there is no silence to
                 // measure — only a stream that has not started yet.
                 if (!heardOnce) continue
+
+                // Filling the buffer is not playing. The clock waits, and the
+                // wait is not counted against it as silence either — the player
+                // is working, it simply has nothing to play yet.
+                if (buffering) {
+                    lastHeardFrom = System.nanoTime()
+                    continue
+                }
 
                 val quietFor = (System.nanoTime() - lastHeardFrom) / 1_000_000_000.0
                 // Five seconds without a word. Reports arrive several times a
@@ -200,11 +220,16 @@ object AudioEngine {
         }
 
         override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) {
-            // Buffering is the player still talking, so the clock is not lying
-            // — but it is also not moving, so the anchor is refreshed to stop
-            // the interpolation running ahead of the audio.
+            // Full means playing; anything less means waiting. Reported as a
+            // percentage several times while a buffer fills.
+            buffering = newCache < 100f
             lastHeardFrom = System.nanoTime()
-            if (newCache >= 100f) stalled = false
+            if (!buffering) {
+                stalled = false
+                // The clock carries on from wherever the audio actually is,
+                // not from wherever the interpolation had wandered to.
+                anchoredAt = System.nanoTime()
+            }
         }
     }
 
@@ -249,6 +274,7 @@ object AudioEngine {
         resumeAt = null
         heardOnce = false
         stalled = false
+        buffering = false
         anchorAt(0.0)
         duration = 0.0
         // Told who to claim to be. The catalogue ties a stream link to the kind
@@ -258,7 +284,7 @@ object AudioEngine {
         val options = buildList {
             userAgent?.let { add(":http-user-agent=$it") }
             // Enough held ahead that a hiccup on the line is not a silence.
-            add(":network-caching=3000")
+            add(":network-caching=1500")
         }.toTypedArray()
         runCatching { player.media().play(mrl, *options) }
             .onFailure {
@@ -277,6 +303,11 @@ object AudioEngine {
 
     fun seek(fraction: Double) {
         val target = fraction.coerceIn(0.0, 1.0)
+        // Marked as waiting before the jump, not after. A seek in a long
+        // recording means the player throws away what it had and fetches from
+        // somewhere else, and the second or two that takes is a wait like any
+        // other — counting through it is what made the bar jump about.
+        buffering = true
         runCatching { player.controls().setPosition(target.toFloat()) }
         // Moved now rather than waiting for the player to say so, or the
         // in-between would be spent counting up from where you just left.
