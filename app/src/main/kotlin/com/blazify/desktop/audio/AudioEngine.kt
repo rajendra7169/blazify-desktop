@@ -55,9 +55,26 @@ object AudioEngine {
     private var anchor = 0.0
     private var anchoredAt = System.nanoTime()
 
+    /**
+     * When the player last said anything about where it was.
+     *
+     * The clock is interpolated between reports, which is what makes the bar
+     * move smoothly — but it means that if the audio stops arriving and the
+     * player goes quiet, the interpolation carries on inventing a position for
+     * a song that is no longer playing. A counter that keeps counting through
+     * silence is worse than one that stops: it says everything is fine.
+     */
+    private var lastHeardFrom = System.nanoTime()
+
+    /** True when the player has gone quiet while it was supposed to be playing. */
+    var stalled by mutableStateOf(false)
+        private set
+
     private fun anchorAt(seconds: Double) {
         anchor = seconds
         anchoredAt = System.nanoTime()
+        lastHeardFrom = System.nanoTime()
+        stalled = false
         position = seconds
     }
 
@@ -66,6 +83,16 @@ object AudioEngine {
             while (true) {
                 delay(40)
                 if (!playing) continue
+
+                val quietFor = (System.nanoTime() - lastHeardFrom) / 1_000_000_000.0
+                // Two seconds without a word. Reports arrive several times a
+                // second when all is well, so this is not a slow machine — it
+                // is a stream that has stopped arriving.
+                if (quietFor > 2.0) {
+                    stalled = true
+                    continue
+                }
+
                 val since = (System.nanoTime() - anchoredAt) / 1_000_000_000.0
                 val guess = anchor + since
                 position = if (duration > 0) guess.coerceAtMost(duration) else guess
@@ -141,10 +168,27 @@ object AudioEngine {
 
         override fun lengthChanged(mediaPlayer: MediaPlayer, newLength: Long) {
             if (newLength > 0) duration = newLength / 1000.0
+            // A reopened stream knows its length before it can be seeked; this
+            // is the first moment the jump back will actually take.
+            resumeAt?.let { target ->
+                if (duration > 0) {
+                    resumeAt = null
+                    runCatching { player.controls().setPosition((target / duration).toFloat()) }
+                    anchorAt(target)
+                }
+            }
         }
 
         override fun timeChanged(mediaPlayer: MediaPlayer, newTime: Long) {
             anchorAt(newTime / 1000.0)
+        }
+
+        override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) {
+            // Buffering is the player still talking, so the clock is not lying
+            // — but it is also not moving, so the anchor is refreshed to stop
+            // the interpolation running ahead of the audio.
+            lastHeardFrom = System.nanoTime()
+            if (newCache >= 100f) stalled = false
         }
     }
 
@@ -166,9 +210,27 @@ object AudioEngine {
         runCatching { player.audio().setEqualizer(curve) }
     }
 
+    /**
+     * Play from a point rather than the start.
+     *
+     * Used when a stream has to be opened again: the listener was three minutes
+     * into something, and starting them at the beginning would be a worse
+     * failure than the one being recovered from.
+     */
+    fun play(mrl: String, startAt: Double) {
+        play(mrl)
+        if (startAt > 1.0) {
+            resumeAt = startAt
+        }
+    }
+
+    /** Where to jump to once the new stream reports a length. */
+    private var resumeAt: Double? = null
+
     fun play(mrl: String) {
         error = null
         loading = true
+        resumeAt = null
         anchorAt(0.0)
         duration = 0.0
         runCatching { player.media().play(mrl) }

@@ -356,6 +356,50 @@ object PlayerState {
         }
     }
 
+    /**
+     * Open the stream again and carry on where it stopped.
+     *
+     * The catalogue's stream links refuse a second connection — the first one
+     * works and every reconnection after it is turned away. A short song
+     * finishes inside that one connection and nobody notices; a long one does
+     * not, and stops in the middle. So when the audio goes quiet, a fresh link
+     * is fetched and playback resumes at the same second.
+     *
+     * Guarded, because a link that keeps failing must not become a loop of
+     * requests: three goes at one song, then it is left alone.
+     */
+    private var reopening = false
+    private var reopenedAt = 0
+    private var reopenedFor: String? = null
+
+    /** Asked from outside when the engine reports it has gone quiet. */
+    fun recover() = reopen()
+
+    private fun reopen() {
+        val track = current ?: return
+        if (reopening) return
+        if (reopenedFor != track.id) {
+            reopenedFor = track.id
+            reopenedAt = 0
+        }
+        if (reopenedAt >= 3) return
+
+        reopening = true
+        reopenedAt += 1
+        val resumeFrom = AudioEngine.position
+
+        scope.launch {
+            Catalogue.streamUrl(track.id).fold(
+                onSuccess = { AudioEngine.play(it, resumeFrom) },
+                onFailure = {
+                    failure = "Lost the connection to ${track.title}"
+                    if (Playback.skipBroken && index + 1 in queue.indices) next()
+                },
+            )
+            reopening = false
+        }
+    }
+
     /** True while the queue is being lengthened, so it is only done once. */
     private var extending = false
 
@@ -409,6 +453,8 @@ object PlayerState {
 
     private fun start() {
         val track = current ?: return
+        reopenedFor = track.id
+        reopenedAt = 0
         // Everyone in the room hears what the host started, and hears it from
         // their own copy — the wire carries which song and where in it, never
         // the audio.

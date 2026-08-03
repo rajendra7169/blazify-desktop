@@ -40,6 +40,11 @@ data class PlayerResponse(
         val formats: List<Format>?,
         val adaptiveFormats: List<Format>,
         val expiresInSeconds: Int,
+        // Segmented playback. A long recording served as one progressive file
+        // is the thing that stalls; the same recording as a manifest is chunks
+        // a player can fetch as it goes.
+        val hlsManifestUrl: String? = null,
+        val dashManifestUrl: String? = null,
     ) {
         @Serializable
         data class Format(

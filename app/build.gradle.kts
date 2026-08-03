@@ -323,6 +323,13 @@ tasks.register<JavaExec>("sourceProbe") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("longProbe") {
+    group = "verification"
+    description = "Show what each source offers for one recording, and how fast"
+    mainClass.set("com.blazify.desktop.tools.longsong.LongProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("roomProbe") {
     group = "verification"
     description = "Open a Blaze Together room from the terminal and print the traffic"

@@ -25,10 +25,14 @@ object Streams {
 
     /** One way of asking, with what it is good for. */
     enum class Source(val label: String, val blurb: String, val client: YouTubeClient) {
-        Headset("Headset", "Highest bitrates, no sign-in needed", YouTubeClient.ANDROID_VR_NO_AUTH),
-        Visual("Visual", "A good second opinion when the first is refused", YouTubeClient.VISIONOS),
-        Handheld("Handheld", "Widely accepted, slightly lower bitrates", YouTubeClient.IOS),
-        Tablet("Tablet", "Another handheld variant, useful when the first is blocked", YouTubeClient.IPADOS),
+        // Handheld first, measured rather than assumed. Headset carries the
+        // highest bitrates but is refused outright for anything long — asking
+        // it first meant two failed round trips before a long recording could
+        // even begin, which is most of why they took so long to start.
+        Handheld("Handheld", "Answers for the widest range, including long recordings", YouTubeClient.IOS),
+        Tablet("Tablet", "The same again, and often faster", YouTubeClient.IPADOS),
+        Headset("Headset", "The highest bitrates, but refuses long recordings", YouTubeClient.ANDROID_VR_NO_AUTH),
+        Visual("Visual", "A second opinion when the others are refused", YouTubeClient.VISIONOS),
         Studio("Studio", "Reaches some things the others are refused", YouTubeClient.ANDROID_CREATOR),
         Browser("Browser", "The plain web client; last resort", YouTubeClient.WEB_REMIX),
     }

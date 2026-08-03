@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.PlayerState
+import com.blazify.desktop.audio.AudioEngine
 import com.blazify.desktop.SleepTimer
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
@@ -101,6 +102,15 @@ fun AppShell() {
     // than being told the same song is still playing once a second.
     LaunchedEffect(PlayerState.current?.id, PlayerState.playing) {
         Presence.show(PlayerState.current, PlayerState.playing, PlayerState.positionSeconds)
+    }
+
+    // A stream that stops arriving is reopened rather than left silent with a
+    // clock still counting. Watched here because it must happen whatever screen
+    // is open.
+    LaunchedEffect(Unit) {
+        snapshotFlow { AudioEngine.stalled }.collect { stuck ->
+            if (stuck) PlayerState.recover()
+        }
     }
 
     // A play is only a play once it has been most of a play. Watched from here
