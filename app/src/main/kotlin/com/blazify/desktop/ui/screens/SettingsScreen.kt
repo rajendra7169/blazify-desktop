@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
@@ -63,6 +64,7 @@ import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LocalMusic
 import com.blazify.desktop.data.Store
+import com.blazify.desktop.data.Updates
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Navigator
@@ -291,13 +293,101 @@ fun SettingsScreen() {
                     }
                 }
 
-                SettingsPage.About -> item {
-                    Section("About") {
-                        Line("Blazify", "Version 1.0.0")
-                        Line("A music player", "for Linux and Windows")
+                SettingsPage.About -> {
+                    item {
+                        Section("About") {
+                            Line("Blazify", "Version ${Updates.RUNNING}")
+                            Line("A music player", "for Linux and Windows")
+                        }
+                    }
+
+                    item {
+                        Section("Updates") {
+                            SettingSwitch(
+                                "Check when Blazify starts",
+                                Updates.checkOnStart,
+                                Updates::chooseCheckOnStart,
+                            )
+                            Text(
+                                "Off by default. A program that phones home every launch " +
+                                    "should have been asked first, and \"is there a new " +
+                                    "version\" is almost never urgent.",
+                                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+                            )
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(if (Updates.checking) "Checking…" else "Check now") {
+                                    Updates.check()
+                                }
+                                if (Updates.newer) {
+                                    Button("Open the release page", Updates::openReleases)
+                                }
+                            }
+
+                            Updates.outcome?.let {
+                                Text(
+                                    it,
+                                    color = if (Updates.newer) Blaze.Amber else Blz.muted,
+                                    fontSize = 12.5.sp,
+                                )
+                            }
+
+                            Updates.notes?.takeIf { Updates.newer }?.let { notes ->
+                                Text(
+                                    notes.lineSequence().take(12).joinToString("\n"),
+                                    color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+                                )
+                            }
+
+                            Text(
+                                "This only looks. Nothing is downloaded or replaced — on " +
+                                    "Linux that would be arguing with whatever package " +
+                                    "manager installed it.",
+                                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+                            )
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * A switch, for the pages that build their rows here rather than in a section
+ * file of their own.
+ */
+@Composable
+private fun SettingSwitch(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable { onChange(!on) }
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = Blz.ink, fontSize = 13.5.sp, modifier = Modifier.weight(1f))
+        Box(
+            Modifier
+                .width(38.dp)
+                .height(21.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(
+                    if (on) Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))
+                    else Brush.linearGradient(listOf(Blz.surfaceHigh, Blz.surfaceHigh)),
+                ),
+            contentAlignment = if (on) Alignment.CenterEnd else Alignment.CenterStart,
+        ) {
+            Box(
+                Modifier
+                    .padding(horizontal = 3.dp)
+                    .size(15.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(if (on) Blaze.OnAmber else Blz.muted),
+            )
         }
     }
 }
