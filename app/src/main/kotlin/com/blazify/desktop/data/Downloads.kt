@@ -56,6 +56,25 @@ object Downloads {
 
     fun has(id: String) = items.any { it.id == id } && fileFor(id).exists()
 
+    /**
+     * Note that a song's cover now lives on this machine.
+     *
+     * The stored song is pointed at the local file, so every list, player and
+     * panel draws it from disk — instantly, and with no network to need.
+     */
+    fun rememberCover(id: String, where: String) {
+        var changed = false
+        items = items.map { track ->
+            if (track.id == id && track.thumbnail != where) {
+                changed = true
+                track.copy(thumbnail = where)
+            } else {
+                track
+            }
+        }
+        if (changed) Store.write(INDEX, items)
+    }
+
     fun isRunning(id: String) = id in running
 
     fun progressOf(id: String) = running[id] ?: 0f

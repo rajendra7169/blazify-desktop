@@ -73,6 +73,9 @@ private fun Placeholder() {
 
 /** Rewrite the size the catalogue baked into the URL. Left alone if absent. */
 private fun String.atSize(width: Int, height: Int): String {
+    // A cover kept on this machine is already the size it is. Rewriting the
+    // dimensions in a file path would be editing somebody's filename.
+    if (startsWith("file:")) return this
     val w = width.coerceIn(64, 1920)
     val h = height.coerceIn(64, 1080)
     return Regex("=w\\d+-h\\d+").replace(this, "=w$w-h$h")

@@ -95,7 +95,16 @@ object Offline {
             client.get(url).bodyAsChannel().copyTo(partial.outputStream())
             // Renamed only once it is whole, so a connection dropped halfway
             // never leaves a truncated image that looks like a real one.
-            if (partial.length() > 0) partial.renameTo(target) else partial.delete()
+            if (partial.length() > 0) {
+                partial.renameTo(target)
+                // Point the stored song at its own copy. Done here rather than
+                // at every place a cover is drawn: one line means every screen
+                // gets the local file, and gets it offline, without any of them
+                // having to know this exists.
+                Downloads.rememberCover(track.id, target.toURI().toString())
+            } else {
+                partial.delete()
+            }
         }
     }
 

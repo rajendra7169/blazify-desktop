@@ -422,7 +422,11 @@ object PlayerState {
         // for those seconds to happen while the song is starting instead of
         // while somebody is staring at an empty panel.
         LyricsSource.warm(track)
+        // The next two, not just the next one. Skipping twice in a row is
+        // ordinary, and the point of fetching ahead is that the panel is never
+        // the thing being waited for.
         LyricsSource.warm(queue.getOrNull(index + 1))
+        LyricsSource.warm(queue.getOrNull(index + 2))
         Scrobbler.began(track)
         if (!AudioEngine.available()) {
             failure = "Audio support is missing — install VLC and restart Blazify"
