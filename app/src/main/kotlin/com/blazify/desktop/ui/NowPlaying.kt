@@ -327,7 +327,11 @@ fun NowPlayingScreen(
             ) {
                 ScrubBar(PlayerState.progress, PlayerState::seek, Modifier.fillMaxWidth(), thickness = 6.dp)
                 Row(Modifier.fillMaxWidth()) {
-                    Text(PlayerState.elapsed, color = Blz.dim, fontSize = 12.sp)
+                    Text(
+                        if (PlayerState.buffering) "loading" else PlayerState.elapsed,
+                        color = if (PlayerState.buffering) Blaze.Amber else Blz.dim,
+                        fontSize = 12.sp,
+                    )
                     Box(Modifier.weight(1f))
                     Text(PlayerState.total, color = Blz.dim, fontSize = 12.sp)
                 }

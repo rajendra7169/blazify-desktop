@@ -308,7 +308,15 @@ private fun Transport(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(now?.elapsed ?: "0:00", color = Blz.dim, fontSize = 11.sp)
+            // While the stream is being gathered the number would sit still and
+            // look like a fault. Saying so is the difference between waiting and
+            // wondering — a jump into the middle of a long recording can take
+            // several seconds to come back, and that is worth admitting.
+            Text(
+                if (PlayerState.buffering) "loading" else now?.elapsed ?: "0:00",
+                color = if (PlayerState.buffering) Blaze.Amber else Blz.dim,
+                fontSize = 11.sp,
+            )
             ScrubBar(now?.position ?: 0f, onSeek, Modifier.weight(1f), thickness = 5.dp)
             Text(now?.duration ?: "0:00", color = Blz.dim, fontSize = 11.sp)
         }
