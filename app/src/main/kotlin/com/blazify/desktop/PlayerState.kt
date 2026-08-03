@@ -381,7 +381,14 @@ object PlayerState {
     private var reopenedAt = 0
     private var reopenedFor: String? = null
 
-    /** Asked from outside when the engine reports it has gone quiet. */
+    /**
+     * Fetch the stream again and carry on.
+     *
+     * Called only when the player reports a hard failure — never on a guess
+     * that something has gone quiet. Guessing cost two evenings: a song that
+     * was merely slow to start got restarted, which made it slower to start,
+     * which looked exactly like nothing playing at all.
+     */
     fun recover() = reopen()
 
     private fun reopen() {

@@ -30,6 +30,26 @@ fun main(args: Array<String>): Unit = runBlocking {
     println("playing ${track.title} — ${track.artist}")
 
     println("engine available: ${AudioEngine.available()}")
+
+    // Through the app's own path, not straight to the engine — that is where
+    // the difference between "the audio works" and "the app plays" lives.
+    if (args.contains("--app")) {
+        com.blazify.desktop.PlayerState.play(listOf(track), 0)
+        repeat(15) {
+            Thread.sleep(1000)
+            println(
+                "%2ds  playing=%-5s buffering=%-5s pos=%.1f vol=%.2f fail=%s".format(
+                    it + 1,
+                    com.blazify.desktop.PlayerState.playing,
+                    AudioEngine.buffering,
+                    com.blazify.desktop.PlayerState.positionSeconds,
+                    com.blazify.desktop.PlayerState.volume,
+                    com.blazify.desktop.PlayerState.failure ?: "-",
+                ),
+            )
+        }
+        return@runBlocking
+    }
     val stream = Catalogue.stream(track.id).getOrNull()
     if (stream == null) {
         println("no stream url")
@@ -43,9 +63,9 @@ fun main(args: Array<String>): Unit = runBlocking {
     repeat(20) {
         Thread.sleep(1000)
         println(
-            "%2ds  playing=%-5s loading=%-5s stalled=%-5s pos=%.1f dur=%.1f err=%s".format(
+            "%2ds  playing=%-5s loading=%-5s buffering=%-5s stalled=%-5s pos=%.1f dur=%.1f err=%s".format(
                 it + 1,
-                AudioEngine.playing, AudioEngine.loading, AudioEngine.stalled,
+                AudioEngine.playing, AudioEngine.loading, AudioEngine.buffering, AudioEngine.stalled,
                 AudioEngine.position, AudioEngine.duration, AudioEngine.error ?: "-",
             ),
         )
