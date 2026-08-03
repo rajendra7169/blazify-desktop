@@ -1,5 +1,7 @@
 package com.blazify.desktop.ui
 
+import com.blazify.desktop.PlayerState
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
