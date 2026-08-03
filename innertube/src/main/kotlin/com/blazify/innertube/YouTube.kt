@@ -295,12 +295,27 @@ object YouTube {
         }
     }
 
+    /**
+     * Search with no filter at all.
+     *
+     * A different request rather than a filter that means everything: the
+     * catalogue answers an unfiltered query with its own mixture of songs,
+     * albums, artists and playlists, ranked together, which no single filter
+     * reproduces.
+     */
+    suspend fun search(query: String): Result<SearchResult> = search(query, null)
+
     suspend fun search(
         query: String,
         filter: SearchFilter,
+    ): Result<SearchResult> = search(query, filter.value)
+
+    private suspend fun search(
+        query: String,
+        params: String?,
     ): Result<SearchResult> =
         runCatching {
-            val response = innerTube.search(WEB_REMIX, query, filter.value).body<SearchResponse>()
+            val response = innerTube.search(WEB_REMIX, query, params).body<SearchResponse>()
             val searchItems = mutableListOf<YTItem>()
             var searchContinuation: String? = null
 

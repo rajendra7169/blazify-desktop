@@ -91,21 +91,44 @@ object Catalogue {
      * and hoping albums turn up in the same list gets neither properly.
      */
     enum class Scope(val label: String) {
+        // Everything, unfiltered — the catalogue's own mixed answer, which is
+        // usually the right first guess and was the one thing missing.
+        Everything("All"),
         Songs("Songs"),
+        Videos("Videos"),
         Albums("Albums"),
         Artists("Artists"),
-        Playlists("Playlists"),
-        Videos("Videos"),
+        // The two kinds of playlist are genuinely different things: one is made
+        // by the service, the other by people. Rolling them together buried the
+        // handmade ones under a wall of auto-generated mixes.
+        CommunityPlaylists("Community playlists"),
+        FeaturedPlaylists("Featured playlists"),
+        Podcasts("Podcasts"),
+        Episodes("Episodes"),
+        Profiles("Profiles"),
     }
 
     suspend fun search(query: String, scope: Scope): Result<List<Card>> = withContext(Dispatchers.IO) {
         ensureIdentity()
+        // "All" asks with no filter at all, which is a different request rather
+        // than a filter meaning everything.
+        if (scope == Scope.Everything) {
+            return@withContext YouTube.search(query).map { result ->
+                result.items.mapNotNull { it.asCard() }
+            }
+        }
+
         val filter = when (scope) {
             Scope.Songs -> YouTube.SearchFilter.FILTER_SONG
+            Scope.Videos -> YouTube.SearchFilter.FILTER_VIDEO
             Scope.Albums -> YouTube.SearchFilter.FILTER_ALBUM
             Scope.Artists -> YouTube.SearchFilter.FILTER_ARTIST
-            Scope.Playlists -> YouTube.SearchFilter.FILTER_COMMUNITY_PLAYLIST
-            Scope.Videos -> YouTube.SearchFilter.FILTER_VIDEO
+            Scope.CommunityPlaylists -> YouTube.SearchFilter.FILTER_COMMUNITY_PLAYLIST
+            Scope.FeaturedPlaylists -> YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST
+            Scope.Podcasts -> YouTube.SearchFilter.FILTER_PODCAST
+            Scope.Episodes -> YouTube.SearchFilter.FILTER_EPISODE
+            Scope.Profiles -> YouTube.SearchFilter.FILTER_PROFILE
+            Scope.Everything -> YouTube.SearchFilter.FILTER_SONG
         }
         YouTube.search(query, filter).map { result -> result.items.mapNotNull { it.asCard() } }
     }

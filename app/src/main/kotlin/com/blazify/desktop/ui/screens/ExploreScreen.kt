@@ -5,7 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,9 +38,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -52,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import com.blazify.desktop.PlayerState
 import com.blazify.desktop.Typing
 import com.blazify.desktop.data.Catalogue
+import kotlinx.coroutines.launch
 import com.blazify.desktop.data.asTrack
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
@@ -89,7 +97,9 @@ fun ExploreScreen(
     val browse = ExploreState.browse
     var genre by remember { mutableStateOf<Catalogue.Genre?>(null) }
     var genreShelves by remember { mutableStateOf<List<Catalogue.Shelf>>(emptyList()) }
-    var scope by remember { mutableStateOf(Catalogue.Scope.Songs) }
+    // Everything first — the mixed answer is the right first guess, and
+    // narrowing is a thing you do once you know what you didn't find.
+    var scope by remember { mutableStateOf(Catalogue.Scope.Everything) }
     var results by remember { mutableStateOf<List<Catalogue.Card>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -146,7 +156,13 @@ fun ExploreScreen(
             query.trim().length < 2 -> BrowseTab(browse, onOpen) { genre = it }
             searching && results.isEmpty() -> SkeletonRows(count = 8)
             message != null -> Text(message!!, color = Blz.muted, fontSize = 13.sp)
-            scope == Catalogue.Scope.Songs || scope == Catalogue.Scope.Videos -> {
+            // Rows for the things that are songs, tiles for the things that are
+            // places to go. In the mixed answer that is decided card by card
+            // rather than by which chip is lit.
+            scope == Catalogue.Scope.Songs || scope == Catalogue.Scope.Videos ||
+                scope == Catalogue.Scope.Episodes ||
+                (scope == Catalogue.Scope.Everything &&
+                    results.count { it.kind == Catalogue.Kind.Song } > results.size / 2) -> {
                 LazyColumn(Modifier.fillMaxSize()) {
                     itemsIndexed(results, key = { at, card -> "$at-${card.id}" }) { at, card ->
                         SongMenu(card.asTrack()) {
@@ -294,8 +310,24 @@ private fun GenreScreen(
 }
 
 @Composable
+@OptIn(ExperimentalComposeUiApi::class)
 private fun ScopeChips(selected: Catalogue.Scope, onSelect: (Catalogue.Scope) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    val strip = rememberScrollState()
+    val scope = rememberCoroutineScope()
+
+    // Ten of them do not fit a window, and a scrollbar under a row of words is
+    // taller than the words. The wheel moves it sideways instead.
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .onPointerEvent(PointerEventType.Scroll) { event ->
+                val turned = event.changes.firstOrNull()?.scrollDelta ?: return@onPointerEvent
+                val by = if (turned.x != 0f) turned.x else turned.y
+                scope.launch { strip.scrollBy(by * 64f) }
+            }
+            .horizontalScroll(strip),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Catalogue.Scope.entries.forEach { scope ->
             val on = scope == selected
             val (source, hovered) = rememberHovered()
