@@ -80,6 +80,13 @@ fun main(args: Array<String>): Unit = runBlocking {
             // The number that decides whether a long recording survives. The
             // opening burst is generous on purpose; what matters is the rate a
             // few minutes in, once the throttle has had time to apply.
+            // What a player's very first request looks like: an open-ended
+            // range from zero. If this is refused, nothing will play at all.
+            println("           first request as a player would make it:")
+            println("             plain GET:        ${describe(best.url!!, null, null, null)}")
+            println("             Range bytes=0-:   ${describe(best.url!!, 0, null, null)}")
+            println("             Range 0- as client: ${describe(best.url!!, 0, null, source.client.userAgent)}")
+
             if (bytes > 2_000_000) {
                 val middle = bytes / 2
                 val to = middle + 2_097_151
@@ -94,9 +101,11 @@ fun main(args: Array<String>): Unit = runBlocking {
 }
 
 /** What actually comes back, and how fast. */
-private fun describe(url: String, from: Long, to: Long, agent: String?): String = runCatching {
+private fun describe(url: String, from: Long?, to: Long?, agent: String?): String = runCatching {
     val connection = URI(url).toURL().openConnection() as HttpURLConnection
-    connection.setRequestProperty("Range", "bytes=$from-$to")
+    if (from != null) {
+        connection.setRequestProperty("Range", "bytes=$from-" + (to?.toString() ?: ""))
+    }
     agent?.let { connection.setRequestProperty("User-Agent", it) }
     connection.connectTimeout = 8000
     connection.readTimeout = 30000

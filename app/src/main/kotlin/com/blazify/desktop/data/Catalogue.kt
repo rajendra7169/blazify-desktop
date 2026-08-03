@@ -659,6 +659,37 @@ object Catalogue {
      * MP4 container is considered — the alternatives come back in containers the
      * player can't open, so a higher bitrate in the wrong format is no use.
      */
+    /**
+     * A playable link, and who to claim to be while fetching it.
+     *
+     * The catalogue binds a stream link to the client that asked for it — a
+     * link obtained as one kind of device is refused when fetched as another.
+     * Handing back only the address therefore hands back half of what is needed
+     * to use it.
+     */
+    data class Stream(val url: String, val userAgent: String)
+
+    suspend fun stream(videoId: String): Result<Stream> = withContext(Dispatchers.IO) {
+        ensureIdentity()
+
+        for (source in Streams.chain()) {
+            val response = YouTube.player(videoId, client = source.client).getOrNull() ?: continue
+            if (response.playabilityStatus.status != "OK") continue
+
+            val offered = response.streamingData
+                ?.adaptiveFormats
+                ?.filter { it.mimeType.startsWith("audio/mp4") && !it.url.isNullOrEmpty() }
+                .orEmpty()
+            if (offered.isEmpty()) continue
+
+            val chosen = Streams.pick(offered) { it.bitrate } ?: continue
+            chosen.url?.let {
+                return@withContext Result.success(Stream(it, source.client.userAgent))
+            }
+        }
+        Result.failure(IllegalStateException("No playable audio for $videoId"))
+    }
+
     suspend fun streamUrl(videoId: String): Result<String> = withContext(Dispatchers.IO) {
         ensureIdentity()
 

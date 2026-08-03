@@ -393,8 +393,8 @@ object PlayerState {
         reopenedAt += 1
 
         scope.launch {
-            Catalogue.streamUrl(track.id).fold(
-                onSuccess = { AudioEngine.play(it, resumeFrom) },
+            Catalogue.stream(track.id).fold(
+                onSuccess = { AudioEngine.play(it.url, resumeFrom, it.userAgent) },
                 onFailure = {
                     failure = "Lost the connection to ${track.title}"
                     if (Playback.skipBroken && index + 1 in queue.indices) next()
@@ -498,9 +498,9 @@ object PlayerState {
         }
 
         scope.launch {
-            Catalogue.streamUrl(track.id).fold(
+            Catalogue.stream(track.id).fold(
                 onSuccess = {
-                    AudioEngine.play(it)
+                    AudioEngine.play(it.url, it.userAgent)
                     fadeUp()
                     // Recorded once it's actually playing rather than on the
                     // click, so a track that never resolves doesn't leave a

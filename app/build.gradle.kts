@@ -323,6 +323,13 @@ tasks.register<JavaExec>("sourceProbe") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("soundProbe") {
+    group = "verification"
+    description = "Resolve one song and play it, printing what the engine reports"
+    mainClass.set("com.blazify.desktop.tools.sound.SoundProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("longProbe") {
     group = "verification"
     description = "Show what each source offers for one recording, and how fast"

@@ -233,8 +233,8 @@ object AudioEngine {
      * into something, and starting them at the beginning would be a worse
      * failure than the one being recovered from.
      */
-    fun play(mrl: String, startAt: Double) {
-        play(mrl)
+    fun play(mrl: String, startAt: Double, userAgent: String? = null) {
+        play(mrl, userAgent)
         if (startAt > 1.0) {
             resumeAt = startAt
         }
@@ -243,7 +243,7 @@ object AudioEngine {
     /** Where to jump to once the new stream reports a length. */
     private var resumeAt: Double? = null
 
-    fun play(mrl: String) {
+    fun play(mrl: String, userAgent: String? = null) {
         error = null
         loading = true
         resumeAt = null
@@ -251,7 +251,16 @@ object AudioEngine {
         stalled = false
         anchorAt(0.0)
         duration = 0.0
-        runCatching { player.media().play(mrl) }
+        // Told who to claim to be. The catalogue ties a stream link to the kind
+        // of device that asked for it and turns away anyone else — so fetching
+        // it as the library's own default is a refusal, and a refusal here
+        // looks exactly like a track that will not play.
+        val options = buildList {
+            userAgent?.let { add(":http-user-agent=$it") }
+            // Enough held ahead that a hiccup on the line is not a silence.
+            add(":network-caching=3000")
+        }.toTypedArray()
+        runCatching { player.media().play(mrl, *options) }
             .onFailure {
                 loading = false
                 error = it.message ?: "This track wouldn't play"

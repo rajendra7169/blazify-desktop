@@ -24,17 +24,39 @@ import java.io.File
 object Streams {
 
     /** One way of asking, with what it is good for. */
-    enum class Source(val label: String, val blurb: String, val client: YouTubeClient) {
-        // Handheld first, measured rather than assumed. Headset carries the
-        // highest bitrates but is refused outright for anything long — asking
-        // it first meant two failed round trips before a long recording could
-        // even begin, which is most of why they took so long to start.
-        Handheld("Handheld", "Answers for the widest range, including long recordings", YouTubeClient.IOS),
-        Tablet("Tablet", "The same again, and often faster", YouTubeClient.IPADOS),
-        Headset("Headset", "The highest bitrates, but refuses long recordings", YouTubeClient.ANDROID_VR_NO_AUTH),
-        Visual("Visual", "A second opinion when the others are refused", YouTubeClient.VISIONOS),
+    /**
+     * The ways of asking, in the order they are tried.
+     *
+     * Answering is not the same as being usable. Some clients hand over a
+     * perfectly good-looking link that this machine is then refused when it
+     * tries to fetch it — the link is tied to the kind of device that asked,
+     * and a desktop is not that device. Those are listed but off by default,
+     * because a source that answers and cannot be played is worse than one that
+     * does not answer at all: it looks like the song is broken.
+     */
+    enum class Source(
+        val label: String,
+        val blurb: String,
+        val client: YouTubeClient,
+        /** Whether this machine can actually fetch what this source hands over. */
+        val usable: Boolean = true,
+    ) {
+        Headset("Headset", "The one that plays here, and at the highest bitrates", YouTubeClient.ANDROID_VR_NO_AUTH),
+        Visual("Visual", "A second opinion when the first is refused", YouTubeClient.VISIONOS),
         Studio("Studio", "Reaches some things the others are refused", YouTubeClient.ANDROID_CREATOR),
         Browser("Browser", "The plain web client; last resort", YouTubeClient.WEB_REMIX),
+        Handheld(
+            "Handheld",
+            "Answers, but its links are refused to anything that isn't a phone",
+            YouTubeClient.IOS,
+            usable = false,
+        ),
+        Tablet(
+            "Tablet",
+            "The same again, and refused the same way",
+            YouTubeClient.IPADOS,
+            usable = false,
+        ),
     }
 
     /** How good a stream to take when several are offered. */
@@ -49,7 +71,7 @@ object Streams {
     var order by mutableStateOf(Source.entries.map { it.name })
         private set
 
-    var enabled by mutableStateOf(Source.entries.take(3).map { it.name }.toSet())
+    var enabled by mutableStateOf(Source.entries.filter { it.usable }.map { it.name }.toSet())
         private set
 
     var quality by mutableStateOf(Quality.Best)
@@ -84,7 +106,7 @@ object Streams {
 
     fun reset() {
         order = Source.entries.map { it.name }
-        enabled = Source.entries.take(3).map { it.name }.toSet()
+        enabled = Source.entries.filter { it.usable }.map { it.name }.toSet()
         quality = Quality.Best
         save()
     }
