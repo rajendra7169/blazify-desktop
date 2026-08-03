@@ -22,6 +22,7 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.blazify.desktop.data.Account
+import com.blazify.desktop.data.Offline
 import com.blazify.desktop.data.Paxsenix
 import com.blazify.desktop.ui.AppShell
 import com.blazify.desktop.ui.Blaze
@@ -56,6 +57,8 @@ fun main() {
     // now, while the window is still being built and nobody is looking at an
     // empty lyric sheet.
     Paxsenix.warmKey()
+    // Covers and lyrics for anything kept before those were saved alongside.
+    Offline.catchUp()
     run()
 }
 

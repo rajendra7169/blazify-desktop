@@ -125,6 +125,21 @@ object LyricsSource {
     suspend fun of(track: Track): Lyrics = withContext(Dispatchers.IO) {
         cache[track.id]?.let { return@withContext it }
 
+        // A kept song keeps its words too. Read before anything is asked over
+        // the network, so a sheet for something on disk appears instantly and
+        // appears at all when there is nothing to ask.
+        if (chosen[track.id] == null && Offline.hasWords(track.id)) {
+            val saved = runCatching { Offline.wordsFor(track.id).readText() }.getOrNull()
+            if (!saved.isNullOrBlank()) {
+                val words = read(saved)
+                if (!words.empty) {
+                    credits[track.id] = "Kept on this computer"
+                    cache[track.id] = words
+                    return@withContext words
+                }
+            }
+        }
+
         // One source, named for this song, and no falling back to the others:
         // asking for LrcLib and quietly being given KuGou is worse than being
         // told LrcLib hasn't got it.

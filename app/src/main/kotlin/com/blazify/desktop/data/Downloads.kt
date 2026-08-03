@@ -87,6 +87,9 @@ object Downloads {
                     partial.renameTo(target)
                     items = listOf(track) + items.filterNot { it.id == track.id }
                     Store.write(INDEX, items)
+                    // The cover and the words go with it — a song on disk you
+                    // can't recognise is a song you may as well not have.
+                    Offline.keep(track)
                 },
                 onFailure = {
                     partial.delete()

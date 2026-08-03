@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.data.Catalogue
+import com.blazify.desktop.data.Net
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
@@ -66,6 +67,13 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { HomeState.scroll = listState }
     LaunchedEffect(Unit) { HomeState.ensureLoaded() }
+    // Built again when the line comes or goes — offline the page is a different
+    // page, and a stale one is a page of things that cannot play.
+    LaunchedEffect(Net.online) { HomeState.reactTo(Net.online) }
+
+    // Built again when the line comes or goes — offline the page is a
+    // different page, and a stale one is a page of things that cannot play.
+    LaunchedEffect(Net.online) { HomeState.reactTo(Net.online) }
 
     val picks = HomeState.picks
     val shelves = HomeState.shelves

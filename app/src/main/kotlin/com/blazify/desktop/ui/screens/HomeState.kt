@@ -6,6 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Library
+import com.blazify.desktop.data.Downloads
+import com.blazify.desktop.data.LocalMusic
+import com.blazify.desktop.data.Net
 
 /**
  * Blazify Project (C) 2026
@@ -59,6 +62,16 @@ object HomeState {
         buildPicks()
     }
 
+    /**
+     * The network came back, or went. Either way the page is now the wrong
+     * page, and it is built again rather than left saying what used to be true.
+     */
+    suspend fun reactTo(online: Boolean) {
+        if (!loaded) return
+        loadFeed()
+        buildPicks()
+    }
+
     /** Throw it away and fetch again — a different twenty songs. */
     suspend fun refresh() {
         loaded = true
@@ -73,8 +86,23 @@ object HomeState {
     }
 
     private suspend fun buildPicks() {
+        // Nothing to recommend from without a catalogue, and the offline
+        // shelves already say what there is.
+        if (!Net.online) {
+            picks = emptyList()
+            return
+        }
         building = true
-        picks = Catalogue.songShelves(Library.history, Library.liked).getOrDefault(emptyList())
+
+        // Songs that only exist on this machine are kept out of the online
+        // feed. They are already a screen of their own, and a shelf of them
+        // among the catalogue's own is the app showing you your hard disk when
+        // you asked it what to listen to. Offline they are all there is, so
+        // then they are exactly what belongs here.
+        val history = Library.history.filterNot { LocalMusic.isLocal(it.id) }
+        val liked = Library.liked.filterNot { LocalMusic.isLocal(it.id) }
+
+        picks = Catalogue.songShelves(history, liked).getOrDefault(emptyList())
         building = false
     }
 
@@ -83,6 +111,16 @@ object HomeState {
         problem = null
         shelves = emptyList()
         discovered = 0
+
+        // No catalogue to ask. What is on this machine is not a poor substitute
+        // for the feed — offline it is the whole of what can be played, so it
+        // is the feed.
+        if (!Net.online) {
+            shelves = offlineShelves()
+            more = null
+            loading = false
+            return
+        }
         Catalogue.home(mood = mood?.params).fold(
             onSuccess = {
                 shelves = it.shelves
@@ -97,13 +135,49 @@ object HomeState {
     }
 
     /**
+     * What there is when there is nothing to ask.
+     *
+     * Kept songs first, then whatever is on this computer, then the part of the
+     * history that can still be played — a history row for a song that needs
+     * the network is a row that does nothing when tapped.
+     */
+    private fun offlineShelves(): List<Catalogue.Shelf> = buildList {
+        fun shelf(title: String, songs: List<com.blazify.desktop.data.Track>, rows: Int) {
+            if (songs.isEmpty()) return
+            add(
+                Catalogue.Shelf(
+                    title = title,
+                    cards = songs.take(40).map {
+                        Catalogue.Card(
+                            it.id, it.title, it.artist, it.thumbnail,
+                            Catalogue.Kind.Song, it.durationSeconds,
+                        )
+                    },
+                    rows = rows,
+                ),
+            )
+        }
+
+        shelf("Kept for offline", Downloads.items, rows = 4)
+        shelf("On this computer", LocalMusic.tracks, rows = 4)
+
+        val playable = Library.history.filter {
+            Downloads.has(it.id) || LocalMusic.isLocal(it.id)
+        }
+        shelf("Played recently", playable, rows = 1)
+
+        val liked = Library.liked.filter { Downloads.has(it.id) || LocalMusic.isLocal(it.id) }
+        shelf("Liked and on this machine", liked, rows = 4)
+    }
+
+    /**
      * Add to the bottom of the page.
      *
      * The catalogue's own pages first, then seeded shelves once those run out,
      * so scrolling never hits a dead stop.
      */
     suspend fun extend() {
-        if (extending || loading) return
+        if (extending || loading || !Net.online) return
         extending = true
 
         val token = more
