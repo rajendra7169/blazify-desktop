@@ -66,11 +66,15 @@ object AudioEngine {
      */
     private var lastHeardFrom = System.nanoTime()
 
+    /** Whether this media has reported a position yet. */
+    private var heardOnce = false
+
     /** True when the player has gone quiet while it was supposed to be playing. */
     var stalled by mutableStateOf(false)
         private set
 
     private fun anchorAt(seconds: Double) {
+        heardOnce = true
         anchor = seconds
         anchoredAt = System.nanoTime()
         lastHeardFrom = System.nanoTime()
@@ -84,11 +88,17 @@ object AudioEngine {
                 delay(40)
                 if (!playing) continue
 
+                // Nothing is judged until the player has reported a position at
+                // least once for this media. Before that there is no silence to
+                // measure — only a stream that has not started yet.
+                if (!heardOnce) continue
+
                 val quietFor = (System.nanoTime() - lastHeardFrom) / 1_000_000_000.0
-                // Two seconds without a word. Reports arrive several times a
+                // Five seconds without a word. Reports arrive several times a
                 // second when all is well, so this is not a slow machine — it
-                // is a stream that has stopped arriving.
-                if (quietFor > 2.0) {
+                // is a stream that has stopped arriving. Generous, because the
+                // cost of being wrong is restarting a song that was fine.
+                if (quietFor > 5.0) {
                     stalled = true
                     continue
                 }
@@ -144,6 +154,12 @@ object AudioEngine {
         override fun playing(mediaPlayer: MediaPlayer) {
             playing = true
             loading = false
+            // The clock starts being watched from here, not from when the media
+            // was handed over. Fetching and opening a stream can take several
+            // seconds, and counting that silence as a stall meant every song
+            // was declared broken the instant it began.
+            lastHeardFrom = System.nanoTime()
+            stalled = false
         }
 
         override fun paused(mediaPlayer: MediaPlayer) { playing = false }
@@ -231,6 +247,8 @@ object AudioEngine {
         error = null
         loading = true
         resumeAt = null
+        heardOnce = false
+        stalled = false
         anchorAt(0.0)
         duration = 0.0
         runCatching { player.media().play(mrl) }

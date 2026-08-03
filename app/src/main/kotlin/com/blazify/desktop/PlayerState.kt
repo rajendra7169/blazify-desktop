@@ -384,9 +384,13 @@ object PlayerState {
         }
         if (reopenedAt >= 3) return
 
+        // Nothing to carry on from means nothing has played yet, and a song
+        // that has not started is not a song that has stalled.
+        val resumeFrom = AudioEngine.position
+        if (resumeFrom < 1.0) return
+
         reopening = true
         reopenedAt += 1
-        val resumeFrom = AudioEngine.position
 
         scope.launch {
             Catalogue.streamUrl(track.id).fold(
