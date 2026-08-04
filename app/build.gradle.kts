@@ -323,6 +323,13 @@ tasks.register<JavaExec>("sourceProbe") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("sessionProbe") {
+    group = "verification"
+    description = "Show which cookies each browser gives, and whether the catalogue accepts them"
+    mainClass.set("com.blazify.desktop.tools.session.SessionProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("soundProbe") {
     group = "verification"
     description = "Resolve one song and play it, printing what the engine reports"

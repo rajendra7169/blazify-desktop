@@ -106,7 +106,10 @@ object Account {
             for (browser in browsers) {
                 BrowserSession.sessionFrom(browser).fold(
                     onSuccess = {
-                        carried = it.count { c -> c == '=' }
+                        // Counted by separators, not by '=' — a cookie value is
+                        // base64 and carries its own padding, which was making
+                        // eighteen cookies report as twenty-four.
+                        carried = it.split("; ").count { part -> part.isNotBlank() }
                         attach(it)
                         runCatching { store.writeText(it) }
                         refreshAndReport(browser.label)
@@ -136,6 +139,8 @@ object Account {
     fun signOut() {
         verified = false
         cookie = null
+        // Signing out is a change of identity too, in the other direction.
+        YouTube.visitorData = null
         name = null
         email = null
         picture = null
@@ -196,6 +201,13 @@ object Account {
     private fun attach(value: String) {
         cookie = value
         YouTube.cookie = value
+        // The visitor id goes with it. One is minted anonymously the first time
+        // anything is fetched, and it belongs to whoever was signed in at the
+        // time — which, at startup, is nobody. Carrying that anonymous identity
+        // into a signed-in session is a contradiction the catalogue notices,
+        // and it refuses the pair. Cleared here so the next request mints one
+        // that matches the account it is being sent with.
+        YouTube.visitorData = null
         // Browsing signed in is what turns the feed from what's popular into
         // what's yours. Without it the session is carried but never used for
         // the one request the whole home screen is built from.
