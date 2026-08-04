@@ -136,15 +136,38 @@ object SignInWindow {
         var caught: String? = null
 
         while (process.isAlive && System.currentTimeMillis() < giveUpAt) {
-            kotlinx.coroutines.delay(2000)
-            // A browser holds its newest cookies in memory and writes them out
-            // on a timer, so this is a poll rather than a notification. The
-            // wait is a few seconds after signing in, not minutes.
-            val session = read(opener)?.getOrNull()?.takeIf { "SAPISID" in it } ?: continue
-            if (!verify(session)) continue
-            caught = session
-            close(process)
-            break
+            kotlinx.coroutines.delay(1000)
+
+            // Cookies first, for the browsers that write them as they go.
+            read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }?.let { session ->
+                if (verify(session)) {
+                    caught = session
+                    close(process)
+                    return@let
+                }
+            }
+            if (caught != null) break
+
+            // Then the arrival, for the ones that don't.
+            //
+            // Measured rather than assumed: eight seconds into browsing, a
+            // Chromium cookie store held nothing at all — every cookie was
+            // still in memory, and they all appeared the instant the browser
+            // was asked to quit. Waiting for them to show up on their own means
+            // waiting out a thirty-second timer for something the window could
+            // have said in two.
+            //
+            // What it does say quickly is where it has been. Landing on the
+            // music site only happens after the sign-in page lets you through,
+            // so that is the signal: close the window, which writes the cookies
+            // out, and read them a moment later.
+            if (landed()) {
+                close(process)
+                process.waitFor()
+                caught = read(opener)?.getOrNull()
+                    ?.takeIf { "SAPISID" in it && verify(it) }
+                break
+            }
         }
 
         process.waitFor()
@@ -157,6 +180,24 @@ object SignInWindow {
 
         Result.success(caught)
     }
+
+    /**
+     * Whether the window has reached the music site.
+     *
+     * A browser writes down which pages its tabs are on within a second or two
+     * of arriving — long before it writes down anything else — and the address
+     * it started on can't be mistaken for this one, because there the music
+     * site appears only as an escaped parameter and never as a place that has
+     * been visited.
+     */
+    private fun landed(): Boolean =
+        File(profile, "Default/Sessions").listFiles().orEmpty().any { file ->
+            runCatching {
+                // Read as bytes-as-characters: it's a binary record and the only
+                // thing being looked for in it is a plain run of ASCII.
+                file.readText(Charsets.ISO_8859_1).contains(LANDING)
+            }.getOrDefault(false)
+        }
 
     /** The cookies that window has written down so far, if it has written any. */
     private suspend fun read(opener: Opener): Result<String>? {
@@ -208,6 +249,9 @@ object SignInWindow {
      * site afterwards, which is where the session has to be set for it to be
      * worth anything.
      */
+    /** The address that means the sign-in page has let somebody through. */
+    private const val LANDING = "https://music.youtube.com"
+
     private const val SITE =
         "https://accounts.google.com/ServiceLogin" +
             "?ltmpl=music&service=youtube&continue=https%3A%2F%2Fmusic.youtube.com%2F"
