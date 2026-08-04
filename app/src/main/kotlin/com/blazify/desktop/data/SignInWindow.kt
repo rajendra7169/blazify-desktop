@@ -155,5 +155,17 @@ object SignInWindow {
         runCatching { profile.deleteRecursively() }
     }
 
-    private const val SITE = "https://music.youtube.com/"
+    /**
+     * Google's sign-in page, asked for by name.
+     *
+     * Opening the music site instead means landing on a home page and having to
+     * find the sign-in button on it — a step in a flow whose whole purpose is
+     * signing in. This is the same page that button leads to, asked for
+     * directly, and the continue address brings the window back to the music
+     * site afterwards, which is where the session has to be set for it to be
+     * worth anything.
+     */
+    private const val SITE =
+        "https://accounts.google.com/ServiceLogin" +
+            "?ltmpl=music&service=youtube&continue=https%3A%2F%2Fmusic.youtube.com%2F"
 }
