@@ -88,6 +88,16 @@ object ShowsState {
     var subjectEpisodes by mutableStateOf<List<Catalogue.Card>>(emptyList())
         private set
 
+    /** What is being looked for here, if anything. */
+    var query by mutableStateOf("")
+        private set
+    var foundShows by mutableStateOf<List<Catalogue.Card>>(emptyList())
+        private set
+    var foundEpisodes by mutableStateOf<List<Catalogue.Card>>(emptyList())
+        private set
+    var searching by mutableStateOf(false)
+        private set
+
     var loading by mutableStateOf(false)
         private set
     var loadingSubject by mutableStateOf(false)
@@ -195,6 +205,60 @@ object ShowsState {
         .replace(Regex("\\bpodcast\\b|\\bthe\\b|[^a-z0-9 ]"), "")
         .trim()
         .replace(Regex("\\s+"), " ")
+
+    fun type(words: String) { query = words }
+
+    /**
+     * Look for a programme by name, in whichever places are being used.
+     *
+     * A page about podcasts with no way to ask for one by name is a page you
+     * have to leave to use — and the search on the browse tab is a music search
+     * that happens to have a podcast filter on it, which is not the same thing
+     * as asking a podcast question.
+     */
+    suspend fun look() {
+        val words = query.trim()
+        if (words.length < 2) {
+            foundShows = emptyList(); foundEpisodes = emptyList(); searching = false
+            return
+        }
+        searching = true
+        coroutineScope {
+            val directory = async {
+                if (where == Where.Catalogue) emptyList() else Feeds.search(words, limit = 16).map { it.asCard() }
+            }
+            val catalogue = async {
+                if (where == Where.Directory) emptyList()
+                else Catalogue.search(words, Catalogue.Scope.Podcasts).getOrDefault(emptyList())
+            }
+            val episodes = async {
+                if (where == Where.Directory) emptyList()
+                else Catalogue.search(words, Catalogue.Scope.Episodes).getOrDefault(emptyList())
+            }
+            foundShows = merge(directory.await(), catalogue.await().filterNot { Feeds.isFeed(it.id) })
+            foundEpisodes = episodes.await()
+        }
+        searching = false
+    }
+
+    /**
+     * Whoever makes the programmes on this page.
+     *
+     * Built from what is already here rather than fetched, and from both
+     * places rather than one: a feed says who made it, the catalogue says
+     * whose channel it is, and neither of those is a different kind of person.
+     * It used to be a rail that only existed for somebody signed in, which
+     * made the answer to "who makes podcasts" depend on having an account.
+     */
+    val makers: List<Pair<String, String?>>
+        get() {
+            val fromShows = (chart + subjectShows + Library.saved.filter { Feeds.isFeed(it.id) })
+                .filter { it.subtitle.isNotBlank() }
+                .map { it.subtitle to it.thumbnail }
+            val fromAccount = channels.map { it.title to it.thumbnail }
+            val seen = mutableSetOf<String>()
+            return (fromAccount + fromShows).filter { seen.add(it.first.lowercase()) }.take(18)
+        }
 
     /** Show a different country's chart. */
     suspend fun chartFrom(code: String) {

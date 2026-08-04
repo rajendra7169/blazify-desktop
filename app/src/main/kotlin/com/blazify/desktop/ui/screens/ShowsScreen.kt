@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +30,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -79,6 +81,13 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
     val following = Library.saved.filter { Catalogue.isShow(it.id) }
 
     LaunchedEffect(Unit) { ShowsState.ensureLoaded() }
+
+    // Searched once the typing stops, and again if the places to look change —
+    // the words haven't, so there is nothing to wait for the second time.
+    LaunchedEffect(ShowsState.query, ShowsState.where) {
+        if (ShowsState.query.trim().length >= 2) kotlinx.coroutines.delay(350)
+        ShowsState.look()
+    }
     // Signing in turns half of this page on, and a page that stays empty
     // afterwards reads as a feature that doesn't work.
     LaunchedEffect(Account.signedIn) {
@@ -104,6 +113,9 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
                         color = Blz.muted, fontSize = 13.sp,
                     )
                 }
+                // Asking for one by name, without leaving the page about them.
+                SearchField(ShowsState.query, ShowsState::type)
+
                 // Where to look. Both by default, because the two know
                 // different things and neither is a superset of the other.
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -146,6 +158,35 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
                     }
                 }
             }
+        }
+
+        // A search takes the page over: somebody who has typed a name is
+        // looking for that, not for what was on the page a moment ago.
+        if (ShowsState.query.trim().length >= 2) {
+            if (ShowsState.foundShows.isNotEmpty()) {
+                rail("Shows") {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        items(ShowsState.foundShows, key = { it.id }) { ShowTile(it, onOpen) }
+                    }
+                }
+            }
+            if (ShowsState.foundEpisodes.isNotEmpty()) {
+                val queue = ShowsState.foundEpisodes.map { it.asTrack() }
+                rail("Episodes") {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        itemsIndexed(queue, key = { at, t -> "found-$at-${t.id}" }) { at, track ->
+                            TallCard(track) { PlayerState.play(queue, at, ShowsState.query) }
+                        }
+                    }
+                }
+            }
+            if (ShowsState.searching && ShowsState.foundShows.isEmpty()) item { SkeletonRail() }
+            if (!ShowsState.searching && ShowsState.foundShows.isEmpty() &&
+                ShowsState.foundEpisodes.isEmpty()
+            ) {
+                item { Text("Nothing matched that", color = Blz.muted, fontSize = 13.sp) }
+            }
+            return@LazyColumn
         }
 
         // What somebody is in the middle of, first and widest. It is the only
@@ -198,10 +239,15 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
             }
         }
 
-        if (ShowsState.channels.isNotEmpty()) {
+        // Built from the programmes already on the page rather than from an
+        // account, so it exists for everybody and covers both places.
+        val makers = ShowsState.makers
+        if (makers.isNotEmpty()) {
             rail("The people behind them") {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                    items(ShowsState.channels, key = { it.id }) { Creator(it, onOpen) }
+                    items(makers, key = { it.first }) { (name, artwork) ->
+                        Creator(name, artwork) { ShowsState.type(name) }
+                    }
                 }
             }
         }
@@ -489,28 +535,67 @@ private fun TallCard(track: Track, onPlay: () -> Unit) {
     }
 }
 
-/** Whoever makes them. A circle, because that is what a face is. */
+/**
+ * Whoever makes them. A circle, because that is what a face is.
+ *
+ * Clicking one looks their name up rather than opening a page: a feed says
+ * who made it and nothing more, and inventing a page for somebody the
+ * directory has no page for would be a link that goes nowhere.
+ */
 @Composable
-private fun Creator(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
+private fun Creator(name: String, artwork: String?, onLookUp: () -> Unit) {
     val (source, hovered) = rememberHovered()
     Column(
         Modifier
             .width(130.dp)
             .clip(RoundedCornerShape(14.dp))
             .hoverBackground(Blz.hover, hovered, source)
-            .clickable { onOpen(card) }
+            .clickable(onClick = onLookUp)
             .padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Artwork(
-            card.thumbnail, size = 112.dp, corner = 56.dp,
+            artwork, size = 112.dp, corner = 56.dp,
             modifier = Modifier.clip(CircleShape).hoverLift(hovered),
         )
         Text(
-            card.title, color = Blz.ink, fontSize = 12.5.sp, fontWeight = FontWeight.Medium,
+            name, color = Blz.ink, fontSize = 12.5.sp, fontWeight = FontWeight.Medium,
             maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
         )
+    }
+}
+
+/** Asking for a programme by name. */
+@Composable
+private fun SearchField(value: String, onChange: (String) -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .width(420.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(Blz.surface)
+            .hoverBackground(Blz.hover, hovered, source)
+            .padding(horizontal = 15.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        Icon(Icons.Rounded.Search, null, Modifier.size(16.dp), tint = Blz.dim)
+        Box(Modifier.fillMaxWidth()) {
+            if (value.isEmpty()) {
+                Text("Search shows and episodes", color = Blz.dim, fontSize = 13.sp)
+            }
+            androidx.compose.foundation.text.BasicTextField(
+                value = value,
+                onValueChange = onChange,
+                singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(color = Blz.ink, fontSize = 13.sp),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(Blaze.Amber),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { com.blazify.desktop.Typing.active = it.isFocused },
+            )
+        }
     }
 }
 
