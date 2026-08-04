@@ -330,6 +330,13 @@ tasks.register<JavaExec>("sessionProbe") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("podcastProbe") {
+    group = "verification"
+    description = "Show what the catalogue gives back for podcasts and whether an episode plays"
+    mainClass.set("com.blazify.desktop.tools.podcast.PodcastProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("rawProbe") {
     group = "verification"
     description = "Ask the catalogue by hand and report the shape of what comes back"

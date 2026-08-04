@@ -3,6 +3,8 @@ package com.blazify.desktop.data
 import com.blazify.innertube.YouTube
 import com.blazify.innertube.models.AlbumItem
 import com.blazify.innertube.models.ArtistItem
+import com.blazify.innertube.models.EpisodeItem
+import com.blazify.innertube.models.PodcastItem
 import com.blazify.innertube.models.PlaylistItem
 import com.blazify.innertube.models.SongItem
 import com.blazify.innertube.models.WatchEndpoint
@@ -386,6 +388,15 @@ object Catalogue {
         is AlbumItem -> Card(id, title, artists?.joinToString(", ") { it.name } ?: "Album", thumbnail, Kind.Album)
         is PlaylistItem -> Card(id, title, author?.name ?: "Playlist", thumbnail, Kind.Playlist)
         is ArtistItem -> Card(id, title, "Artist", thumbnail, Kind.Artist)
+        // A podcast is a playlist whose episodes happen to be long, and an
+        // episode is a song that happens to be speech. Treating them as their
+        // own kinds would mean a second copy of everything a list of songs
+        // already does; they were simply being dropped instead, which is why
+        // both of those searches came back empty.
+        is PodcastItem -> Card(id, title, author?.name ?: "Podcast", thumbnail, Kind.Playlist)
+        is EpisodeItem -> Card(
+            id, title, author?.name ?: podcast?.name ?: "Episode", thumbnail, Kind.Song, duration,
+        )
         else -> null
     }
 
@@ -604,6 +615,14 @@ object Catalogue {
         when (card.kind) {
             Kind.Song -> Result.success(listOf(card.asTrack()))
             Kind.Album -> YouTube.album(card.id).map { page -> page.songs.map { it.asTrack() } }
+            // A podcast wears a playlist's clothes but is not served by the
+            // playlist endpoint — measured: it answers, and answers with
+            // nothing in it. Its own endpoint returns the episodes.
+            Kind.Playlist if card.id.startsWith("MPSP") ->
+                YouTube.podcast(card.id).map { page ->
+                    page.episodes.map { it.asSongItem().asTrack() }
+                }
+
             Kind.Playlist -> YouTube.playlist(card.id).map { page -> page.songs.map { it.asTrack() } }
             Kind.Artist -> Result.success(emptyList())
         }
@@ -633,6 +652,36 @@ object Catalogue {
                     card = card.copy(thumbnail = page.album.thumbnail ?: card.thumbnail),
                     tracks = page.songs.map { it.asTrack() },
                     note = page.album.year?.toString(),
+                )
+            }
+
+            // A podcast wears a playlist's clothes but is not served by the
+            // playlist endpoint — measured: it answers, and answers with
+            // nothing in it. Its own endpoint returns the episodes.
+            Kind.Playlist if card.id.startsWith("MPSP") -> YouTube.podcast(card.id).map { page ->
+                Collection(
+                    card = card.copy(thumbnail = page.podcast.thumbnail ?: card.thumbnail),
+                    tracks = page.episodes.map { it.asSongItem().asTrack() },
+                    // It usually doesn't say how many episodes there are, and
+                    // counting them is not a hard question when they are all
+                    // right here.
+                    note = page.podcast.episodeCountText
+                        ?: "${page.episodes.size} episodes".takeIf { page.episodes.isNotEmpty() },
+                )
+            }
+
+            // A podcast wears a playlist's clothes but is not served by the
+            // playlist endpoint — measured: it answers, and answers with
+            // nothing in it. Its own endpoint returns the episodes.
+            Kind.Playlist if card.id.startsWith("MPSP") -> YouTube.podcast(card.id).map { page ->
+                Collection(
+                    card = card.copy(thumbnail = page.podcast.thumbnail ?: card.thumbnail),
+                    tracks = page.episodes.map { it.asSongItem().asTrack() },
+                    // It usually doesn't say how many episodes there are, and
+                    // counting them is not a hard question when they are all
+                    // right here.
+                    note = page.podcast.episodeCountText
+                        ?: "${page.episodes.size} episodes".takeIf { page.episodes.isNotEmpty() },
                 )
             }
 
