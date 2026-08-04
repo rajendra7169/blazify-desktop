@@ -15,6 +15,7 @@ import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.compression.*
 import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.plugins.observer.ResponseObserver
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.*
 import io.ktor.client.statement.bodyAsText
@@ -66,6 +67,46 @@ class InnerTube {
 
     var useLoginForBrowse: Boolean = false
 
+    /**
+     * Told when the site hands back a newer version of the session.
+     *
+     * The security cookies are rotated every few minutes, and the reply that
+     * rotates them is the only place the new values ever appear. Throwing them
+     * away leaves a session that ages out and is then refused for good — which
+     * looks, from outside, exactly like signing in having never worked.
+     */
+    var onCookieRefreshed: ((String) -> Unit)? = null
+
+    /**
+     * Take the newer values out of a reply and keep them.
+     *
+     * Only for a session that was already being carried: an anonymous request
+     * is handed cookies too, and treating those as a sign-in would invent an
+     * account out of nothing.
+     */
+    @Synchronized
+    private fun absorb(fresh: List<String>) {
+        if (cookieMap.isEmpty()) return
+        val carried = cookieMap.toMutableMap()
+        var changed = false
+        for (line in fresh) {
+            val pair = line.substringBefore(';')
+            val name = pair.substringBefore('=').trim()
+            val value = pair.substringAfter('=', "").trim()
+            // A blank or expired value is the site clearing a cookie, not
+            // renewing one, and is left alone — dropping half a session on a
+            // stray reply would break the other half of it.
+            if (name.isEmpty() || value.isEmpty() || value == "EXPIRED") continue
+            if (carried[name] == value) continue
+            carried[name] = value
+            changed = true
+        }
+        if (!changed) return
+        val merged = carried.entries.joinToString("; ") { "${it.key}=${it.value}" }
+        cookie = merged
+        onCookieRefreshed?.invoke(merged)
+    }
+
     @OptIn(ExperimentalSerializationApi::class)
     private fun createClient() = HttpClient(OkHttp) {
         expectSuccess = true
@@ -81,6 +122,13 @@ class InnerTube {
         install(ContentEncoding) {
             gzip(0.9F)
             deflate(0.8F)
+        }
+
+        // Every reply is looked at for a renewed session on its way past.
+        install(ResponseObserver) {
+            onResponse { response ->
+                response.headers.getAll(HttpHeaders.SetCookie)?.let(::absorb)
+            }
         }
 
         // Enhanced network configuration for better performance

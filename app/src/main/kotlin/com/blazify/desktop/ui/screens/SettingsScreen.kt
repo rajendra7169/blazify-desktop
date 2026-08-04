@@ -484,8 +484,14 @@ private fun AccountSection() {
             return@Section
         }
 
+        // The order matters here and the reason isn't guessable: the site
+        // rotates the session every few minutes and keeps the new values in the
+        // browser's memory, refusing the older ones. Only a browser that is
+        // closed — and stays closed — has the current session on disk at the
+        // moment this button reads it.
         Text(
-            "Sign in to music.youtube.com in your browser, close the browser, then press this.",
+            "Sign in to music.youtube.com in your browser, quit the browser completely, then " +
+                "press this. Leave it closed until this says you're signed in.",
             color = Blz.muted, fontSize = 13.sp,
         )
 

@@ -178,6 +178,7 @@ object Account {
         picture = null
         problem = null
         YouTube.cookie = null
+        YouTube.onCookieRefreshed = null
         YouTube.dataSyncId = null
         YouTube.useLoginForBrowse = false
         runCatching { store.delete() }
@@ -237,6 +238,15 @@ object Account {
     private fun attach(value: String) {
         cookie = value
         YouTube.cookie = value
+        // The site rotates the security cookies every few minutes and the only
+        // place the new values ever appear is the reply that rotates them.
+        // Keeping them is the difference between a sign-in that lasts and one
+        // that works for an afternoon and is then refused for good — which is
+        // indistinguishable, from outside, from its never having worked.
+        YouTube.onCookieRefreshed = { fresh ->
+            cookie = fresh
+            runCatching { store.writeText(fresh) }
+        }
         // The visitor id goes with it. One is minted anonymously the first time
         // anything is fetched, and it belongs to whoever was signed in at the
         // time — which, at startup, is nobody. Carrying that anonymous identity

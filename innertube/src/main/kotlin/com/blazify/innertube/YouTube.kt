@@ -100,6 +100,11 @@ object YouTube {
         set(value) {
             innerTube.locale = value
         }
+    /** Told when the site hands back a newer version of the session. */
+    var onCookieRefreshed: ((String) -> Unit)?
+        get() = innerTube.onCookieRefreshed
+        set(value) { innerTube.onCookieRefreshed = value }
+
     var visitorData: String?
         get() = innerTube.visitorData
         set(value) {
