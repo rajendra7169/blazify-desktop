@@ -103,22 +103,54 @@ object Account {
             }
 
             val reasons = mutableListOf<String>()
+            var refused: String? = null
             for (browser in browsers) {
-                BrowserSession.sessionFrom(browser).fold(
-                    onSuccess = {
-                        // Counted by separators, not by '=' — a cookie value is
-                        // base64 and carries its own padding, which was making
-                        // eighteen cookies report as twenty-four.
-                        carried = it.split("; ").count { part -> part.isNotBlank() }
-                        attach(it)
-                        runCatching { store.writeText(it) }
-                        refreshAndReport(browser.label)
-                        return@launch
-                    },
-                    onFailure = { reasons += "${browser.label}: ${it.message}" },
-                )
+                val session = BrowserSession.sessionFrom(browser).getOrElse {
+                    reasons += "${browser.label}: ${it.message}"
+                    null
+                } ?: continue
+
+                // Counted by separators, not by '=' — a cookie value is
+                // base64 and carries its own padding, which was making
+                // eighteen cookies report as twenty-four.
+                carried = session.split("; ").count { part -> part.isNotBlank() }
+                attach(session)
+
+                // Holding cookies and being signed in are different things, so
+                // the catalogue is asked before a browser is taken as the
+                // answer. A stale session in the first browser used to end the
+                // search and leave the signed-in one further down untried —
+                // which matters now that a machine can offer a dozen of them.
+                if (adopt()) {
+                    runCatching { store.writeText(session) }
+                    problem = null
+                    checking = false
+                    return@launch
+                }
+                if (refused == null) refused = browser.label
+                reasons += "${browser.label}: its session was refused ($carried cookies)"
             }
-            problem = "No signed-in browser found.\n" + reasons.joinToString("\n")
+
+            // Nothing was accepted, so nothing should be left attached — a
+            // refused session in place is an app that looks signed in and
+            // answers as nobody.
+            cookie = null
+            YouTube.cookie = null
+            YouTube.useLoginForBrowse = false
+            problem = if (refused != null) {
+                // The session WAS found and handed over — the catalogue refused
+                // it. Saying "not signed in there" is a lie that sends people
+                // back to a browser they are already signed into.
+                //
+                // The usual cause is a browser that is still open: the security
+                // cookies rotate every few minutes and the newest values live
+                // in memory until it closes, so what is on disk is a session
+                // that has already been superseded.
+                "$refused's session was refused — close $refused completely and press " +
+                    "this again, so it writes its current session to disk"
+            } else {
+                "No signed-in browser found.\n" + reasons.joinToString("\n")
+            }
             checking = false
         }
     }
@@ -162,39 +194,43 @@ object Account {
     /** How many cookies the last browser import handed over, for saying so. */
     private var carried: Int? = null
 
-    private suspend fun refreshAndReport(from: String?) {
+    /**
+     * Ask the catalogue who this session belongs to, and keep it if it answers.
+     *
+     * Says only whether it worked; what to tell someone about it depends on
+     * where the session came from, and that's the caller's business.
+     */
+    private suspend fun adopt(): Boolean =
         YouTube.accountInfo().fold(
             onSuccess = {
                 name = it.name
                 email = it.email
                 picture = it.thumbnailUrl
                 verified = true
-                problem = null
                 // Whoever this is, their likes are the ones to show.
                 Library.syncWithAccount()
+                true
             },
             onFailure = {
                 verified = false
-                // Named when it came from a browser: knowing which one was
-                // tried is the difference between "sign in there" and a shrug.
-                problem = if (from != null) {
-                    // The session WAS found and handed over — the catalogue
-                    // refused it. Saying "not signed in there" is a lie that
-                    // sends people back to a browser they are already signed
-                    // into, which is the least useful place to send them.
-                    //
-                    // The usual cause is a browser that is still open: the
-                    // security cookies rotate every few minutes and the newest
-                    // values live in memory until it closes, so what is on disk
-                    // is a session that has already been superseded.
-                    "$from's session was refused${carried?.let { " ($it cookies)" }.orEmpty()} — " +
-                        "close $from completely and press this again, so it writes its " +
-                        "current session to disk"
-                } else {
-                    "That session wasn't accepted by the catalogue"
-                }
+                false
             },
         )
+
+    private suspend fun refreshAndReport(from: String?) {
+        if (!adopt()) {
+            // Named when it came from a browser: knowing which one was tried is
+            // the difference between "sign in there" and a shrug.
+            problem = if (from != null) {
+                "$from's session was refused${carried?.let { " ($it cookies)" }.orEmpty()} — " +
+                    "close $from completely and press this again, so it writes its " +
+                    "current session to disk"
+            } else {
+                "That session wasn't accepted by the catalogue"
+            }
+        } else {
+            problem = null
+        }
         checking = false
     }
 
