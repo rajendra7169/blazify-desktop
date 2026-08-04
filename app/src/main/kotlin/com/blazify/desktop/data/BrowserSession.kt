@@ -64,6 +64,65 @@ object BrowserSession {
     )
 
     /**
+     * One browser this app knows how to look for.
+     *
+     * A table rather than a chain of if-statements: browsers differ only in
+     * where they keep their cookies and which keyring name they lock them
+     * with, so adding a new one should be adding a line — not editing logic
+     * that already works for a dozen others.
+     */
+    private data class Known(
+        val label: String,
+        /** Under the config directory on Linux, under the data directory on Windows. */
+        val linux: String,
+        val windows: String,
+        /** The keyring entry it locks its cookies with; Chromium-derived only. */
+        val keyring: String = "chromium",
+        /** Its flatpak application id, when it ships as one. */
+        val flatpak: String? = null,
+        /** Its snap directory, when it ships as one. */
+        val snap: String? = null,
+    )
+
+    /**
+     * Everything with a Chromium cookie store worth looking in.
+     *
+     * Release channels are listed separately because they are separate
+     * installations with separate sessions — somebody who does their browsing
+     * in Chrome Beta is signed in there and nowhere else, and only offering
+     * them stable Chrome is offering them nothing.
+     */
+    private val CHROMIUM = listOf(
+        Known("Chrome", "google-chrome", "Google\\Chrome", "chrome", "com.google.Chrome"),
+        Known("Chrome Beta", "google-chrome-beta", "Google\\Chrome Beta", "chrome"),
+        Known("Chrome Dev", "google-chrome-unstable", "Google\\Chrome Dev", "chrome"),
+        Known("Chromium", "chromium", "Chromium", "chromium", "org.chromium.Chromium", "chromium"),
+        Known("Brave", "BraveSoftware/Brave-Browser", "BraveSoftware\\Brave-Browser", "brave", "com.brave.Browser", "brave"),
+        Known("Brave Beta", "BraveSoftware/Brave-Browser-Beta", "BraveSoftware\\Brave-Browser-Beta", "brave"),
+        Known("Brave Nightly", "BraveSoftware/Brave-Browser-Nightly", "BraveSoftware\\Brave-Browser-Nightly", "brave"),
+        Known("Edge", "microsoft-edge", "Microsoft\\Edge", "chromium", "com.microsoft.Edge"),
+        Known("Edge Beta", "microsoft-edge-beta", "Microsoft\\Edge Beta", "chromium"),
+        Known("Edge Dev", "microsoft-edge-dev", "Microsoft\\Edge Dev", "chromium"),
+        Known("Vivaldi", "vivaldi", "Vivaldi", "vivaldi", "com.vivaldi.Vivaldi"),
+        Known("Opera", "opera", "..\\Roaming\\Opera Software\\Opera Stable", "opera", "com.opera.Opera"),
+        Known("Opera GX", "opera-gx", "..\\Roaming\\Opera Software\\Opera GX Stable", "opera"),
+        Known("Yandex", "yandex-browser", "Yandex\\YandexBrowser", "yandex browser"),
+        Known("Thorium", "thorium", "Thorium", "thorium"),
+        Known("Arc", "arc", "Packages\\TheBrowserCompany.Arc", "chromium"),
+        Known("Whale", "naver-whale", "Naver\\Whale", "chromium"),
+    )
+
+    /** Firefox and the browsers built on it, which keep profiles rather than folders. */
+    private val GECKO = listOf(
+        Known("Firefox", ".mozilla/firefox", "Mozilla\\Firefox\\Profiles", flatpak = "org.mozilla.firefox", snap = "firefox"),
+        Known("LibreWolf", ".librewolf", "librewolf\\Profiles", flatpak = "io.gitlab.librewolf-community"),
+        Known("Zen", ".zen", "zen\\Profiles", flatpak = "app.zen_browser.zen"),
+        Known("Waterfox", ".waterfox", "Waterfox\\Profiles", flatpak = "net.waterfox.waterfox"),
+        Known("Floorp", ".floorp", "Floorp\\Profiles", flatpak = "one.ablaze.floorp"),
+        Known("Mullvad", ".mullvad-browser", "Mullvad\\Profiles", flatpak = "net.mullvad.MullvadBrowser"),
+    )
+
+    /**
      * Which browsers are on this machine.
      *
      * Only ones with a cookie store on disk are offered — a browser that has
@@ -75,86 +134,82 @@ object BrowserSession {
         val windows = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
         val appData = System.getenv("LOCALAPPDATA") ?: "$home\\AppData\\Local"
 
-        val chromium = if (windows) {
-            listOf(
-                Triple("Chrome", "$appData\\Google\\Chrome\\User Data\\Default\\Network\\Cookies", "chrome"),
-                Triple("Edge", "$appData\\Microsoft\\Edge\\User Data\\Default\\Network\\Cookies", "chromium"),
-                Triple("Brave", "$appData\\BraveSoftware\\Brave-Browser\\User Data\\Default\\Network\\Cookies", "brave"),
-            )
-        } else {
-            // Installed three different ways on the same desktop, and each way
-            // puts the same browser somewhere else entirely. A browser found in
-            // one place says nothing about the others, so all of them are
-            // looked at and whichever holds a session wins.
-            listOf(
-                Triple("Chrome", "google-chrome/Default/Cookies", "chrome"),
-                Triple("Chromium", "chromium/Default/Cookies", "chromium"),
-                Triple("Brave", "BraveSoftware/Brave-Browser/Default/Cookies", "brave"),
-                Triple("Edge", "microsoft-edge/Default/Cookies", "chromium"),
-                Triple("Vivaldi", "vivaldi/Default/Cookies", "vivaldi"),
-                // Second and later profiles. Plenty of people keep work in
-                // Default and the account they actually listen with in
-                // another, and looking only at the first finds the wrong one
-                // or nothing at all.
-                *(1..5).flatMap { at ->
-                    listOf(
-                        Triple("Chrome (profile $at)", "google-chrome/Profile $at/Cookies", "chrome"),
-                        Triple("Brave (profile $at)", "BraveSoftware/Brave-Browser/Profile $at/Cookies", "brave"),
-                        Triple("Edge (profile $at)", "microsoft-edge/Profile $at/Cookies", "chromium"),
-                    )
-                }.toTypedArray(),
-            ).flatMap { (label, tail, keyring) ->
+        val found = mutableListOf<Browser>()
+
+        // ── Chromium and everything derived from it ──────────────────────────
+        for (known in CHROMIUM) {
+            // The same browser is installed three different ways on the same
+            // desktop and each way puts it somewhere else entirely, so all of
+            // them are looked at and whichever holds a session wins.
+            val roots = if (windows) {
                 listOf(
-                    // Installed from the distribution's own packages.
-                    Triple(label, "$home/.config/$tail", keyring),
-                    // Installed as a flatpak, which keeps its own home.
-                    Triple(label, "$home/.var/app/${flatpakId(label)}/config/$tail", keyring),
-                    // Installed as a snap, likewise.
-                    Triple(label, "$home/snap/${label.lowercase()}/common/$tail", keyring),
+                    "$appData\\${known.windows}\\User Data",
+                    // Opera and a few others keep the profile at the top and
+                    // never grew a User Data level.
+                    "$appData\\${known.windows}",
                 )
+            } else {
+                listOfNotNull(
+                    "$home/.config/${known.linux}",
+                    known.flatpak?.let { "$home/.var/app/$it/config/${known.linux}" },
+                    known.snap?.let { "$home/snap/$it/common/.config/${known.linux}" },
+                    known.snap?.let { "$home/snap/$it/current/.config/${known.linux}" },
+                )
+            }
+
+            for (root in roots) {
+                // The root itself, because Opera and its kind keep one session
+                // and no profile folder; then Default and the numbered ones,
+                // because plenty of people keep work in the first and the
+                // account they actually listen with in another.
+                val profiles = listOf("", "Default") + (1..9).map { "Profile $it" }
+                for (profile in profiles) {
+                    val at = if (profile.isEmpty()) root else "$root/$profile"
+                    // Newer builds moved the store under Network/; older ones
+                    // keep it beside the profile. Both are still in the wild.
+                    val store = listOf(File("$at/Network/Cookies"), File("$at/Cookies"))
+                        .firstOrNull { it.isFile } ?: continue
+                    val label = when (profile) {
+                        "", "Default" -> known.label
+                        else -> "${known.label} · $profile"
+                    }
+                    found += Browser(label, store, Kind.Chromium, known.keyring)
+                }
             }
         }
 
-        val found = chromium.mapNotNull { (label, path, keyring) ->
-            File(path).takeIf { it.isFile }?.let { Browser(label, it, Kind.Chromium, keyring) }
-        }
-            // The same browser can turn up twice when it's installed twice;
-            // the one used most recently is the one someone is signed in to.
-            .groupBy { it.label }
-            .map { (_, copies) -> copies.maxBy { it.store.lastModified() } }
-            .toMutableList()
+        // ── Firefox and its descendants ──────────────────────────────────────
+        for (known in GECKO) {
+            val roots = if (windows) {
+                listOf(File("$appData\\..\\Roaming\\${known.windows}"))
+            } else {
+                listOfNotNull(
+                    File("$home/${known.linux}"),
+                    known.snap?.let { File("$home/snap/$it/common/${known.linux}") },
+                    known.flatpak?.let { File("$home/.var/app/$it/${known.linux}") },
+                    known.flatpak?.let { File("$home/.var/app/$it/config/${known.linux.removePrefix(".")}") },
+                )
+            }
 
-        // Firefox keeps a folder per profile with no fixed name, in a place
-        // that likewise depends on how it was installed.
-        val firefoxRoots = if (windows) {
-            listOf(File("$appData\\..\\Roaming\\Mozilla\\Firefox\\Profiles"))
-        } else {
-            listOf(
-                File("$home/.mozilla/firefox"),
-                File("$home/snap/firefox/common/.mozilla/firefox"),
-                File("$home/.var/app/org.mozilla.firefox/.mozilla/firefox"),
-                File("$home/.var/app/org.mozilla.firefox/config/mozilla/firefox"),
-            )
+            roots
+                .flatMap { it.listFiles().orEmpty().toList() }
+                .mapNotNull { profile ->
+                    File(profile, "cookies.sqlite").takeIf { it.isFile }?.let { profile.name to it }
+                }
+                // One profile per window and only the one in use is signed in,
+                // so the most recently written is the one worth reading.
+                .maxByOrNull { it.second.lastModified() }
+                ?.let { (_, store) -> found += Browser(known.label, store, Kind.Firefox) }
         }
-
-        firefoxRoots
-            .flatMap { root -> root.listFiles().orEmpty().toList() }
-            .mapNotNull { File(it, "cookies.sqlite").takeIf { file -> file.isFile } }
-            // A profile per window, and only the one being used is signed in.
-            .maxByOrNull { it.lastModified() }
-            ?.let { found += Browser("Firefox", it, Kind.Firefox) }
 
         return found
-    }
-
-    /** What a browser is called when it's installed as a flatpak. */
-    private fun flatpakId(label: String) = when (label) {
-        "Chrome" -> "com.google.Chrome"
-        "Chromium" -> "org.chromium.Chromium"
-        "Brave" -> "com.brave.Browser"
-        "Edge" -> "com.microsoft.Edge"
-        "Vivaldi" -> "com.vivaldi.Vivaldi"
-        else -> label
+            // The same browser can turn up twice when it is installed twice;
+            // the one used most recently is the one somebody is signed in to.
+            .groupBy { it.label }
+            .map { (_, copies) -> copies.maxBy { it.store.lastModified() } }
+            // Most recently used first, so the one they are actually in is
+            // tried before the one they installed and forgot.
+            .sortedByDescending { it.store.lastModified() }
     }
 
     /**
@@ -373,13 +428,13 @@ object BrowserSession {
         val passwords = mutableListOf<String>()
 
         // Straight to the library first — no extra package needed.
-        listOf(browser.keyringName, browser.label.lowercase()).distinct().forEach { name ->
+        listOf(browser.keyringName, browser.label.substringBefore(" ·").lowercase()).distinct().forEach { name ->
             keyringPassword(name)?.let { passwords += it }
         }
 
         // Then the command-line tool, for a desktop whose library is elsewhere.
         if (passwords.isEmpty()) {
-            listOf(browser.keyringName, browser.label.lowercase()).distinct().forEach { name ->
+            listOf(browser.keyringName, browser.label.substringBefore(" ·").lowercase()).distinct().forEach { name ->
                 runCatching {
                     val process = ProcessBuilder("secret-tool", "lookup", "application", name).start()
                     val stored = process.inputStream.bufferedReader().readText().trim()
