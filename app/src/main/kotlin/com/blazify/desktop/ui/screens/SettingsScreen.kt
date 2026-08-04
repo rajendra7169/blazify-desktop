@@ -485,7 +485,7 @@ private fun AccountSection() {
         }
 
         Text(
-            "Sign in to music.youtube.com in your browser, then press this.",
+            "Sign in to music.youtube.com in your browser, close the browser, then press this.",
             color = Blz.muted, fontSize = 13.sp,
         )
 

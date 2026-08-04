@@ -106,6 +106,7 @@ object Account {
             for (browser in browsers) {
                 BrowserSession.sessionFrom(browser).fold(
                     onSuccess = {
+                        carried = it.count { c -> c == '=' }
                         attach(it)
                         runCatching { store.writeText(it) }
                         refreshAndReport(browser.label)
@@ -153,6 +154,9 @@ object Account {
         scope.launch { refreshAndReport(null) }
     }
 
+    /** How many cookies the last browser import handed over, for saying so. */
+    private var carried: Int? = null
+
     private suspend fun refreshAndReport(from: String?) {
         YouTube.accountInfo().fold(
             onSuccess = {
@@ -169,7 +173,18 @@ object Account {
                 // Named when it came from a browser: knowing which one was
                 // tried is the difference between "sign in there" and a shrug.
                 problem = if (from != null) {
-                    "$from is not signed in to YouTube Music — sign in there, then try again"
+                    // The session WAS found and handed over — the catalogue
+                    // refused it. Saying "not signed in there" is a lie that
+                    // sends people back to a browser they are already signed
+                    // into, which is the least useful place to send them.
+                    //
+                    // The usual cause is a browser that is still open: the
+                    // security cookies rotate every few minutes and the newest
+                    // values live in memory until it closes, so what is on disk
+                    // is a session that has already been superseded.
+                    "$from's session was refused${carried?.let { " ($it cookies)" }.orEmpty()} — " +
+                        "close $from completely and press this again, so it writes its " +
+                        "current session to disk"
                 } else {
                     "That session wasn't accepted by the catalogue"
                 }

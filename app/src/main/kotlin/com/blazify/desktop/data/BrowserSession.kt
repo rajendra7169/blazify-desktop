@@ -92,6 +92,17 @@ object BrowserSession {
                 Triple("Brave", "BraveSoftware/Brave-Browser/Default/Cookies", "brave"),
                 Triple("Edge", "microsoft-edge/Default/Cookies", "chromium"),
                 Triple("Vivaldi", "vivaldi/Default/Cookies", "vivaldi"),
+                // Second and later profiles. Plenty of people keep work in
+                // Default and the account they actually listen with in
+                // another, and looking only at the first finds the wrong one
+                // or nothing at all.
+                *(1..5).flatMap { at ->
+                    listOf(
+                        Triple("Chrome (profile $at)", "google-chrome/Profile $at/Cookies", "chrome"),
+                        Triple("Brave (profile $at)", "BraveSoftware/Brave-Browser/Profile $at/Cookies", "brave"),
+                        Triple("Edge (profile $at)", "microsoft-edge/Profile $at/Cookies", "chromium"),
+                    )
+                }.toTypedArray(),
             ).flatMap { (label, tail, keyring) ->
                 listOf(
                     // Installed from the distribution's own packages.
