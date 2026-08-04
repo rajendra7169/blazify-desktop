@@ -34,11 +34,23 @@ fun main(): Unit = runBlocking {
                 println("  missing of the essentials: ${missing.ifEmpty { listOf("none") }.joinToString()}")
 
                 YouTube.cookie = cookies
+                // As the app does when it attaches a session: an anonymous
+                // visitor id minted before sign-in contradicts the account it
+                // would then be sent with.
+                YouTube.visitorData = null
                 YouTube.useLoginForBrowse = true
-                val who = YouTube.accountInfo()
-                who.fold(
+
+                YouTube.accountInfo().fold(
                     onSuccess = { println("  ACCEPTED — ${it.name}") },
                     onFailure = { println("  REFUSED — ${it.javaClass.simpleName}: ${it.message?.take(200)}") },
+                )
+                // A second, unrelated authenticated request. If the library
+                // answers with somebody's own shelves then the session is good
+                // and only the account menu has changed shape; if this is
+                // refused too, the session itself is what Google won't take.
+                YouTube.library("FEmusic_liked_playlists").fold(
+                    onSuccess = { println("  library — ${it.items.size} shelves of my own") },
+                    onFailure = { println("  library — refused (${it.javaClass.simpleName})") },
                 )
             },
             onFailure = { println("${browser.label}: could not read — ${it.message}") },
