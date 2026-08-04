@@ -2,6 +2,8 @@ package com.blazify.desktop.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,16 +23,24 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -131,30 +141,23 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
         // What this place is listening to. No account, no sign-in, and the one
         // thing the music catalogue cannot answer for programmes at all.
         if (ShowsState.chart.isNotEmpty()) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text(
-                            "Top shows", color = Blz.ink, fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        // The place, next to the heading it qualifies, because
-                        // a chart with no place on it is a chart of nowhere.
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                            items(Feeds.places) { (code, name) ->
-                                Chip(name, code == Feeds.country) {
-                                    scope.launch { ShowsState.chartFrom(code) }
-                                }
+            rail(
+                "Top shows",
+                // The place, next to the heading it qualifies, because a chart
+                // with no place on it is a chart of nowhere.
+                beside = {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        items(Feeds.places) { (code, name) ->
+                            Chip(name, code == Feeds.country) {
+                                scope.launch { ShowsState.chartFrom(code) }
                             }
                         }
                     }
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        itemsIndexed(ShowsState.chart, key = { at, card -> "chart-$at-${card.id}" }) { at, card ->
-                            ChartTile(at + 1, card, onOpen)
-                        }
+                },
+            ) {
+                LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    itemsIndexed(ShowsState.chart, key = { at, card -> "chart-$at-${card.id}" }) { at, card ->
+                        ChartTile(at + 1, card, onOpen)
                     }
                 }
             }
@@ -165,7 +168,7 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
         if (ShowsState.query.trim().length >= 2) {
             if (ShowsState.foundShows.isNotEmpty()) {
                 rail("Shows") {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         items(ShowsState.foundShows, key = { it.id }) { ShowTile(it, onOpen) }
                     }
                 }
@@ -173,7 +176,7 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
             if (ShowsState.foundEpisodes.isNotEmpty()) {
                 val queue = ShowsState.foundEpisodes.map { it.asTrack() }
                 rail("Episodes") {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         itemsIndexed(queue, key = { at, t -> "found-$at-${t.id}" }) { at, track ->
                             TallCard(track) { PlayerState.play(queue, at, ShowsState.query) }
                         }
@@ -193,7 +196,7 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
         // thing on the page that is already theirs.
         if (marks.isNotEmpty()) {
             rail("Carry on") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(marks, key = { it.track.id }) { WideCard(it) }
                 }
             }
@@ -201,7 +204,7 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
 
         if (following.isNotEmpty()) {
             rail("Shows you follow") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     items(following, key = { it.id }) { ShowTile(it, onOpen) }
                 }
             }
@@ -211,7 +214,7 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
         // account because a feed will tell anybody who asks.
         if (ShowsState.latest.isNotEmpty()) {
             rail("Latest from your shows") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     itemsIndexed(ShowsState.latest, key = { at, t -> "latest-$at-${t.id}" }) { at, track ->
                         TallCard(track) { PlayerState.play(ShowsState.latest, at, "Your shows") }
                     }
@@ -221,7 +224,7 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
 
         if (ShowsState.fresh.isNotEmpty()) {
             rail("New episodes") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     itemsIndexed(ShowsState.fresh, key = { at, t -> "fresh-$at-${t.id}" }) { at, track ->
                         TallCard(track) { PlayerState.play(ShowsState.fresh, at, "New episodes") }
                     }
@@ -231,7 +234,7 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
 
         if (ShowsState.later.isNotEmpty()) {
             rail("Saved for later") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     itemsIndexed(ShowsState.later, key = { at, t -> "later-$at-${t.id}" }) { at, track ->
                         TallCard(track) { PlayerState.play(ShowsState.later, at, "Saved for later") }
                     }
@@ -244,7 +247,7 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
         val makers = ShowsState.makers
         if (makers.isNotEmpty()) {
             rail("The people behind them") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                     items(makers, key = { it.first }) { (name, artwork) ->
                         Creator(name, artwork) { ShowsState.type(name) }
                     }
@@ -260,7 +263,7 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
         // Subjects, which need no account at all and are therefore the part of
         // this page that is always here.
         rail("Browse by subject") {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(ShowsState.subjects) { subject ->
                     Chip(subject, subject == ShowsState.subject) {
                         scope.launch { ShowsState.choose(subject) }
@@ -272,7 +275,7 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
         when {
             ShowsState.loadingSubject && ShowsState.subjectShows.isEmpty() -> item { SkeletonRail() }
             ShowsState.subjectShows.isNotEmpty() -> rail("${ShowsState.subject} shows") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     items(ShowsState.subjectShows, key = { it.id }) { ShowTile(it, onOpen) }
                 }
             }
@@ -284,7 +287,7 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
             // start it.
             val queue = ShowsState.subjectEpisodes.map { it.asTrack() }
             rail("${ShowsState.subject} episodes") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     itemsIndexed(queue, key = { at, track -> "ep-$at-${track.id}" }) { at, track ->
                         TallCard(track) { PlayerState.play(queue, at, ShowsState.subject) }
                     }
@@ -316,13 +319,70 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
  * depending on, and a heading that lands on top of its own row is a bug that
  * only shows up on somebody else's screen.
  */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 private fun androidx.compose.foundation.lazy.LazyListScope.rail(
     title: String,
-    content: @Composable () -> Unit,
+    beside: @Composable () -> Unit = {},
+    content: @Composable (androidx.compose.foundation.lazy.LazyListState) -> Unit,
 ) = item {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(title, color = Blz.ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        content()
+    val state = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    var width by remember { mutableStateOf(0) }
+
+    // Just under a pane, so whatever you were looking at stays in sight and
+    // gives you your bearings on the other side of the jump.
+    fun nudge(direction: Int) = scope.launch {
+        state.animateScrollBy(direction * (width * 0.8f).coerceAtLeast(240f))
+    }
+
+    Column(
+        Modifier.fillMaxWidth().onSizeChanged { width = it.width },
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(title, color = Blz.ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Box(Modifier.weight(1f)) { beside() }
+            // A rail on a desktop has no thumb to flick it, and the wheel
+            // belongs to the page. Without these the far end of a row is
+            // reachable only by people who know about holding shift.
+            if (state.canScrollBackward || state.canScrollForward) {
+                Nudge(Icons.Rounded.ChevronLeft, "Back", state.canScrollBackward) { nudge(-1) }
+                Nudge(Icons.Rounded.ChevronRight, "Onwards", state.canScrollForward) { nudge(1) }
+            }
+        }
+        Box(
+            Modifier.onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Scroll) { event ->
+                // Sideways turns only. A wheel turned the ordinary way belongs
+                // to the page — catching it here would trap the scroll inside
+                // whichever row the pointer happened to be over, on a page
+                // that is almost entirely rows.
+                val turned = event.changes.firstOrNull()?.scrollDelta ?: return@onPointerEvent
+                if (turned.x == 0f) return@onPointerEvent
+                scope.launch { state.scrollBy(turned.x * 64f) }
+            },
+        ) {
+            content(state)
+        }
+    }
+}
+
+/** One step along a row, offered only while there is somewhere to step. */
+@Composable
+private fun Nudge(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, on: Boolean, onClick: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Box(
+        Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(enabled = on, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, label, Modifier.size(19.dp), tint = if (on) Blz.ink else Blz.dim)
     }
 }
 

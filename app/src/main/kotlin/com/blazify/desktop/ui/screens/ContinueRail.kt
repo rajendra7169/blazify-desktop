@@ -2,6 +2,7 @@ package com.blazify.desktop.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,6 +39,7 @@ import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.rememberHovered
+import kotlinx.coroutines.launch
 
 /**
  * Blazify Project (C) 2026
@@ -51,14 +54,29 @@ import com.blazify.desktop.ui.rememberHovered
  * any recommendation, and burying it under a wall of tiles is how a long
  * recording quietly becomes one you never went back to.
  */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun ContinueRail(marks: List<Mark>) {
+    val state = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             "Pick up where you left off",
             color = Blz.ink, fontSize = 17.sp, fontWeight = FontWeight.Bold,
         )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        LazyRow(
+            state = state,
+            // A wheel turned sideways moves the row; turned the ordinary way it
+            // belongs to the page, which is what somebody scrolling past this
+            // is doing.
+            modifier = Modifier.onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Scroll) { event ->
+                val turned = event.changes.firstOrNull()?.scrollDelta ?: return@onPointerEvent
+                if (turned.x == 0f) return@onPointerEvent
+                scope.launch { state.scrollBy(turned.x * 64f) }
+            },
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
             items(marks, key = { it.track.id }) { mark -> ContinueCard(mark) }
         }
     }
