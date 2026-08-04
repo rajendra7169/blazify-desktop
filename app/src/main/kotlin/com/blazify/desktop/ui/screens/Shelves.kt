@@ -53,6 +53,7 @@ import com.blazify.desktop.data.asTrack
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.Navigator
 import com.blazify.desktop.ui.Look
 import com.blazify.desktop.ui.SongMenu
 import com.blazify.desktop.ui.SongSheetButton
@@ -168,10 +169,31 @@ private fun ShelfHeader(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Only where there genuinely is more. A shelf showing everything
+            // it has does not need a way to see everything it has.
+            shelf.more?.let { rest ->
+                SeeAllPill { Navigator.openShelf(shelf.title, rest) }
+            }
             onPlay?.let { PlayAllPill(it) }
             Arrow(Icons.Rounded.ChevronLeft, state.canScrollBackward) { nudge(-1) }
             Arrow(Icons.Rounded.ChevronRight, state.canScrollForward) { nudge(1) }
         }
+    }
+}
+
+/** The way past the dozen a shelf had room for. */
+@Composable
+private fun SeeAllPill(onClick: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Blz.surfaceHigh)
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+    ) {
+        Text("See all", color = Blz.ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

@@ -87,6 +87,7 @@ object Navigator {
     }
 
     fun go(to: Destination) {
+        expanded = null
         destination = to
         settingsOpen = false
         playlist = null
@@ -102,12 +103,36 @@ object Navigator {
      */
     fun open(card: Catalogue.Card) {
         if (card.kind == Catalogue.Kind.Song) return
+        expanded = null
         playlist = null
         if (stack.lastOrNull()?.id == card.id) return
         stack.add(card)
     }
 
+    /**
+     * The whole of a shelf, rather than the dozen it had room for.
+     *
+     * Kept beside the card stack rather than in it: this is not a thing in the
+     * catalogue with an id of its own, it is a view onto part of one — and
+     * giving it a fake card to travel in would mean inventing a kind that means
+     * "not really a place".
+     */
+    var expanded by mutableStateOf<Pair<String, Catalogue.More>?>(null)
+        private set
+
+    fun openShelf(title: String, more: Catalogue.More) {
+        expanded = title to more
+    }
+
+    fun closeShelf() {
+        expanded = null
+    }
+
     fun back() {
+        if (expanded != null) {
+            expanded = null
+            return
+        }
         stack.removeLastOrNull()
     }
 }

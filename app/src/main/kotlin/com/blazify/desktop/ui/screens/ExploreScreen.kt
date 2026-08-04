@@ -466,7 +466,7 @@ private fun SearchField(value: String, onChange: (String) -> Unit) {
 }
 
 @Composable
-private fun ResultTile(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
+internal fun ResultTile(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
     val (source, hovered) = rememberHovered()
     val round = card.kind == Catalogue.Kind.Artist
 

@@ -188,9 +188,21 @@ object Catalogue {
      * from. Those turn a wall of equal headings into something you can skim,
      * so they're carried through rather than dropped.
      */
+    /**
+     * Where the rest of a shelf lives.
+     *
+     * A shelf on an artist's page shows a dozen of something they may have
+     * hundreds of. The catalogue hands back a pointer to the full list, and
+     * without carrying it the page is a dead end — you can see that there is
+     * more and have no way to reach it.
+     */
+    @Serializable
+    data class More(val browseId: String, val params: String?)
+
     data class Shelf(
         val title: String,
         val cards: List<Card>,
+        val more: More? = null,
         val label: String? = null,
         val avatar: String? = null,
         /**
@@ -643,7 +655,14 @@ object Catalogue {
                     shelves = page.sections.mapNotNull { section ->
                         val cards = section.items.mapNotNull { it.asCard() }
                         if (cards.isEmpty()) null
-                        else Shelf(section.title, cards, rows = if (cards.all { it.kind == Kind.Song }) 4 else 1)
+                        else Shelf(
+                            title = section.title,
+                            cards = cards,
+                            more = section.moreEndpoint?.let {
+                                More(it.browseId.orEmpty(), it.params)
+                            }?.takeIf { it.browseId.isNotBlank() },
+                            rows = if (cards.all { it.kind == Kind.Song }) 4 else 1,
+                        )
                     },
                     note = page.subscriberCountText,
                 )
@@ -659,6 +678,30 @@ object Catalogue {
      * MP4 container is considered — the alternatives come back in containers the
      * player can't open, so a higher bitrate in the wrong format is no use.
      */
+    /**
+     * Everything behind a shelf, not just the dozen it showed.
+     *
+     * Paged, because an artist with three hundred songs would otherwise arrive
+     * as one enormous answer — the first page is what the screen needs, and the
+     * rest follows as it is scrolled.
+     */
+    suspend fun expand(more: More, after: String? = null): Result<Pair<List<Card>, String?>> =
+        withContext(Dispatchers.IO) {
+            ensureIdentity()
+            if (after != null) {
+                YouTube.artistItemsContinuation(after).map { page ->
+                    page.items.mapNotNull { it.asCard() } to page.continuation
+                }
+            } else {
+                YouTube.artistItems(
+                    com.blazify.innertube.models.BrowseEndpoint(
+                        browseId = more.browseId,
+                        params = more.params,
+                    ),
+                ).map { page -> page.items.mapNotNull { it.asCard() } to page.continuation }
+            }
+        }
+
     /**
      * A playable link, and who to claim to be while fetching it.
      *

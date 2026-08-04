@@ -51,6 +51,7 @@ import com.blazify.desktop.ui.screens.HomeScreen
 import com.blazify.desktop.ui.screens.LibraryScreen
 import com.blazify.desktop.ui.screens.LocalScreen
 import com.blazify.desktop.ui.screens.SettingsScreen
+import com.blazify.desktop.ui.screens.ShelfScreen
 import com.blazify.desktop.ui.screens.TogetherScreen
 import com.blazify.desktop.ui.screens.TopSongsScreen
 import com.blazify.desktop.ui.screens.TrackListScreen
@@ -312,6 +313,18 @@ private fun Content(destination: Destination) {
             )
             return
         }
+    }
+
+    // The whole of a shelf sits above whatever page offered it, so leaving it
+    // puts you back on that page rather than at the top of the app.
+    Navigator.expanded?.let { (title, more) ->
+        ShelfScreen(
+            title = title,
+            more = more,
+            onBack = Navigator::closeShelf,
+            onOpen = Navigator::open,
+        )
+        return
     }
 
     val opened = Navigator.opened
