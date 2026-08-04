@@ -110,6 +110,19 @@ object Catalogue {
         Profiles("Profiles"),
     }
 
+    /**
+     * What the catalogue thinks you are about to type.
+     *
+     * Half the value of a search box is not having to finish the sentence —
+     * and the other half is spelling. A name half-remembered and typed the way
+     * it sounds finds nothing at all on its own, and finds the record with one
+     * tap when the catalogue is allowed to guess.
+     */
+    suspend fun suggestions(query: String): List<String> = withContext(Dispatchers.IO) {
+        if (query.isBlank()) return@withContext emptyList()
+        YouTube.searchSuggestions(query).getOrNull()?.queries.orEmpty()
+    }
+
     suspend fun search(query: String, scope: Scope): Result<List<Card>> = withContext(Dispatchers.IO) {
         ensureIdentity()
         // "All" asks with no filter at all, which is a different request rather

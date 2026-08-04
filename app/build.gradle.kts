@@ -330,6 +330,12 @@ tasks.register<JavaExec>("sessionProbe") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("suggestCheck") {
+    group = "verification"
+    mainClass.set("com.blazify.desktop.tools.session.SuggestCheckKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("resumeCheck") {
     group = "verification"
     mainClass.set("com.blazify.desktop.tools.resume.ResumeCheckKt")
