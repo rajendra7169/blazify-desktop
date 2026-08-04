@@ -50,12 +50,42 @@ object Feeds {
     /**
      * Which country's charts to show.
      *
-     * Taken from the machine rather than asked: somebody in Kathmandu wants
-     * what Kathmandu is listening to, and being asked to pick a country before
-     * seeing a chart is a form to fill in before a page loads.
+     * Taken from the machine to begin with, because being asked to pick a
+     * country before a page will load is a form standing in front of a chart.
+     * But the machine is often wrong about this — a desktop set to English
+     * says United States wherever it happens to be sitting — so the answer can
+     * be corrected, and the correction is remembered.
      */
-    val country: String
-        get() = java.util.Locale.getDefault().country.lowercase().ifBlank { "us" }
+    var country: String = runCatching { kept.readText().trim().ifBlank { null } }.getOrNull()
+        ?: java.util.Locale.getDefault().country.lowercase().ifBlank { "us" }
+        private set
+
+    private val kept: java.io.File get() = java.io.File(Store.folder, "podcast-country")
+
+    fun chartFrom(code: String) {
+        country = code.lowercase()
+        runCatching { kept.writeText(country) }
+    }
+
+    /**
+     * The places worth offering.
+     *
+     * Not a list of every country on earth: a chart is a thing somebody looks
+     * at for their own place or a place they follow, and two hundred entries
+     * turns a glance into a search. Whatever the machine says goes on the front
+     * whether or not it is here already.
+     */
+    val places: List<Pair<String, String>>
+        get() {
+            val common = listOf(
+                "np" to "Nepal", "in" to "India", "us" to "United States",
+                "gb" to "United Kingdom", "au" to "Australia", "ca" to "Canada",
+                "ae" to "UAE", "sg" to "Singapore", "de" to "Germany", "jp" to "Japan",
+            )
+            val mine = java.util.Locale.getDefault().country.lowercase()
+            return if (mine.isBlank() || common.any { it.first == mine }) common
+            else listOf(mine to java.util.Locale.of("", mine).displayCountry) + common
+        }
 
     /** One programme in the directory. */
     data class Show(

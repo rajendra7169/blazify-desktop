@@ -119,10 +119,30 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
         // What this place is listening to. No account, no sign-in, and the one
         // thing the music catalogue cannot answer for programmes at all.
         if (ShowsState.chart.isNotEmpty()) {
-            rail("Top shows in ${Feeds.country.uppercase()}") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    itemsIndexed(ShowsState.chart, key = { at, card -> "chart-$at-${card.id}" }) { at, card ->
-                        ChartTile(at + 1, card, onOpen)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            "Top shows", color = Blz.ink, fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        // The place, next to the heading it qualifies, because
+                        // a chart with no place on it is a chart of nowhere.
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            items(Feeds.places) { (code, name) ->
+                                Chip(name, code == Feeds.country) {
+                                    scope.launch { ShowsState.chartFrom(code) }
+                                }
+                            }
+                        }
+                    }
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        itemsIndexed(ShowsState.chart, key = { at, card -> "chart-$at-${card.id}" }) { at, card ->
+                            ChartTile(at + 1, card, onOpen)
+                        }
                     }
                 }
             }
@@ -142,6 +162,18 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
             rail("Shows you follow") {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     items(following, key = { it.id }) { ShowTile(it, onOpen) }
+                }
+            }
+        }
+
+        // What the followed programmes have put out lately, which needs no
+        // account because a feed will tell anybody who asks.
+        if (ShowsState.latest.isNotEmpty()) {
+            rail("Latest from your shows") {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    itemsIndexed(ShowsState.latest, key = { at, t -> "latest-$at-${t.id}" }) { at, track ->
+                        TallCard(track) { PlayerState.play(ShowsState.latest, at, "Your shows") }
+                    }
                 }
             }
         }

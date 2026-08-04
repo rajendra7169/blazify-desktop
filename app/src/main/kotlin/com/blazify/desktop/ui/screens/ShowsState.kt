@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Feeds
+import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.Store
 import com.blazify.desktop.data.Track
 import kotlinx.coroutines.async
@@ -65,6 +66,16 @@ object ShowsState {
         private set
     var fresh by mutableStateOf<List<Track>>(emptyList())
         private set
+
+    /**
+     * The latest from the programmes somebody follows here.
+     *
+     * Read from the feeds themselves, which is the only reason this can exist
+     * at all without an account: following a show on this machine is a note in
+     * a file, and a feed will tell anybody who asks what came out this week.
+     */
+    var latest by mutableStateOf<List<Track>>(emptyList())
+        private set
     var later by mutableStateOf<List<Track>>(emptyList())
         private set
     var channels by mutableStateOf<List<Catalogue.Card>>(emptyList())
@@ -101,6 +112,7 @@ object ShowsState {
             val theLater = async { Catalogue.episodesForLater() }
             val theChannels = async { Catalogue.showChannels() }
             chart = theChart.await()
+            latest = newestFromFollowed()
             feed = theFeed.await()
             fresh = theFresh.await()
             later = theLater.await()
@@ -149,6 +161,22 @@ object ShowsState {
     }
 
     /**
+     * One episode from each followed programme, newest first.
+     *
+     * One each rather than all of them: a daily show would otherwise fill the
+     * row on its own and bury the weekly one somebody actually waits for. The
+     * feeds are read together, since ten of them read in turn is ten times a
+     * second of waiting for no reason.
+     */
+    private suspend fun newestFromFollowed(): List<Track> = coroutineScope {
+        val followed = Library.saved.filter { Feeds.isFeed(it.id) }
+        if (followed.isEmpty()) return@coroutineScope emptyList()
+        followed
+            .map { show -> async { Feeds.episodes(Feeds.feedOf(show.id), limit = 1).firstOrNull() } }
+            .mapNotNull { it.await()?.asTrack() }
+    }
+
+    /**
      * Two lists of the same kind of thing, made one.
      *
      * Matched on the name with the noise taken out, since the same programme is
@@ -168,6 +196,14 @@ object ShowsState {
         .trim()
         .replace(Regex("\\s+"), " ")
 
+    /** Show a different country's chart. */
+    suspend fun chartFrom(code: String) {
+        if (code == Feeds.country) return
+        Feeds.chartFrom(code)
+        chart = if (where == Where.Catalogue) emptyList()
+        else Feeds.chart(limit = 14).map { it.asCard() }
+    }
+
     /** Look somewhere else. */
     suspend fun lookIn(picked: Where) {
         if (picked == where) return
@@ -181,6 +217,7 @@ object ShowsState {
     fun forget() {
         loaded = false
         chart = emptyList()
+        latest = emptyList()
         feed = emptyList()
         fresh = emptyList()
         later = emptyList()

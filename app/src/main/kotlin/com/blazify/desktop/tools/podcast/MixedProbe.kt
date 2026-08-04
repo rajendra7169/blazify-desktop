@@ -18,6 +18,22 @@ import kotlinx.coroutines.runBlocking
  * have something to play.
  */
 fun main(): Unit = runBlocking {
+    // The chart, from a place the machine was not going to guess.
+    Feeds.chartFrom("np")
+    val nepal = Feeds.chart(limit = 6)
+    println("top in ${Feeds.country}: ${nepal.joinToString(" · ") { it.title.take(26) }}")
+    Feeds.chartFrom("in")
+    println("top in ${Feeds.country}: ${Feeds.chart(limit = 6).joinToString(" · ") { it.title.take(26) }}")
+
+    // Following a show and asking its feed what is new, with nobody signed in.
+    val followed = Feeds.search("bbc nepali", limit = 1).firstOrNull()
+    if (followed != null) {
+        val newest = Feeds.episodes(followed.feed, limit = 2)
+        println("\nlatest from ${followed.title}:")
+        newest.forEach { println("   ${it.title.take(52)} · ${it.asTrack().duration} · ${it.published}") }
+    }
+    println()
+
     for (words in listOf("the daily", "nepali", "cricket")) {
         val found = Catalogue.search(words, Catalogue.Scope.Podcasts).getOrDefault(emptyList())
         val fromFeeds = found.count { Feeds.isFeed(it.id) }
