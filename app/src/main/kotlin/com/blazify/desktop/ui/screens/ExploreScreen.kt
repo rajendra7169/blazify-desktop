@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -59,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import com.blazify.desktop.PlayerState
 import com.blazify.desktop.Typing
 import com.blazify.desktop.data.Catalogue
+import com.blazify.desktop.data.Searches
 import kotlinx.coroutines.launch
 import com.blazify.desktop.data.asTrack
 import com.blazify.desktop.ui.Artwork
@@ -103,6 +106,7 @@ fun ExploreScreen(
     var results by remember { mutableStateOf<List<Catalogue.Card>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var guesses by remember { mutableStateOf<List<String>>(emptyList()) }
 
     // Search as you type, but only once you've stopped. Firing on every
     // keystroke would send a request per letter and show results for a prefix
@@ -117,10 +121,19 @@ fun ExploreScreen(
         searching = true
         message = null
         delay(350)
+        // Asked for alongside the search rather than instead of it: the guesses
+        // are for the next query, and holding the results back until they
+        // arrive would make the box feel slower to buy something nobody asked
+        // for yet.
+        launch { guesses = Catalogue.suggestions(typed).filterNot { it.equals(typed, true) } }
         Catalogue.search(typed, scope).fold(
             onSuccess = {
                 results = it
                 message = if (it.isEmpty()) "Nothing matched that" else null
+                // Remembered once it found something. A query typed towards is
+                // not a query, and keeping the ones that matched nothing would
+                // offer somebody their own typing mistakes.
+                if (it.isNotEmpty()) Searches.note(typed)
             },
             onFailure = { message = "Couldn't reach the catalogue" },
         )
@@ -148,6 +161,16 @@ fun ExploreScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SearchField(query) { query = it }
+
+        // What you looked for before, when there is nothing in the box; what
+        // the catalogue thinks you mean, once there is. Never both — they
+        // answer the same question at two different moments.
+        if (query.trim().length < 2) {
+            RecentSearches(Searches.all.map { it.words }, onPick = { query = it }, onForget = Searches::forget)
+        } else if (guesses.isNotEmpty()) {
+            Guesses(guesses) { query = it }
+        }
+
         if (query.trim().length >= 2) ScopeChips(scope) { scope = it }
 
         when {
@@ -428,6 +451,82 @@ private fun ScopeChips(selected: Catalogue.Scope, onSelect: (Catalogue.Scope) ->
                     fontSize = 12.sp,
                     fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
                 )
+            }
+        }
+    }
+}
+
+/**
+ * What the catalogue thinks you are typing towards.
+ *
+ * Chips rather than a list dropping over the page: the answers below are still
+ * worth seeing while you decide, and a panel that covers them makes every
+ * keystroke a choice between looking and reading.
+ */
+@Composable
+private fun Guesses(words: List<String>, onPick: (String) -> Unit) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(words.take(8)) { word ->
+            val (source, hovered) = rememberHovered()
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Blz.surface)
+                    .hoverBackground(Blz.hover, hovered, source)
+                    .clickable { onPick(word) }
+                    .padding(horizontal = 13.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(Icons.Rounded.Search, null, Modifier.size(13.dp), tint = Blz.dim)
+                Text(word, color = Blz.ink, fontSize = 12.5.sp, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** The handful of things you keep coming back to. */
+@Composable
+private fun RecentSearches(
+    words: List<String>,
+    onPick: (String) -> Unit,
+    onForget: (String) -> Unit,
+) {
+    if (words.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        Text(
+            "RECENT", color = Blz.dim, fontSize = 10.5.sp,
+            fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(words) { word ->
+                val (source, hovered) = rememberHovered()
+                Row(
+                    Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Blz.surface)
+                        .hoverBackground(Blz.hover, hovered, source)
+                        .clickable { onPick(word) }
+                        .padding(start = 13.dp, end = if (hovered.value) 6.dp else 13.dp, top = 7.dp, bottom = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(Icons.Rounded.History, null, Modifier.size(13.dp), tint = Blz.dim)
+                    Text(word, color = Blz.ink, fontSize = 12.5.sp, maxLines = 1)
+                    // Only once the pointer is on it: a row of crosses reads as
+                    // a list of things to get rid of rather than places to go.
+                    if (hovered.value) {
+                        Box(
+                            Modifier
+                                .size(18.dp)
+                                .clip(RoundedCornerShape(9.dp))
+                                .clickable { onForget(word) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Rounded.Close, "Forget", Modifier.size(12.dp), tint = Blz.muted)
+                        }
+                    }
+                }
             }
         }
     }
