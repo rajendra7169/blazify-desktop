@@ -100,6 +100,19 @@ object YouTube {
         set(value) {
             innerTube.locale = value
         }
+    /**
+     * Fetch a page for no reason other than to be handed a renewed session.
+     *
+     * The catalogue's own endpoints renew nothing; the page does, which is how
+     * a browser left open stays signed in indefinitely.
+     */
+    suspend fun touchSession() = innerTube.touchSession()
+
+    /** Told when the site ends the session rather than renewing it. */
+    var onSessionExpired: (() -> Unit)?
+        get() = innerTube.onSessionExpired
+        set(value) { innerTube.onSessionExpired = value }
+
     /** Told when the site hands back a newer version of the session. */
     var onCookieRefreshed: ((String) -> Unit)?
         get() = innerTube.onCookieRefreshed

@@ -78,6 +78,30 @@ class InnerTube {
     var onCookieRefreshed: ((String) -> Unit)? = null
 
     /**
+     * Told when the site ends the session rather than renewing it.
+     *
+     * It says so plainly — the renewable cookies come back marked expired —
+     * and that is worth passing on, because "your session was refused" and
+     * "the site has ended your session" send somebody to two different places.
+     */
+    var onSessionExpired: (() -> Unit)? = null
+
+    /**
+     * The cookies that are renewed rather than issued.
+     *
+     * Deliberately not the ones that say *who* the session belongs to. A page
+     * fetched with a session the site has already given up on comes back with a
+     * complete set of anonymous replacements, and taking those would quietly
+     * swap somebody's account for nobody's — the failure would look exactly
+     * like success. These are the short-lived halves of a session and nothing
+     * else, so a renewal can only ever keep an identity, never change it.
+     */
+    private val RENEWABLE = setOf(
+        "SIDCC", "__Secure-1PSIDCC", "__Secure-3PSIDCC",
+        "__Secure-1PSIDTS", "__Secure-3PSIDTS",
+    )
+
+    /**
      * Take the newer values out of a reply and keep them.
      *
      * Only for a session that was already being carried: an anonymous request
@@ -93,10 +117,13 @@ class InnerTube {
             val pair = line.substringBefore(';')
             val name = pair.substringBefore('=').trim()
             val value = pair.substringAfter('=', "").trim()
+            if (name !in RENEWABLE) continue
             // A blank or expired value is the site clearing a cookie, not
             // renewing one, and is left alone — dropping half a session on a
-            // stray reply would break the other half of it.
-            if (name.isEmpty() || value.isEmpty() || value == "EXPIRED") continue
+            // stray reply would break the other half of it. It is also the
+            // site saying, in as many words, that this session is over.
+            if (value == "EXPIRED") { onSessionExpired?.invoke(); continue }
+            if (value.isEmpty()) continue
             if (carried[name] == value) continue
             carried[name] = value
             changed = true
@@ -106,6 +133,24 @@ class InnerTube {
         cookie = merged
         onCookieRefreshed?.invoke(merged)
     }
+
+    /**
+     * Ask the site for a page, purely to be handed a renewed session.
+     *
+     * The catalogue's own endpoints never renew anything — measured, not
+     * assumed: they answer without a single Set-Cookie on them. The page does,
+     * which is how a browser that is left open stays signed in for months. This
+     * is the app doing the same thing, and the reply is read for its headers
+     * and thrown away.
+     */
+    suspend fun touchSession(): Boolean = runCatching {
+        if (cookie.isNullOrBlank()) return false
+        httpClient.get("https://music.youtube.com/") {
+            header("cookie", cookie)
+            header("User-Agent", YouTubeClient.WEB_REMIX.userAgent)
+            header("Accept", "text/html,application/xhtml+xml")
+        }.bodyAsText().isNotEmpty()
+    }.getOrDefault(false)
 
     @OptIn(ExperimentalSerializationApi::class)
     private fun createClient() = HttpClient(OkHttp) {

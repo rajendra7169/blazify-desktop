@@ -71,7 +71,11 @@ fun main() {
                 "\"LOGGED_IN\":false" in html -> "SIGNED OUT"
                 else -> "doesn't say"
             }
-            println("  $site → $status, the page says $loggedIn")
+            val renews = page.headerFields.keys.filterNotNull()
+                .filter { it.equals("set-cookie", ignoreCase = true) }
+                .flatMap { page.headerFields[it].orEmpty() }
+                .map { it.substringBefore('=') }
+            println("  $site → $status, the page says $loggedIn, renews: ${renews.ifEmpty { listOf("nothing") }.joinToString()}")
             page.disconnect()
         }
 
@@ -135,6 +139,13 @@ fun main() {
                             else -> ", neither — no account header and no sign-in prompt"
                         },
                 )
+                if (authUser == null) {
+                    val renews = connection.headerFields.keys.filterNotNull()
+                        .filter { it.equals("set-cookie", ignoreCase = true) }
+                        .flatMap { connection.headerFields[it].orEmpty() }
+                        .map { it.substringBefore('=') }
+                    println("    renews: ${renews.ifEmpty { listOf("nothing") }.joinToString()}")
+                }
                 // The renderer names in the reply say what kind of menu came
                 // back — an account's menu, a sign-in prompt, or something
                 // else entirely. Names only; no contents.

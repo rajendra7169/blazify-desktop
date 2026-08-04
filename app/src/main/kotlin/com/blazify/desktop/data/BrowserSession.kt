@@ -213,6 +213,27 @@ object BrowserSession {
     }
 
     /**
+     * Whether a browser is still running.
+     *
+     * Closing the last window is not the same as quitting: most of them stay
+     * resident for background pages and a tray icon, and one that is still
+     * running is still being handed security cookies it keeps to itself.
+     * Somebody who has closed every window and is being told to close the
+     * browser has been given an instruction they have already followed — this
+     * is how to say the useful thing instead.
+     */
+    fun isRunning(label: String): Boolean {
+        val name = label.substringBefore(" ·").trim().lowercase().replace(" ", "")
+        return runCatching {
+            val command = if (onWindows) listOf("tasklist") else listOf("pgrep", "-fl", name)
+            val process = ProcessBuilder(command).redirectErrorStream(true).start()
+            val output = process.inputStream.bufferedReader().readText()
+            process.waitFor()
+            if (onWindows) output.lowercase().contains(name) else output.isNotBlank()
+        }.getOrDefault(false)
+    }
+
+    /**
      * Take the catalogue's cookies out of a browser.
      *
      * Returns the header the catalogue expects, or null when that browser

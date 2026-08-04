@@ -114,7 +114,12 @@ object Account {
                 // base64 and carries its own padding, which was making
                 // eighteen cookies report as twenty-four.
                 carried = session.split("; ").count { part -> part.isNotBlank() }
+                expired = false
                 attach(session)
+                // Asked before anything else: this is the one request that
+                // reports an ended session as an ended session, rather than as
+                // an answer with nobody in it.
+                YouTube.touchSession()
 
                 // Holding cookies and being signed in are different things, so
                 // the catalogue is asked before a browser is taken as the
@@ -142,12 +147,22 @@ object Account {
                 // it. Saying "not signed in there" is a lie that sends people
                 // back to a browser they are already signed into.
                 //
-                // The usual cause is a browser that is still open: the security
-                // cookies rotate every few minutes and the newest values live
-                // in memory until it closes, so what is on disk is a session
-                // that has already been superseded.
-                "$refused's session was refused — close $refused completely and press " +
-                    "this again, so it writes its current session to disk"
+                // Three different things end up here and they need three
+                // different answers: the site has ended the session, or the
+                // browser is still running and keeping the current one to
+                // itself, or neither and it is simply old.
+                when {
+                    expired ->
+                        "Google has ended this session. Open music.youtube.com in $refused, " +
+                            "sign in again, quit $refused completely, then press this."
+                    BrowserSession.isRunning(refused) ->
+                        "$refused's session was refused, and $refused is still running — " +
+                            "closing its windows isn't enough if it stays in the background " +
+                            "or the tray. Quit it properly, then press this."
+                    else ->
+                        "$refused's session was refused. Open music.youtube.com in $refused " +
+                            "to check you're still signed in there, quit it, then press this."
+                }
             } else {
                 "No signed-in browser found.\n" + reasons.joinToString("\n")
             }
@@ -184,6 +199,28 @@ object Account {
         runCatching { store.delete() }
     }
 
+    /**
+     * Keep the session current for as long as the app is open.
+     *
+     * A browser that is left open stays signed in for months, and this is the
+     * whole of how: it asks for a page every so often and is handed newer
+     * security cookies, which it writes down. Without it a session ages out in
+     * an afternoon and is then refused for good — the failure everybody reads
+     * as signing in having never worked at all.
+     */
+    private fun keepAlive() {
+        if (alive) return
+        alive = true
+        scope.launch {
+            while (true) {
+                if (hasCredential) YouTube.touchSession()
+                kotlinx.coroutines.delay(10 * 60 * 1000L)
+            }
+        }
+    }
+
+    private var alive = false
+
     /** Ask the catalogue who this session belongs to. */
     fun refresh() {
         if (!hasCredential) return
@@ -194,6 +231,9 @@ object Account {
 
     /** How many cookies the last browser import handed over, for saying so. */
     private var carried: Int? = null
+
+    /** Whether the site has said, in as many words, that this session is over. */
+    private var expired = false
 
     /**
      * Ask the catalogue who this session belongs to, and keep it if it answers.
@@ -208,6 +248,8 @@ object Account {
                 email = it.email
                 picture = it.thumbnailUrl
                 verified = true
+                // From here on the session renews itself rather than ageing.
+                keepAlive()
                 // Whoever this is, their likes are the ones to show.
                 Library.syncWithAccount()
                 true
@@ -244,9 +286,13 @@ object Account {
         // that works for an afternoon and is then refused for good — which is
         // indistinguishable, from outside, from its never having worked.
         YouTube.onCookieRefreshed = { fresh ->
+            expired = false
             cookie = fresh
             runCatching { store.writeText(fresh) }
         }
+        // The site says so in as many words when it ends a session, and that
+        // is worth repeating rather than translating into a shrug.
+        YouTube.onSessionExpired = { expired = true }
         // The visitor id goes with it. One is minted anonymously the first time
         // anything is fetched, and it belongs to whoever was signed in at the
         // time — which, at startup, is nobody. Carrying that anonymous identity

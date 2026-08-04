@@ -39,6 +39,10 @@ fun main(): Unit = runBlocking {
                 // would then be sent with.
                 YouTube.visitorData = null
                 YouTube.useLoginForBrowse = true
+                // Proof the renewal is being caught rather than dropped: the
+                // site rotates the security cookies on almost every reply.
+                var renewed = 0
+                YouTube.onCookieRefreshed = { renewed += 1 }
 
                 YouTube.accountInfo().fold(
                     onSuccess = { println("  ACCEPTED — ${it.name}") },
@@ -52,6 +56,7 @@ fun main(): Unit = runBlocking {
                     onSuccess = { println("  library — ${it.items.size} shelves of my own") },
                     onFailure = { println("  library — refused (${it.javaClass.simpleName})") },
                 )
+                println("  the site handed back a newer session $renewed times")
             },
             onFailure = { println("${browser.label}: could not read — ${it.message}") },
         )
