@@ -9,6 +9,7 @@ import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LyricsSource
 import com.blazify.desktop.data.Playback
+import com.blazify.desktop.data.Resume
 import com.blazify.desktop.data.Scrobbler
 import com.blazify.desktop.together.Did
 import com.blazify.desktop.together.Together
@@ -337,6 +338,56 @@ object PlayerState {
         // Nothing else is watching the engine, so the queue would stall on the
         // first track without this.
         AudioEngine.onFinished = { advance() }
+
+        // Where you had got to, noted as you go. Not only while playing: a
+        // pause is exactly when somebody is about to walk away, and the
+        // position at that moment is the one worth having.
+        scope.launch {
+            while (true) {
+                delay(3000)
+                val track = current ?: continue
+                val length = AudioEngine.duration
+                if (length > 0 && resuming == null) {
+                    Resume.note(track, AudioEngine.position, length)
+                }
+            }
+        }
+    }
+
+    /**
+     * Where a resume is heading, while it gets there.
+     *
+     * A track opens at nought and stays there for a moment before the seek
+     * lands. Recording that would erase the mark being resumed to, one tick
+     * before it was used — so nothing is written while a jump is in flight.
+     */
+    private var resuming: Double? = null
+
+    /**
+     * Pick up where this was left off, if it was left off anywhere.
+     *
+     * Only long things carry a mark at all — see [Resume] — so this never
+     * drops somebody two thirds of the way through a song they wanted to hear.
+     * The seek waits for the stream to say how long it is, because a jump
+     * asked for before that is a jump into nothing.
+     */
+    private fun resumeIfLeftOff(track: Track) {
+        val mark = Resume.mark(track.id) ?: return
+        resuming = mark.seconds
+        scope.launch {
+            val deadline = System.currentTimeMillis() + 20_000
+            while (System.currentTimeMillis() < deadline) {
+                delay(100)
+                // Skipped past already: the jump belongs to a track nobody is
+                // listening to any more.
+                if (current?.id != track.id) break
+                if (AudioEngine.duration <= 0) continue
+                seekTo(mark.seconds)
+                delay(600)
+                break
+            }
+            resuming = null
+        }
     }
 
     /**
@@ -509,6 +560,7 @@ object PlayerState {
         if (onDisk != null) {
             AudioEngine.play(onDisk)
             fadeUp()
+            resumeIfLeftOff(track)
             Library.played(track)
             return
         }
@@ -518,6 +570,7 @@ object PlayerState {
                 onSuccess = {
                     AudioEngine.play(it.url, it.userAgent)
                     fadeUp()
+                    resumeIfLeftOff(track)
                     // Recorded once it's actually playing rather than on the
                     // click, so a track that never resolves doesn't leave a
                     // false entry in a list of what you listened to.
