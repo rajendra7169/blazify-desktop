@@ -484,20 +484,31 @@ private fun AccountSection() {
             return@Section
         }
 
-        // The order matters here and the reason isn't guessable: the site
-        // rotates the session every few minutes and keeps the new values in the
-        // browser's memory, refusing the older ones. Only a browser that is
-        // closed — and stays closed — has the current session on disk at the
-        // moment this button reads it.
+        // The window this app opens is the way in that holds still. Reading the
+        // everyday browser is kept underneath it, because when it works it is
+        // one press and no window at all — but it only works when that browser
+        // has been quit, and the site moves the session on regardless.
         Text(
-            "Sign in to music.youtube.com in your browser, quit the browser completely, then " +
-                "press this. Leave it closed until this says you're signed in.",
-            color = Blz.muted, fontSize = 13.sp,
+            Account.waitingForWindow?.let {
+                "Sign in to YouTube Music in the $it window that just opened, then close it."
+            } ?: "A window opens on Google's own sign-in page. Sign in there and close it — " +
+                "nothing is typed into Blazify and no password passes through it.",
+            color = Blz.muted, fontSize = 13.sp, lineHeight = 18.sp,
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GoogleButton(
-                if (Account.checking) "Looking…" else "Use my browser's sign-in",
+            if (Account.canOpenWindow) {
+                GoogleButton(
+                    when {
+                        Account.waitingForWindow != null -> "Waiting for that window…"
+                        Account.checking -> "Signing in…"
+                        else -> "Sign in"
+                    },
+                ) { Account.signInWithWindow() }
+            }
+            Button(
+                if (Account.checking && Account.waitingForWindow == null) "Looking…"
+                else "Use a browser I've already quit",
             ) { Account.signInFromBrowser() }
             Button("Open YouTube Music") { openInBrowser("https://music.youtube.com") }
         }

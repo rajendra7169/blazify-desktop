@@ -170,6 +170,64 @@ object Account {
         }
     }
 
+    /**
+     * Whether a sign-in window this app opened is still standing open.
+     *
+     * Worth saying on screen: the app looks like it is doing nothing while it
+     * waits, and what it is waiting for is somebody in another window.
+     */
+    var waitingForWindow by mutableStateOf<String?>(null)
+        private set
+
+    /** Whether this machine has a browser a window could be opened in. */
+    val canOpenWindow: Boolean get() = SignInWindow.opener() != null
+
+    /**
+     * Sign in through a window this app opens, on a profile only it uses.
+     *
+     * The everyday browser was the wrong thing to borrow from — the site keeps
+     * moving the session on and the copy on disk is always the superseded one.
+     * A profile nothing else opens holds still, so what is written when the
+     * window closes is what is read a moment later.
+     */
+    fun signInWithWindow() {
+        problem = null
+        checking = true
+        expired = false
+        val opener = SignInWindow.opener()
+        waitingForWindow = opener?.label ?: "your browser"
+        scope.launch {
+            SignInWindow.signIn().fold(
+                onSuccess = { session ->
+                    waitingForWindow = null
+                    carried = session.split("; ").count { it.isNotBlank() }
+                    attach(session)
+                    YouTube.touchSession()
+                    if (adopt()) {
+                        runCatching { store.writeText(session) }
+                        problem = null
+                    } else {
+                        cookie = null
+                        YouTube.cookie = null
+                        YouTube.useLoginForBrowse = false
+                        problem = if (expired) {
+                            "Google ended that session as soon as it was made. Try again, " +
+                                "and finish signing in before closing the window."
+                        } else {
+                            "That window's session wasn't accepted. Try again, and make sure " +
+                                "music.youtube.com shows you signed in before you close it."
+                        }
+                    }
+                },
+                onFailure = {
+                    waitingForWindow = null
+                    problem = it.message ?: "The sign-in window couldn't be opened"
+                },
+            )
+            checking = false
+        }
+    }
+
     /** The same credential, typed rather than fetched. */
     fun signIn(pasted: String) {
         val cleaned = pasted.trim().removePrefix("Cookie:").trim()
@@ -197,6 +255,10 @@ object Account {
         YouTube.dataSyncId = null
         YouTube.useLoginForBrowse = false
         runCatching { store.delete() }
+        // The window's profile holds a signed-in session of its own, which is
+        // the account itself. Leaving it behind would make signing out a
+        // gesture rather than something that happened.
+        SignInWindow.forget()
     }
 
     /**
