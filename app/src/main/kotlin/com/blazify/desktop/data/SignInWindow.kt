@@ -106,6 +106,13 @@ object SignInWindow {
             )
 
         profile.mkdirs()
+        // Which pages the last window was on is how this one knows it has
+        // arrived, and last time it arrived — so leaving that behind means
+        // arriving before the window has even opened. It is tab state and
+        // nothing else; throwing it away costs nothing and is the difference
+        // between watching for a landing and remembering an old one.
+        runCatching { File(profile, "Default/Sessions").deleteRecursively() }
+        runCatching { File(profile, "sessionstore-backups").deleteRecursively() }
         val command = when (opener.kind) {
             BrowserSession.Kind.Firefox -> listOf(
                 opener.program,
@@ -128,6 +135,7 @@ object SignInWindow {
             )
         }
 
+        val opened = System.currentTimeMillis()
         val process = runCatching { ProcessBuilder(command).start() }
             .getOrElse { return@withContext Result.failure(it) }
 
@@ -161,7 +169,7 @@ object SignInWindow {
             // music site only happens after the sign-in page lets you through,
             // so that is the signal: close the window, which writes the cookies
             // out, and read them a moment later.
-            if (landed()) {
+            if (landed(opened)) {
                 close(process)
                 process.waitFor()
                 caught = read(opener)?.getOrNull()
@@ -190,9 +198,13 @@ object SignInWindow {
      * site appears only as an escaped parameter and never as a place that has
      * been visited.
      */
-    private fun landed(): Boolean =
+    private fun landed(since: Long): Boolean =
         File(profile, "Default/Sessions").listFiles().orEmpty().any { file ->
             runCatching {
+                // Written by this window, not a previous one. Belt as well as
+                // braces: the folder is cleared before the window opens, and a
+                // file that predates the opening is still not evidence about it.
+                if (file.lastModified() < since) return@runCatching false
                 // Read as bytes-as-characters: it's a binary record and the only
                 // thing being looked for in it is a plain run of ASCII.
                 file.readText(Charsets.ISO_8859_1).contains(LANDING)
