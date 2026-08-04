@@ -54,6 +54,7 @@ import com.blazify.desktop.ui.screens.SettingsScreen
 import com.blazify.desktop.ui.screens.ShelfScreen
 import com.blazify.desktop.ui.screens.TogetherScreen
 import com.blazify.desktop.ui.screens.TopSongsScreen
+import com.blazify.desktop.ui.screens.Editing
 import com.blazify.desktop.ui.screens.TrackListScreen
 
 /**
@@ -310,6 +311,14 @@ private fun Content(destination: Destination) {
                     Navigator.closePlaylist()
                 },
                 onBack = Navigator::closePlaylist,
+                // This is a list somebody made, so its name and its order are
+                // theirs to change. Liked songs and history get none of this —
+                // their order is an answer, not a choice.
+                edit = Editing(
+                    onRename = { Playlists.rename(id, it) },
+                    onRemove = { Playlists.removeAt(id, it) },
+                    onMove = { from, to -> Playlists.move(id, from, to) },
+                ),
             )
             return
         }
