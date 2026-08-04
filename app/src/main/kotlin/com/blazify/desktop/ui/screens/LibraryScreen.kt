@@ -123,7 +123,7 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
                 lapsed ->
                     "Your playlists are still on your account — this computer's sign-in has " +
                         "lapsed, which YouTube does every few weeks. Settings › Account › " +
-                        "Use current browser puts it back."
+                        "Signing in again puts it back."
                 Account.signedIn ->
                     "Save an album or playlist and it collects here, alongside anything you make."
                 else ->
@@ -138,7 +138,7 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
     if (lapsed) {
         Text(
             "Signed out — your account's playlists aren't showing. " +
-                "Settings › Account › Use current browser.",
+                "Settings › Account › Sign in.",
             color = Blaze.Amber, fontSize = 12.sp,
             modifier = Modifier.padding(start = 26.dp, end = 26.dp, top = 16.dp),
         )

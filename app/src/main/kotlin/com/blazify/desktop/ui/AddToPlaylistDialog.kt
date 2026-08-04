@@ -120,7 +120,7 @@ fun AddToPlaylistDialog(track: Track, onDismiss: () -> Unit) {
                             // wrong wastes the whole dialog.
                             Account.hasCredential && !Account.signedIn ->
                                 "Your sign-in has lapsed, so your account's playlists aren't " +
-                                    "listed. Settings › Account › Use current browser. You can " +
+                                    "listed. Settings › Account › Sign in. You can " +
                                     "still make one here."
                             Account.signedIn -> "No playlists yet — make the first one."
                             else -> "No playlists on this computer yet. Sign in to see the ones on your account."
