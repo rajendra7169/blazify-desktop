@@ -549,6 +549,13 @@ object PlayerState {
             failure = "Audio support is missing — install VLC and restart Blazify"
             return
         }
+        // Some things arrive knowing where their audio is. A feed says so
+        // outright, and there is nothing to negotiate — no client to pretend
+        // to be, no link bound to whoever asked for it. Checked after the
+        // kept copy and before the catalogue, because a copy on disk still
+        // beats an ordinary file on somebody else's server.
+        val known = track.stream
+
         // Anything already on disk needs no resolving — hand the path straight
         // over. A kept copy is preferred to the network even when there is one:
         // it starts sooner and can't stall halfway through.
@@ -559,6 +566,14 @@ object PlayerState {
         }
         if (onDisk != null) {
             AudioEngine.play(onDisk)
+            fadeUp()
+            resumeIfLeftOff(track)
+            Library.played(track)
+            return
+        }
+
+        if (known != null) {
+            AudioEngine.play(known)
             fadeUp()
             resumeIfLeftOff(track)
             Library.played(track)

@@ -47,6 +47,13 @@ fun main(): Unit = runBlocking {
         }
     }
 
+    println("\nwhat the catalogue we already use has, in Nepali:")
+    for (asked in listOf("nepali podcast", "nepal podcast", "नेपाली पडकास्ट")) {
+        val shows = Catalogue.search(asked, Catalogue.Scope.Podcasts).getOrDefault(emptyList())
+        println("  \"$asked\" → ${shows.size}")
+        shows.take(5).forEach { println("      ${it.title.take(52)} — ${it.subtitle.take(26)}") }
+    }
+
     println("\nwhat needs an account:")
     println("  shows kept: ${YouTube.savedPodcastShows().getOrNull()?.size ?: "refused"}")
     println("  new episodes: ${YouTube.newEpisodes().getOrNull()?.size ?: "refused"}")

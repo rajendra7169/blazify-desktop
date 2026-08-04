@@ -40,10 +40,36 @@ data class Track(
      */
     val artistId: String? = null,
     val albumId: String? = null,
+    /**
+     * A link that plays, for the things that arrive already knowing one.
+     *
+     * Most of what is here is an id, and turning an id into something a player
+     * can be handed is a negotiation with the catalogue — several clients
+     * tried in turn, links bound to whoever asked. An episode from a feed is
+     * not like that: the feed says where the audio is, and it is an ordinary
+     * file on an ordinary server.
+     *
+     * Held on the track rather than looked up by source, so a queue can hold
+     * both kinds and nothing that touches a queue has to know the difference.
+     * Where audio comes from is a fact about fetching it, and it has no
+     * business reaching shuffle, repeat, the sleep timer or the room.
+     */
+    val stream: String? = null,
+    /** Where it came from, for saying so and for telling two copies apart. */
+    val from: Origin = Origin.Catalogue,
 ) {
     val duration: String
-        get() = durationSeconds?.let { "%d:%02d".format(it / 60, it % 60) } ?: ""
+        get() = durationSeconds?.let {
+            // An episode is an hour, not four minutes, and 87:13 is a duration
+            // nobody reads as an hour and twenty-seven minutes.
+            if (it >= 3600) "%d:%02d:%02d".format(it / 3600, (it % 3600) / 60, it % 60)
+            else "%d:%02d".format(it / 60, it % 60)
+        } ?: ""
 }
+
+/** Which shelf of the world something was found on. */
+@Serializable
+enum class Origin { Catalogue, Feed }
 
 /** A song card is already a track — nothing needs fetching before it plays. */
 fun Catalogue.Card.asTrack() = Track(
