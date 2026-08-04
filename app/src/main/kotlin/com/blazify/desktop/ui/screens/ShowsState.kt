@@ -4,6 +4,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.blazify.desktop.data.Catalogue
+import com.blazify.desktop.data.Feeds
+import com.blazify.desktop.data.Store
 import com.blazify.desktop.data.Track
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -36,6 +38,29 @@ object ShowsState {
         "Health", "History", "Sport", "Cricket", "Bollywood", "Science", "Football",
     )
 
+    /**
+     * Where programmes are looked for.
+     *
+     * The two know different things and it is not close: the open directory has
+     * the world's programmes with hundreds of episodes each and audio anybody
+     * can play, and the music catalogue has the local ones whose makers never
+     * registered a feed and publish where their audience already is. Measured
+     * both ways. So the honest default is both, and the choice is here for
+     * somebody who wants one of them and knows why.
+     */
+    enum class Where(val label: String) { Both("Both"), Directory("Apple"), Catalogue("YouTube") }
+
+    private val kept: java.io.File get() = java.io.File(Store.folder, "podcast-source")
+
+    var where by mutableStateOf(
+        runCatching { Where.valueOf(kept.readText().trim()) }.getOrDefault(Where.Both),
+    )
+        private set
+
+    /** What this place is listening to, which needs nobody signed in. */
+    var chart by mutableStateOf<List<Catalogue.Card>>(emptyList())
+        private set
+
     var feed by mutableStateOf<List<Catalogue.Shelf>>(emptyList())
         private set
     var fresh by mutableStateOf<List<Track>>(emptyList())
@@ -64,6 +89,10 @@ object ShowsState {
         loaded = true
         loading = true
         coroutineScope {
+            val theChart = async {
+                if (where == Where.Catalogue) emptyList()
+                else Feeds.chart(limit = 14).map { it.asCard() }
+            }
             // All at once. They are four unrelated questions to four different
             // parts of the catalogue, and asking them in turn would make the
             // page as slow as the sum of them rather than the slowest.
@@ -71,6 +100,7 @@ object ShowsState {
             val theFresh = async { Catalogue.freshEpisodes() }
             val theLater = async { Catalogue.episodesForLater() }
             val theChannels = async { Catalogue.showChannels() }
+            chart = theChart.await()
             feed = theFeed.await()
             fresh = theFresh.await()
             later = theLater.await()
@@ -95,17 +125,62 @@ object ShowsState {
         loadingSubject = true
         val asked = "$picked podcast"
         coroutineScope {
-            val shows = async { Catalogue.search(asked, Catalogue.Scope.Podcasts).getOrDefault(emptyList()) }
-            val episodes = async { Catalogue.search(asked, Catalogue.Scope.Episodes).getOrDefault(emptyList()) }
-            subjectShows = shows.await()
+            val fromCatalogue = async {
+                if (where == Where.Directory) emptyList()
+                else Catalogue.search(asked, Catalogue.Scope.Podcasts).getOrDefault(emptyList())
+            }
+            val fromDirectory = async {
+                if (where == Where.Catalogue) emptyList()
+                else Feeds.search(asked, limit = 16).map { it.asCard() }
+            }
+            val episodes = async {
+                if (where == Where.Directory) emptyList()
+                else Catalogue.search(asked, Catalogue.Scope.Episodes).getOrDefault(emptyList())
+            }
+
+            // The directory first where both have something, because that copy
+            // can be seeked and this one cannot. Then deduped by name: The
+            // Daily is on both, and one page listing it twice looks broken
+            // rather than thorough.
+            subjectShows = merge(fromDirectory.await(), fromCatalogue.await())
             subjectEpisodes = episodes.await()
         }
         loadingSubject = false
     }
 
+    /**
+     * Two lists of the same kind of thing, made one.
+     *
+     * Matched on the name with the noise taken out, since the same programme is
+     * filed as "The Daily" in one place and "The Daily | The New York Times" in
+     * the other, and neither is wrong.
+     */
+    private fun merge(first: List<Catalogue.Card>, second: List<Catalogue.Card>): List<Catalogue.Card> {
+        val seen = mutableSetOf<String>()
+        return (first + second).filter { seen.add(plainly(it.title)) }
+    }
+
+    private fun plainly(title: String) = title
+        .lowercase()
+        .substringBefore('|')
+        .substringBefore('(')
+        .replace(Regex("\\bpodcast\\b|\\bthe\\b|[^a-z0-9 ]"), "")
+        .trim()
+        .replace(Regex("\\s+"), " ")
+
+    /** Look somewhere else. */
+    suspend fun lookIn(picked: Where) {
+        if (picked == where) return
+        where = picked
+        runCatching { kept.writeText(picked.name) }
+        forget()
+        ensureLoaded()
+    }
+
     /** Ask again — after signing in, when half of this becomes available. */
     fun forget() {
         loaded = false
+        chart = emptyList()
         feed = emptyList()
         fresh = emptyList()
         later = emptyList()

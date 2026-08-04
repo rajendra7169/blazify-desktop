@@ -39,6 +39,7 @@ import com.blazify.desktop.PlayerState
 import com.blazify.desktop.data.Account
 import com.blazify.desktop.data.asTrack
 import com.blazify.desktop.data.Catalogue
+import com.blazify.desktop.data.Feeds
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.Mark
 import com.blazify.desktop.data.Resume
@@ -95,12 +96,35 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(26.dp),
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("Podcasts", color = Blz.ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    "Programmes, interviews and the long ones",
-                    color = Blz.muted, fontSize = 13.sp,
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Podcasts", color = Blz.ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Programmes, interviews and the long ones",
+                        color = Blz.muted, fontSize = 13.sp,
+                    )
+                }
+                // Where to look. Both by default, because the two know
+                // different things and neither is a superset of the other.
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ShowsState.Where.entries.forEach { option ->
+                        Chip(option.label, option == ShowsState.where) {
+                            scope.launch { ShowsState.lookIn(option) }
+                        }
+                    }
+                }
+            }
+        }
+
+        // What this place is listening to. No account, no sign-in, and the one
+        // thing the music catalogue cannot answer for programmes at all.
+        if (ShowsState.chart.isNotEmpty()) {
+            rail("Top shows in ${Feeds.country.uppercase()}") {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    itemsIndexed(ShowsState.chart, key = { at, card -> "chart-$at-${card.id}" }) { at, card ->
+                        ChartTile(at + 1, card, onOpen)
+                    }
+                }
             }
         }
 
@@ -289,6 +313,49 @@ private fun WideCard(mark: Mark) {
             }
             Text(mark.left, color = Blaze.Amber, fontSize = 11.sp)
         }
+    }
+}
+
+/**
+ * A show with its place in the chart on it.
+ *
+ * The number is the point of a chart — a list of covers in an order nobody can
+ * see is just a list of covers — so it sits on the artwork rather than beside
+ * the title, where it would read as a track number.
+ */
+@Composable
+private fun ChartTile(place: Int, card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Column(
+        Modifier
+            .width(212.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable { onOpen(card) }
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(Modifier.size(196.dp)) {
+            Artwork(card.thumbnail, size = 196.dp, corner = 12.dp, modifier = Modifier.hoverLift(hovered))
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)))
+                    .padding(horizontal = 9.dp, vertical = 3.dp),
+            ) {
+                Text("$place", color = Blaze.OnAmber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        Text(
+            card.title, color = Blz.ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            maxLines = 2, overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            card.subtitle, color = Blz.muted, fontSize = 12.sp,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

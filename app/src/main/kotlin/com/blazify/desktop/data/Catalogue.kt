@@ -419,7 +419,7 @@ object Catalogue {
      * The catalogue gives podcasts an id of their own shape, which is the only
      * thing that separates one from a playlist once both are tiles on a page.
      */
-    fun isShow(id: String) = id.startsWith("MPSP")
+    fun isShow(id: String) = id.startsWith("MPSP") || Feeds.isFeed(id)
 
     /**
      * The playlists on the account that this app is allowed to change.
@@ -717,6 +717,11 @@ object Catalogue {
             // A podcast wears a playlist's clothes but is not served by the
             // playlist endpoint — measured: it answers, and answers with
             // nothing in it. Its own endpoint returns the episodes.
+            // A programme from a feed answers for itself: its episodes are in
+            // the feed, and each already knows where its audio is.
+            Kind.Playlist if Feeds.isFeed(card.id) ->
+                Result.success(Feeds.episodes(Feeds.feedOf(card.id)).map { it.asTrack() })
+
             Kind.Playlist if card.id.startsWith("MPSP") ->
                 YouTube.podcast(card.id).map { page ->
                     page.episodes.map { it.asSongItem().asTrack() }
@@ -754,6 +759,17 @@ object Catalogue {
                 )
             }
 
+            Kind.Playlist if Feeds.isFeed(card.id) -> {
+                val episodes = Feeds.episodes(Feeds.feedOf(card.id))
+                Result.success(
+                    Collection(
+                        card = card,
+                        tracks = episodes.map { it.asTrack() },
+                        note = "${episodes.size} episodes".takeIf { episodes.isNotEmpty() },
+                    ),
+                )
+            }
+
             // A podcast wears a playlist's clothes but is not served by the
             // playlist endpoint — measured: it answers, and answers with
             // nothing in it. Its own endpoint returns the episodes.
@@ -766,6 +782,17 @@ object Catalogue {
                     // right here.
                     note = page.podcast.episodeCountText
                         ?: "${page.episodes.size} episodes".takeIf { page.episodes.isNotEmpty() },
+                )
+            }
+
+            Kind.Playlist if Feeds.isFeed(card.id) -> {
+                val episodes = Feeds.episodes(Feeds.feedOf(card.id))
+                Result.success(
+                    Collection(
+                        card = card,
+                        tracks = episodes.map { it.asTrack() },
+                        note = "${episodes.size} episodes".takeIf { episodes.isNotEmpty() },
+                    ),
                 )
             }
 
