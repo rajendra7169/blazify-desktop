@@ -42,6 +42,7 @@ import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.Playlists
+import com.blazify.desktop.data.Panel
 import com.blazify.desktop.data.Presence
 import com.blazify.desktop.data.Scrobbler
 import com.blazify.desktop.ui.screens.CollectionScreen
@@ -104,6 +105,8 @@ fun AppShell() {
     // than being told the same song is still playing once a second.
     LaunchedEffect(PlayerState.current?.id, PlayerState.playing) {
         Presence.show(PlayerState.current, PlayerState.playing, PlayerState.positionSeconds)
+        // And the desktop itself, which asked once and is waiting to be told.
+        Panel.changed()
     }
 
     // A play is only a play once it has been most of a play. Watched from here

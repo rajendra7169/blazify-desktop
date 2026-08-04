@@ -23,6 +23,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.blazify.desktop.data.Account
 import com.blazify.desktop.data.Offline
+import com.blazify.desktop.data.Panel
 import com.blazify.desktop.data.Paxsenix
 import com.blazify.desktop.ui.AppShell
 import com.blazify.desktop.ui.Blaze
@@ -59,6 +60,9 @@ fun main() {
     Paxsenix.warmKey()
     // Covers and lyrics for anything kept before those were saved alongside.
     Offline.catchUp()
+    // Answer the desktop when it asks what is playing, so the media key on a
+    // keyboard reaches this rather than nothing.
+    Panel.start()
     run()
 }
 

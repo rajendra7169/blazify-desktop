@@ -116,6 +116,11 @@ dependencies {
     implementation(libs.kotlinx.coroutines)
     implementation(libs.kotlinx.serialization.json)
 
+    // Talking to the desktop itself: the media keys, the panel applet and the
+    // lock screen all speak one protocol, and it runs over the session bus.
+    implementation(libs.dbus.core)
+    implementation(libs.dbus.unixsocket)
+
     // Reading the cookie store browsers keep, which is an ordinary SQLite file.
     implementation(libs.sqlite.jdbc)
 

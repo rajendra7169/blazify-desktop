@@ -13,6 +13,8 @@ vlcj = "4.12.1"
 coil = "3.5.0"
 
 [libraries]
+dbus-core = { module = "com.github.hypfvieh:dbus-java-core", version = "5.1.0" }
+dbus-unixsocket = { module = "com.github.hypfvieh:dbus-java-transport-native-unixsocket", version = "5.1.0" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
 protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "protobuf" }
