@@ -187,6 +187,7 @@ fun AppShell() {
                         current = PlayerState.index,
                         onJump = PlayerState::jumpTo,
                         onRemove = PlayerState::removeAt,
+                        onMove = PlayerState::move,
                     )
                 }
             }

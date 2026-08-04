@@ -1,6 +1,13 @@
 package com.blazify.desktop.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.material.icons.rounded.DragIndicator
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -93,6 +100,7 @@ fun QueuePanel(
     current: Int,
     onJump: (Int) -> Unit,
     onRemove: (Int) -> Unit,
+    onMove: (Int, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -104,6 +112,26 @@ fun QueuePanel(
     val shown = remember(queue, current, lens) {
         queue.withIndex().filter { (at, track) -> lens.keep(track, at, current) }
     }
+
+    /**
+     * Whether the order can be changed by hand here.
+     *
+     * Two conditions, both of them about honesty rather than difficulty. A
+     * filtered list is showing every third song, so dragging one down by a row
+     * would move it past songs nobody can see — the gesture would mean
+     * something different from what it looks like. And a queue holding the
+     * same song twice cannot key its rows by the song, which is what lets a
+     * row survive being moved; without that the drag dies halfway through
+     * itself. Neither is common, and in both cases the grip simply isn't there.
+     */
+    val reorderable = lens == Lens.All &&
+        remember(queue) { queue.map { it.id }.toSet().size == queue.size }
+
+    // Where the row being dragged has got to. Held here rather than in the row:
+    // the row it is being dragged past has to know, and a row that moves would
+    // otherwise take the drag with it.
+    val drag = remember { QueueDrag() }
+    val step = with(androidx.compose.ui.platform.LocalDensity.current) { 53.dp.toPx() }
 
     LaunchedEffect(current, queue.size) {
         if (current in queue.indices) {
@@ -186,13 +214,24 @@ fun QueuePanel(
                     )
                 }
             }
-            items(shown, key = { (at, track) -> "$at-${track.id}" }) { (at, track) ->
+            items(
+                shown,
+                key = { (at, track) -> if (reorderable) track.id else "$at-${track.id}" },
+            ) { (at, track) ->
                 QueueRow(
                     track = track,
                     playing = at == current,
                     upcoming = at > current,
+                    dragged = drag.at == at,
+                    offset = if (drag.at == at) drag.by else 0f,
                     onJump = { onJump(at) },
                     onRemove = { onRemove(at) },
+                    grip = if (!reorderable) null else ({
+                        drag.start(at)
+                    } to { moved: Float ->
+                        drag.advance(moved, step, queue.lastIndex, onMove)
+                    }),
+                    onGripEnd = drag::stop,
                 )
             }
         }
@@ -262,8 +301,12 @@ private fun QueueRow(
     track: Track,
     playing: Boolean,
     upcoming: Boolean,
+    dragged: Boolean = false,
+    offset: Float = 0f,
     onJump: () -> Unit,
     onRemove: () -> Unit,
+    grip: Pair<() -> Unit, (Float) -> Unit>? = null,
+    onGripEnd: () -> Unit = {},
 ) {
     val (source, hovered) = rememberHovered()
     // Whether this row's menu is open, held by the row rather than by the
@@ -275,8 +318,13 @@ private fun QueueRow(
     Row(
         Modifier
             .fillMaxWidth()
+            .zIndex(if (dragged) 1f else 0f)
+            .graphicsLayer { translationY = offset }
             .clip(RoundedCornerShape(8.dp))
-            .then(if (playing || menuOpen) Modifier.background(Blz.surfaceHigh) else Modifier)
+            .then(
+                if (playing || menuOpen || dragged) Modifier.background(Blz.surfaceHigh)
+                else Modifier,
+            )
             .hoverBackground(Blz.hover, hovered, source)
             .clickable(onClick = onJump)
             .padding(horizontal = 8.dp, vertical = 7.dp),
@@ -313,6 +361,33 @@ private fun QueueRow(
             )
         }
 
+        // Taken hold of to move the song. Only where moving it means what it
+        // looks like — see above — and only once the pointer is on the row.
+        if (grip != null) {
+            Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
+                if (hovered.value || dragged) {
+                    Icon(
+                        Icons.Rounded.DragIndicator, "Reorder",
+                        Modifier
+                            .size(16.dp)
+                            .pointerHoverIcon(PointerIcon.Hand)
+                            .pointerInput(track.id) {
+                                detectDragGestures(
+                                    onDragStart = { grip.first() },
+                                    onDragEnd = onGripEnd,
+                                    onDragCancel = onGripEnd,
+                                    onDrag = { change, moved ->
+                                        change.consume()
+                                        grip.second(moved.y)
+                                    },
+                                )
+                            },
+                        tint = Blz.muted,
+                    )
+                }
+            }
+        }
+
         // The length, until the pointer arrives — then everything you can do
         // to the song. One column, so nothing shifts sideways on hover, and
         // the same menu as every other list: what you can do with a song
@@ -337,6 +412,34 @@ private fun QueueRow(
             } else {
                 Text(track.duration, color = Blz.dim, fontSize = 11.5.sp)
             }
+        }
+    }
+}
+
+
+/**
+ * A queued song on its way somewhere else.
+ *
+ * A drag is a run of single steps rather than one jump, and each has to reach
+ * the queue as it happens — a list that does not move until the pointer stops
+ * reads as a drag that failed.
+ */
+private class QueueDrag {
+    var at by mutableStateOf<Int?>(null)
+        private set
+    var by by mutableStateOf(0f)
+        private set
+
+    fun start(index: Int) { at = index; by = 0f }
+
+    fun stop() { at = null; by = 0f }
+
+    fun advance(delta: Float, step: Float, last: Int, move: (Int, Int) -> Unit) {
+        val from = at ?: return
+        by += delta
+        when {
+            by >= step && from < last -> { move(from, from + 1); at = from + 1; by -= step }
+            by <= -step && from > 0 -> { move(from, from - 1); at = from - 1; by += step }
         }
     }
 }
