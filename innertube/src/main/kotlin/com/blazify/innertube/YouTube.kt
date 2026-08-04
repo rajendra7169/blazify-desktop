@@ -3466,7 +3466,10 @@ object YouTube {
             val FILTER_FEATURED_PLAYLIST = SearchFilter("EgeKAQQoADgBagwQDhAKEAMQBRAJEAQ%3D")
             val FILTER_COMMUNITY_PLAYLIST = SearchFilter("EgeKAQQoAEABagoQAxAEEAoQCRAF")
             val FILTER_PODCAST = SearchFilter("EgWKAQJQAWoKEAkQChAFEAMQBA%3D%3D")
-            val FILTER_EPISODE = SearchFilter("EgWKAQJYAWoKEAkQChAFEAMQBA%3D%3D")
+            // Not the same string as the profile filter below, which is what
+            // it used to be: asking for episodes was asking for channels, and
+            // the answers came back as people rather than programmes.
+            val FILTER_EPISODE = SearchFilter("EgWKAQJIAWoKEAkQChAFEAMQBA%3D%3D")
             val FILTER_PROFILE = SearchFilter("EgWKAQJYAWoSEAUQCRADEAQQEBAVEAoQDhAR")
         }
     }
