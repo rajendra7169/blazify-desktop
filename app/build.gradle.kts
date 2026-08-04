@@ -342,6 +342,13 @@ tasks.register<JavaExec>("resumeCheck") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("mixedProbe") {
+    group = "verification"
+    description = "Search both directories, open a show, and check an episode would play"
+    mainClass.set("com.blazify.desktop.tools.podcast.MixedProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("directoryProbe") {
     group = "verification"
     description = "Ask the open podcast directory, and read one feed to a playable link"

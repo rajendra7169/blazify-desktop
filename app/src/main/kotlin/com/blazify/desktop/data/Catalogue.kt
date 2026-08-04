@@ -171,8 +171,28 @@ object Catalogue {
             Scope.Profiles -> YouTube.SearchFilter.FILTER_PROFILE
             Scope.Everything -> YouTube.SearchFilter.FILTER_SONG
         }
-        YouTube.search(query, filter).map { result -> result.items.mapNotNull { it.asCard() } }
+        val found = YouTube.search(query, filter).map { result -> result.items.mapNotNull { it.asCard() } }
+
+        // Programmes are looked for in both places at once. No toggle here on
+        // purpose: which directory holds a show is a fact about the world, not
+        // a question somebody searching for it should have to answer first.
+        if (scope != Scope.Podcasts) return@withContext found
+
+        val alsoFrom = Feeds.search(query, limit = 12).map { it.asCard() }
+        val seen = mutableSetOf<String>()
+        // The feed's copy first where both have it, because that one can be
+        // seeked and the other cannot.
+        Result.success((alsoFrom + found.getOrDefault(emptyList())).filter { seen.add(plainly(it.title)) })
     }
+
+    /** A title with the noise taken out, for telling two copies of one thing apart. */
+    private fun plainly(title: String) = title
+        .lowercase()
+        .substringBefore('|')
+        .substringBefore('(')
+        .replace(Regex("\\bpodcast\\b|\\bthe\\b|[^a-z0-9 ]"), "")
+        .trim()
+        .replace(Regex("\\s+"), " ")
 
     /** What a card on a shelf stands for, which decides what opening it does. */
     @Serializable

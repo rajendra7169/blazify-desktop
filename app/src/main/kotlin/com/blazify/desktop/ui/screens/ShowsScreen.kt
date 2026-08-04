@@ -377,7 +377,24 @@ private fun ShowTile(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
             .padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Artwork(card.thumbnail, size = 196.dp, corner = 12.dp, modifier = Modifier.hoverLift(hovered))
+        Box(Modifier.size(196.dp)) {
+            Artwork(card.thumbnail, size = 196.dp, corner = 12.dp, modifier = Modifier.hoverLift(hovered))
+            // Which of the two this came from, said quietly and only where two
+            // are mixed together. Not a badge of honour — a fact, for anybody
+            // wondering why one of these seeks instantly and one doesn't.
+            if (Feeds.isFeed(card.id) && ShowsState.where == ShowsState.Where.Both) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(8.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Blz.page.copy(alpha = 0.72f))
+                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                ) {
+                    Text("FEED", color = Blz.muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
         Text(
             card.title, color = Blz.ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
             maxLines = 2, overflow = TextOverflow.Ellipsis,

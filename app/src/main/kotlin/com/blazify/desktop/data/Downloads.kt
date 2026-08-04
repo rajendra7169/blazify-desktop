@@ -94,7 +94,12 @@ object Downloads {
             val target = fileFor(track.id)
             val partial = File(folder, "${track.id}.part")
 
-            val done = Catalogue.streamUrl(track.id).mapCatching { url ->
+            // Something that arrived knowing where its audio is needs nothing
+            // resolved — and an episode from a feed is an ordinary file, so
+            // keeping a copy of it is a download rather than a negotiation.
+            val where = track.stream?.let { Result.success(it) } ?: Catalogue.streamUrl(track.id)
+
+            val done = where.mapCatching { url ->
                 StreamFetcher.download(url, partial) { fraction ->
                     running = running + (track.id to fraction)
                 }.getOrThrow()
