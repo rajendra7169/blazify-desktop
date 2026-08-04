@@ -490,9 +490,10 @@ private fun AccountSection() {
         // has been quit, and the site moves the session on regardless.
         Text(
             Account.waitingForWindow?.let {
-                "Sign in to YouTube Music in the $it window that just opened, then close it."
-            } ?: "A window opens on Google's own sign-in page. Sign in there and close it — " +
-                "nothing is typed into Blazify and no password passes through it.",
+                "Sign in to YouTube Music in the $it window that just opened. " +
+                    "It closes itself once you're in."
+            } ?: "A window opens on Google's own sign-in page and closes itself once you're " +
+                "signed in. Nothing is typed into Blazify and no password passes through it.",
             color = Blz.muted, fontSize = 13.sp, lineHeight = 18.sp,
         )
 
@@ -500,7 +501,7 @@ private fun AccountSection() {
             if (Account.canOpenWindow) {
                 GoogleButton(
                     when {
-                        Account.waitingForWindow != null -> "Waiting for that window…"
+                        Account.waitingForWindow != null -> "Waiting for you to sign in…"
                         Account.checking -> "Signing in…"
                         else -> "Sign in"
                     },

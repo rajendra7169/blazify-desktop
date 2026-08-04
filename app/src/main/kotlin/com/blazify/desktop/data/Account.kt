@@ -197,13 +197,17 @@ object Account {
         val opener = SignInWindow.opener()
         waitingForWindow = opener?.label ?: "your browser"
         scope.launch {
-            SignInWindow.signIn().fold(
+            // The window is watched while it is open: as soon as what it has
+            // written down is a session the catalogue accepts, it is closed and
+            // that is the end of it. Nobody has to finish a job the app can see
+            // is already done.
+            SignInWindow.signIn(verify = { session -> take(session) }).fold(
                 onSuccess = { session ->
                     waitingForWindow = null
-                    carried = session.split("; ").count { it.isNotBlank() }
-                    attach(session)
-                    YouTube.touchSession()
-                    if (adopt()) {
+                    // Either it was already taken while the window stood open,
+                    // or the window was closed by hand and this is the first
+                    // look at what it left behind.
+                    if (verified || take(session)) {
                         runCatching { store.writeText(session) }
                         problem = null
                     } else {
@@ -226,6 +230,19 @@ object Account {
             )
             checking = false
         }
+    }
+
+    /**
+     * Put a session on the client and ask whether it is anybody.
+     *
+     * The touch first: it is the one request that reports an ended session as
+     * ended rather than as an answer with nobody in it.
+     */
+    private suspend fun take(session: String): Boolean {
+        carried = session.split("; ").count { it.isNotBlank() }
+        attach(session)
+        YouTube.touchSession()
+        return adopt()
     }
 
     /** The same credential, typed rather than fetched. */

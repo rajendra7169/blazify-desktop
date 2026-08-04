@@ -87,14 +87,19 @@ object SignInWindow {
     }.getOrNull()
 
     /**
-     * Open the window, wait for it to be closed, and read what it holds.
+     * Open the window, watch for the sign-in landing, and close it again.
      *
-     * Waiting for the window to close is the whole point of doing it this way:
-     * a browser writes its cookies out when it quits, and this one is quit by
-     * the person who just signed in, on purpose, with nothing else running in
-     * the profile to move them on afterwards.
+     * The window is the app's, so putting it away is the app's job — asking
+     * somebody to close it themselves is asking them to finish a task the
+     * program could see was already done.
+     *
+     * Watched rather than waited on: the profile is checked every couple of
+     * seconds, and the moment it holds a session the catalogue actually
+     * accepts, the window is closed and that session is the answer. Closing it
+     * by hand still works and lands in the same place — it just isn't
+     * necessary any more.
      */
-    suspend fun signIn(): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun signIn(verify: suspend (String) -> Boolean = { true }): Result<String> = withContext(Dispatchers.IO) {
         val opener = opener()
             ?: return@withContext Result.failure(
                 IllegalStateException("No browser on this machine to open a window in"),
@@ -125,9 +130,36 @@ object SignInWindow {
 
         val process = runCatching { ProcessBuilder(command).start() }
             .getOrElse { return@withContext Result.failure(it) }
-        process.waitFor()
 
-        // Where that browser will have put the cookies, once it has quit.
+        // Long enough for a password, a second factor and a change of mind.
+        val giveUpAt = System.currentTimeMillis() + 15 * 60 * 1000
+        var caught: String? = null
+
+        while (process.isAlive && System.currentTimeMillis() < giveUpAt) {
+            kotlinx.coroutines.delay(2000)
+            // A browser holds its newest cookies in memory and writes them out
+            // on a timer, so this is a poll rather than a notification. The
+            // wait is a few seconds after signing in, not minutes.
+            val session = read(opener)?.getOrNull()?.takeIf { "SAPISID" in it } ?: continue
+            if (!verify(session)) continue
+            caught = session
+            close(process)
+            break
+        }
+
+        process.waitFor()
+        // Either it was closed here, or somebody closed it themselves — and a
+        // browser writes its cookies out as it quits, so the second case is
+        // worth one more look rather than a shrug.
+        caught
+            ?: return@withContext read(opener)
+                ?: Result.failure(IllegalStateException("${opener.label} closed without signing in"))
+
+        Result.success(caught)
+    }
+
+    /** The cookies that window has written down so far, if it has written any. */
+    private suspend fun read(opener: Opener): Result<String>? {
         val store = when (opener.kind) {
             BrowserSession.Kind.Firefox ->
                 profile.walkTopDown().maxDepth(2).firstOrNull { it.name == "cookies.sqlite" }
@@ -135,13 +167,24 @@ object SignInWindow {
                 File(profile, "Default/Network/Cookies"),
                 File(profile, "Default/Cookies"),
             ).firstOrNull { it.isFile }
-        } ?: return@withContext Result.failure(
-            IllegalStateException("${opener.label} closed without signing in"),
-        )
+        } ?: return null
 
-        BrowserSession.sessionFrom(
+        return BrowserSession.sessionFrom(
             BrowserSession.Browser(opener.label, store, opener.kind, opener.keyring),
         )
+    }
+
+    /**
+     * Put the window away.
+     *
+     * Every process of it, not just the one that was started: a browser is
+     * launched through a small script that waits on the real program rather
+     * than becoming it, so ending the process that was started ends the script
+     * and leaves the window standing there.
+     */
+    private fun close(process: Process) {
+        process.descendants().forEach { it.destroy() }
+        process.destroy()
     }
 
     /**
