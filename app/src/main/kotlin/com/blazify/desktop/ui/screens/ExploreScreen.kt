@@ -156,13 +156,48 @@ fun ExploreScreen(
             query.trim().length < 2 -> BrowseTab(browse, onOpen) { genre = it }
             searching && results.isEmpty() -> SkeletonRows(count = 8)
             message != null -> Text(message!!, color = Blz.muted, fontSize = 13.sp)
-            // Rows for the things that are songs, tiles for the things that are
-            // places to go. In the mixed answer that is decided card by card
-            // rather than by which chip is lit.
+            // The unfiltered answer holds both kinds at once. Songs are rows
+            // that play; albums, artists and playlists are tiles that open. It
+            // used to pick one shape for the whole list, so half the results
+            // did the wrong thing when clicked — an album row tried to play an
+            // album id as a song, and a song tile tried to open a page that
+            // does not exist.
+            scope == Catalogue.Scope.Everything -> {
+                val songs = results.filter { it.kind == Catalogue.Kind.Song }
+                val places = results.filterNot { it.kind == Catalogue.Kind.Song }
+
+                LazyColumn(Modifier.fillMaxSize()) {
+                    itemsIndexed(songs, key = { at, card -> "s-$at-${card.id}" }) { at, card ->
+                        SongMenu(card.asTrack()) {
+                            TrackRow(
+                                position = at + 1,
+                                card = card,
+                                playing = PlayerState.current?.id == card.id,
+                                onPlay = { PlayerState.play(songs.map { it.asTrack() }, at) },
+                            )
+                        }
+                    }
+
+                    if (places.isNotEmpty()) {
+                        item {
+                            Text(
+                                "Albums, artists and playlists",
+                                color = Blz.dim, fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
+                                modifier = Modifier.padding(top = 22.dp, bottom = 10.dp),
+                            )
+                        }
+                        // Rows rather than a grid, because a grid inside a list
+                        // has to guess its own height and gets it wrong.
+                        itemsIndexed(places, key = { at, card -> "p-$at-${card.id}" }) { _, card ->
+                            PlaceRow(card, onOpen)
+                        }
+                    }
+                }
+            }
+
             scope == Catalogue.Scope.Songs || scope == Catalogue.Scope.Videos ||
-                scope == Catalogue.Scope.Episodes ||
-                (scope == Catalogue.Scope.Everything &&
-                    results.count { it.kind == Catalogue.Kind.Song } > results.size / 2) -> {
+                scope == Catalogue.Scope.Episodes -> {
                 LazyColumn(Modifier.fillMaxSize()) {
                     itemsIndexed(results, key = { at, card -> "$at-${card.id}" }) { at, card ->
                         SongMenu(card.asTrack()) {
@@ -189,6 +224,48 @@ fun ExploreScreen(
                     ResultTile(card, onOpen)
                 }
             }
+        }
+    }
+}
+
+/**
+ * Somewhere to go, as a row.
+ *
+ * The same height as a song row so a mixed list reads as one list, and clearly
+ * not a song: round artwork for a person, square for a record, and the kind
+ * said in words rather than left to be inferred.
+ */
+@Composable
+private fun PlaceRow(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable { onOpen(card) }
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Artwork(
+            card.thumbnail,
+            size = 44.dp,
+            corner = if (card.kind == Catalogue.Kind.Artist) 22.dp else 6.dp,
+        )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                card.title, color = Blz.ink, fontSize = 13.5.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                listOfNotNull(
+                    card.kind.name,
+                    card.subtitle.takeIf { it.isNotBlank() },
+                ).joinToString(" · "),
+                color = Blz.muted, fontSize = 11.5.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
