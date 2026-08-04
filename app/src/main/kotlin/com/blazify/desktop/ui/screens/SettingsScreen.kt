@@ -295,6 +295,10 @@ fun SettingsScreen() {
 
                 SettingsPage.About -> {
                     item {
+                        AboutSection { title, reset, content -> Section(title, reset) { content() } }
+                    }
+
+                    item {
                         Section("About") {
                             Line("Blazify", "Version ${Updates.RUNNING}")
                             Line("A music player", "for Linux and Windows")
