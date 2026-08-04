@@ -99,7 +99,13 @@ object SignInWindow {
      * by hand still works and lands in the same place — it just isn't
      * necessary any more.
      */
-    suspend fun signIn(verify: suspend (String) -> Boolean = { true }): Result<String> = withContext(Dispatchers.IO) {
+    /** What the window is doing, for saying so on screen while it does it. */
+    enum class Stage { Opened, SignedIn }
+
+    suspend fun signIn(
+        verify: suspend (String) -> Boolean = { true },
+        onStage: (Stage) -> Unit = {},
+    ): Result<String> = withContext(Dispatchers.IO) {
         val opener = opener()
             ?: return@withContext Result.failure(
                 IllegalStateException("No browser on this machine to open a window in"),
@@ -139,14 +145,25 @@ object SignInWindow {
         val process = runCatching { ProcessBuilder(command).start() }
             .getOrElse { return@withContext Result.failure(it) }
 
+        onStage(Stage.Opened)
+
         // Long enough for a password, a second factor and a change of mind.
         val giveUpAt = System.currentTimeMillis() + 15 * 60 * 1000
         var caught: String? = null
+        var arrived = 0L
 
         while (process.isAlive && System.currentTimeMillis() < giveUpAt) {
             kotlinx.coroutines.delay(1000)
 
-            // Cookies first, for the browsers that write them as they go.
+            // The session on disk, which is the only thing that settles this.
+            //
+            // Measured the hard way: a browser keeps its newest cookies in
+            // memory and commits them on a timer, and being killed is not a
+            // reliable way to make it write. Closing the window the moment the
+            // sign-in landed produced a profile holding a completed sign-in and
+            // no session at all — right up to the last redirect and nothing to
+            // show for it. So the window stays open until the thing being
+            // waited for actually exists.
             read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }?.let { session ->
                 if (verify(session)) {
                     caught = session
@@ -169,11 +186,27 @@ object SignInWindow {
             // music site only happens after the sign-in page lets you through,
             // so that is the signal: close the window, which writes the cookies
             // out, and read them a moment later.
-            if (landed(opened)) {
+            // Landing says the sign-in went through, which is worth saying on
+            // screen — somebody watching a window that has plainly finished sit
+            // there for another half-minute deserves to know it is waiting on
+            // the browser rather than on them.
+            if (arrived == 0L && landed(opened)) {
+                arrived = System.currentTimeMillis()
+                onStage(Stage.SignedIn)
+            }
+
+            // It has arrived and the session still is not on disk. The browser
+            // is asked to go anyway, and what it leaves behind is taken on its
+            // merits — better than a window that never closes.
+            if (arrived != 0L && System.currentTimeMillis() - arrived > PATIENCE) {
                 close(process)
                 process.waitFor()
-                caught = read(opener)?.getOrNull()
-                    ?.takeIf { "SAPISID" in it && verify(it) }
+                caught = read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }
+                    ?: run {
+                        kotlinx.coroutines.delay(1500)
+                        read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }
+                    }
+                if (caught?.let { verify(it) } != true) caught = null
                 break
             }
         }
@@ -228,16 +261,39 @@ object SignInWindow {
     }
 
     /**
-     * Put the window away.
+     * How long to wait, after the sign-in has plainly worked, for the browser
+     * to write it down.
      *
-     * Every process of it, not just the one that was started: a browser is
-     * launched through a small script that waits on the real program rather
-     * than becoming it, so ending the process that was started ends the script
-     * and leaves the window standing there.
+     * It commits on a timer of its own — half a minute, give or take — and
+     * this has to outlast that, or the window closes on the wrong side of the
+     * one write that matters.
+     */
+    private const val PATIENCE = 50_000L
+
+    /**
+     * Put the window away, and let it tidy up on the way.
+     *
+     * The browser's own process is asked to stop — not every process it owns.
+     * A browser writes its cookies out as it shuts down, and shutting down is
+     * something only the one in charge can do: killing the workers first takes
+     * away the hands it would have written with, which is exactly how a
+     * completed sign-in ended up leaving nothing behind.
+     *
+     * The script it was launched through is asked too, since that waits on the
+     * real program rather than becoming it, and ending only what was started
+     * would leave the window standing there.
      */
     private fun close(process: Process) {
-        process.descendants().forEach { it.destroy() }
+        process.children().forEach { it.destroy() }
         process.destroy()
+
+        // Only if it will not go quietly. Force is the thing that loses the
+        // cookies, so it is a last resort with a long fuse rather than a
+        // second attempt.
+        if (!process.waitFor(20, java.util.concurrent.TimeUnit.SECONDS)) {
+            process.descendants().forEach { it.destroyForcibly() }
+            process.destroyForcibly()
+        }
     }
 
     /**

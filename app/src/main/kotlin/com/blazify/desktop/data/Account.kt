@@ -179,6 +179,10 @@ object Account {
     var waitingForWindow by mutableStateOf<String?>(null)
         private set
 
+    /** How far the window has got, for saying so while it gets there. */
+    var windowStage by mutableStateOf<SignInWindow.Stage?>(null)
+        private set
+
     /** Whether this machine has a browser a window could be opened in. */
     val canOpenWindow: Boolean get() = SignInWindow.opener() != null
 
@@ -196,14 +200,24 @@ object Account {
         expired = false
         val opener = SignInWindow.opener()
         waitingForWindow = opener?.label ?: "your browser"
+        windowStage = null
         scope.launch {
             // The window is watched while it is open: as soon as what it has
             // written down is a session the catalogue accepts, it is closed and
             // that is the end of it. Nobody has to finish a job the app can see
             // is already done.
-            SignInWindow.signIn(verify = { session -> take(session) }).fold(
+            SignInWindow.signIn(
+                verify = { session -> take(session) },
+                onStage = { stage ->
+                    // Somebody watching a window that has plainly finished sit
+                    // there deserves to know what is being waited for, and that
+                    // it is not them.
+                    windowStage = stage
+                },
+            ).fold(
                 onSuccess = { session ->
                     waitingForWindow = null
+                    windowStage = null
                     // Either it was already taken while the window stood open,
                     // or the window was closed by hand and this is the first
                     // look at what it left behind.
@@ -225,6 +239,7 @@ object Account {
                 },
                 onFailure = {
                     waitingForWindow = null
+                    windowStage = null
                     problem = it.message ?: "The sign-in window couldn't be opened"
                 },
             )

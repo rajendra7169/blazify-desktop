@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.Typing
 import com.blazify.desktop.data.Account
+import com.blazify.desktop.data.SignInWindow
 import com.blazify.desktop.data.BrowserSession
 import com.blazify.desktop.data.Backup
 import com.blazify.desktop.data.Downloads
@@ -489,9 +490,16 @@ private fun AccountSection() {
         // one press and no window at all — but it only works when that browser
         // has been quit, and the site moves the session on regardless.
         Text(
-            Account.waitingForWindow?.let {
-                "Sign in to YouTube Music in the $it window that just opened. " +
-                    "It closes itself once you're in."
+            Account.waitingForWindow?.let { browser ->
+                when (Account.windowStage) {
+                    SignInWindow.Stage.SignedIn ->
+                        "Signed in — waiting for $browser to write the session down, which it " +
+                            "does on a timer of its own. This takes about half a minute, and " +
+                            "the window closes itself when it's done."
+                    else ->
+                        "Sign in to YouTube Music in the $browser window that just opened. " +
+                            "It closes itself once you're through."
+                }
             } ?: "A window opens on Google's own sign-in page and closes itself once you're " +
                 "signed in. Nothing is typed into Blazify and no password passes through it.",
             color = Blz.muted, fontSize = 13.sp, lineHeight = 18.sp,
@@ -501,6 +509,7 @@ private fun AccountSection() {
             if (Account.canOpenWindow) {
                 GoogleButton(
                     when {
+                        Account.windowStage == SignInWindow.Stage.SignedIn -> "Finishing…"
                         Account.waitingForWindow != null -> "Waiting for you to sign in…"
                         Account.checking -> "Signing in…"
                         else -> "Sign in"
