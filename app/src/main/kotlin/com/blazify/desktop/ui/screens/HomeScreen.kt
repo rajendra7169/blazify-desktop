@@ -40,6 +40,7 @@ import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Net
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
+import com.blazify.desktop.data.Resume
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.HomeHero
 import com.blazify.desktop.ui.Look
@@ -99,6 +100,8 @@ fun HomeScreen(
         }
     }
 
+    val continuing = Resume.unfinished
+
     Box(Modifier.fillMaxSize()) {
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -135,6 +138,16 @@ fun HomeScreen(
                         scope.launch { HomeState.choose(picked) }
                     }
                 }
+            }
+        }
+
+        // Above everything the catalogue suggests: what somebody is halfway
+        // through is already theirs, and it beats any recommendation. Asked
+        // for outside the list rather than inside it, so an empty one leaves
+        // no gap where a row would have been.
+        if (mood == null && continuing.isNotEmpty()) {
+            item {
+                Box(Modifier.padding(horizontal = 26.dp)) { ContinueRail(continuing) }
             }
         }
 

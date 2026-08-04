@@ -330,6 +330,12 @@ tasks.register<JavaExec>("sessionProbe") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("resumeCheck") {
+    group = "verification"
+    mainClass.set("com.blazify.desktop.tools.resume.ResumeCheckKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("podcastProbe") {
     group = "verification"
     description = "Show what the catalogue gives back for podcasts and whether an episode plays"
