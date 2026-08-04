@@ -336,6 +336,27 @@ object Catalogue {
     }
 
     /**
+     * The shows kept on the account.
+     *
+     * Asked for separately from the playlists because the catalogue keeps them
+     * somewhere else entirely — a podcast is not filed with the music, and the
+     * one request that returns everything else returns none of these.
+     */
+    suspend fun myShows(): List<Card> = withContext(Dispatchers.IO) {
+        if (!Account.hasCredential) return@withContext emptyList()
+        ensureIdentity()
+        YouTube.savedPodcastShows().getOrNull().orEmpty().mapNotNull { it.asCard() }
+    }
+
+    /**
+     * Whether this is a show rather than a record.
+     *
+     * The catalogue gives podcasts an id of their own shape, which is the only
+     * thing that separates one from a playlist once both are tiles on a page.
+     */
+    fun isShow(id: String) = id.startsWith("MPSP")
+
+    /**
      * The playlists on the account that this app is allowed to change.
      *
      * Only the ones the account owns. A playlist saved from somebody else

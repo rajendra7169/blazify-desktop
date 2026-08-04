@@ -71,6 +71,7 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
     val saved = Library.saved
     val own = Playlists.all
     var mine by remember { mutableStateOf<List<Catalogue.Card>>(emptyList()) }
+    var shows by remember { mutableStateOf<List<Catalogue.Card>>(emptyList()) }
     // True until the first answer arrives, whatever the account is doing.
     //
     // It used to start at `Account.signedIn`, which is false for the second or
@@ -84,10 +85,20 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
     LaunchedEffect(Account.cookie, Account.checking) {
         if (Account.checking) return@LaunchedEffect
         mine = Catalogue.mine().getOrDefault(emptyList())
+        // A second request, because the catalogue files shows somewhere else
+        // entirely and the one that returns everything else returns none of
+        // them.
+        shows = Catalogue.myShows()
         asked = true
     }
 
     val loading = !asked
+
+    // Shows kept here and shows kept on the account are the same thing arrived
+    // at two ways, and a page that lists them twice is a page that looks broken.
+    val allShows = (shows + saved.filter { Catalogue.isShow(it.id) })
+        .distinctBy { it.id }
+    val records = saved.filterNot { Catalogue.isShow(it.id) }
 
     // A session that has lapsed is not the same as never having had one, and
     // telling someone to sign in when they already did is how an expired
@@ -115,7 +126,7 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
         return
     }
 
-    if (saved.isEmpty() && mine.isEmpty() && own.isEmpty() && !loading) {
+    if (saved.isEmpty() && mine.isEmpty() && own.isEmpty() && allShows.isEmpty() && !loading) {
         EmptyState(
             Icons.Rounded.LibraryMusic,
             if (lapsed) "Your session has expired" else "Your library is empty",
@@ -157,7 +168,8 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
                     listOfNotNull(
                         own.size.takeIf { it > 0 }?.let { "$it made here" },
                         mine.size.takeIf { it > 0 }?.let { "$it yours" },
-                        saved.size.takeIf { it > 0 }?.let { "$it saved" },
+                        allShows.size.takeIf { it > 0 }?.let { "$it shows" },
+                        records.size.takeIf { it > 0 }?.let { "$it saved" },
                     ).joinToString("  ·  ").ifEmpty { "Nothing here yet" },
                     color = Blz.muted, fontSize = 13.sp,
                 )
@@ -180,9 +192,19 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
             itemsIndexed(mine, key = { at, it -> "mine-$at-${it.id}" }) { _, card -> SavedTile(card, onOpen) }
         }
 
-        if (saved.isNotEmpty()) {
+        // Shows of their own, before the general pile. A podcast among albums
+        // is a podcast nobody finds again: it looks like a record, it is filed
+        // like a record, and the one thing it is not is a record.
+        if (allShows.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { Heading("Shows") }
+            itemsIndexed(allShows, key = { at, it -> "show-$at-${it.id}" }) { _, card ->
+                SavedTile(card, onOpen)
+            }
+        }
+
+        if (records.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) { Heading("Saved") }
-            itemsIndexed(saved, key = { at, it -> "saved-$at-${it.id}" }) { _, card -> SavedTile(card, onOpen) }
+            itemsIndexed(records, key = { at, it -> "saved-$at-${it.id}" }) { _, card -> SavedTile(card, onOpen) }
         }
     }
 }

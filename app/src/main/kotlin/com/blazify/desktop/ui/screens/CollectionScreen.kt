@@ -150,7 +150,8 @@ private fun Header(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
-                card.kind.name.uppercase(), color = Blz.muted, fontSize = 11.sp,
+                if (Catalogue.isShow(card.id)) "PODCAST" else card.kind.name.uppercase(),
+                color = Blz.muted, fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp,
             )
             Text(
@@ -176,9 +177,18 @@ private fun Header(
                 // that lives, and two ways to do one thing is one too many.
                 if (card.kind != Catalogue.Kind.Song) {
                     val saved = Library.isSaved(card.id)
+                    // A show is followed, not saved: what you want from it is
+                    // the next episode, and "Saved" describes keeping a copy of
+                    // the last one.
+                    val show = Catalogue.isShow(card.id)
                     Action(
                         if (saved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
-                        if (saved) "Saved" else "Save",
+                        when {
+                            show && saved -> "Following"
+                            show -> "Follow"
+                            saved -> "Saved"
+                            else -> "Save"
+                        },
                         filled = false,
                     ) { Library.toggleSaved(card) }
                 }
