@@ -84,6 +84,24 @@ object Playlists {
         }
     }
 
+    /**
+     * Put a song somewhere else in the order.
+     *
+     * The order of a playlist is the point of a playlist — it's the one thing
+     * in it that isn't just a list of songs you already have. Moved one step at
+     * a time, because that is what a row being dragged past its neighbour is,
+     * and rebuilding the list from two indices on every frame would be the
+     * same answer arrived at more expensively.
+     */
+    fun move(id: String, from: Int, to: Int) {
+        update(id) { playlist ->
+            if (from !in playlist.tracks.indices || to !in playlist.tracks.indices || from == to) playlist
+            else playlist.copy(
+                tracks = playlist.tracks.toMutableList().also { it.add(to, it.removeAt(from)) },
+            )
+        }
+    }
+
     fun contains(id: String, trackId: String) = find(id)?.tracks?.any { it.id == trackId } == true
 
     private fun update(id: String, change: (OwnPlaylist) -> OwnPlaylist) {
