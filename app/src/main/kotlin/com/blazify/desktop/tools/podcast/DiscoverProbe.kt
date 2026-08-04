@@ -30,11 +30,21 @@ fun main(): Unit = runBlocking {
     )
 
     println("\nby subject, which needs no account:")
-    for (subject in listOf("news", "comedy", "true crime", "cricket", "bollywood")) {
+    for (subject in com.blazify.desktop.ui.screens.ShowsState.subjects) {
         val shows = Catalogue.search(subject, Catalogue.Scope.Podcasts).getOrDefault(emptyList())
         val episodes = Catalogue.search(subject, Catalogue.Scope.Episodes).getOrDefault(emptyList())
         println("  $subject → ${shows.size} shows, ${episodes.size} episodes")
-        shows.take(2).forEach { println("      ${it.title} — ${it.subtitle}") }
+        shows.take(3).forEach { println("      ${it.title}") }
+    }
+
+    // The plain subject word brings back a lot of nobody-in-particular. Worth
+    // asking whether a different phrasing brings back the ones people mean.
+    println("\nsame subjects, asked differently:")
+    for (subject in listOf("News", "Cricket", "Technology")) {
+        for (phrasing in listOf(subject, "$subject podcast", "best $subject podcast", "top $subject shows")) {
+            val shows = Catalogue.search(phrasing, Catalogue.Scope.Podcasts).getOrDefault(emptyList())
+            println("  \"$phrasing\" → ${shows.take(4).joinToString(" · ") { it.title.take(28) }}")
+        }
     }
 
     println("\nwhat needs an account:")

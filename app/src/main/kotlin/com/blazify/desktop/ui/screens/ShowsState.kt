@@ -80,13 +80,23 @@ object ShowsState {
         choose(subject)
     }
 
-    /** Look at a subject. */
+    /**
+     * Look at a subject.
+     *
+     * Asked for as "News podcast" rather than "News", which is not a
+     * superstition — measured against the catalogue, the bare word brings back
+     * whoever happened to use it in a title, and the longer phrase brings back
+     * the programmes people mean. "Cricket" opens with a channel of Nepali
+     * scorecards; "Cricket podcast" opens with Stick to Cricket and the
+     * Telegraph's.
+     */
     suspend fun choose(picked: String) {
         subject = picked
         loadingSubject = true
+        val asked = "$picked podcast"
         coroutineScope {
-            val shows = async { Catalogue.search(picked, Catalogue.Scope.Podcasts).getOrDefault(emptyList()) }
-            val episodes = async { Catalogue.search(picked, Catalogue.Scope.Episodes).getOrDefault(emptyList()) }
+            val shows = async { Catalogue.search(asked, Catalogue.Scope.Podcasts).getOrDefault(emptyList()) }
+            val episodes = async { Catalogue.search(asked, Catalogue.Scope.Episodes).getOrDefault(emptyList()) }
             subjectShows = shows.await()
             subjectEpisodes = episodes.await()
         }
