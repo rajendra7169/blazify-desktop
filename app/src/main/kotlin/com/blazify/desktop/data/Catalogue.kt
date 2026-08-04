@@ -281,6 +281,45 @@ object Catalogue {
         }
     }
 
+    /**
+     * The catalogue's own shelves of programmes.
+     *
+     * Only for somebody signed in — measured, not assumed: signed out it does
+     * not come back thin, it comes back as a refusal. So the page that draws
+     * these has to stand up without them rather than treat them as the main
+     * course.
+     */
+    suspend fun showFeed(): List<Shelf> = withContext(Dispatchers.IO) {
+        if (!Account.hasCredential) return@withContext emptyList()
+        ensureIdentity()
+        YouTube.podcastDiscover().getOrNull()?.sections.orEmpty().mapNotNull { section ->
+            val cards = section.items.mapNotNull { it.asCard() }
+            if (cards.isEmpty()) null
+            else Shelf(title = section.title, cards = cards, label = section.label, avatar = section.thumbnail)
+        }
+    }
+
+    /** Episodes out since you last looked, from the shows you follow. */
+    suspend fun freshEpisodes(): List<Track> = withContext(Dispatchers.IO) {
+        if (!Account.hasCredential) return@withContext emptyList()
+        ensureIdentity()
+        YouTube.newEpisodes().getOrNull().orEmpty().map { it.asTrack() }
+    }
+
+    /** The ones put aside on purpose. */
+    suspend fun episodesForLater(): List<Track> = withContext(Dispatchers.IO) {
+        if (!Account.hasCredential) return@withContext emptyList()
+        ensureIdentity()
+        YouTube.episodesForLater().getOrNull().orEmpty().map { it.asTrack() }
+    }
+
+    /** The people who make them, rather than the programmes themselves. */
+    suspend fun showChannels(): List<Card> = withContext(Dispatchers.IO) {
+        if (!Account.hasCredential) return@withContext emptyList()
+        ensureIdentity()
+        YouTube.libraryPodcastChannels().getOrNull()?.items.orEmpty().mapNotNull { it.asCard() }
+    }
+
     /** A coloured tile in the browse grid, and where it leads. */
     data class Genre(val title: String, val colour: Long, val browseId: String, val params: String?)
 

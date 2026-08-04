@@ -52,6 +52,7 @@ import com.blazify.desktop.ui.screens.LibraryScreen
 import com.blazify.desktop.ui.screens.LocalScreen
 import com.blazify.desktop.ui.screens.SettingsScreen
 import com.blazify.desktop.ui.screens.ShelfScreen
+import com.blazify.desktop.ui.screens.ShowsScreen
 import com.blazify.desktop.ui.screens.TogetherScreen
 import com.blazify.desktop.ui.screens.TopSongsScreen
 import com.blazify.desktop.ui.screens.Editing
@@ -362,6 +363,8 @@ private fun Content(destination: Destination) {
             onOpen = Navigator::open,
             onPlayAll = PlayerState::playAll,
         )
+
+        Destination.Podcasts -> ShowsScreen(onOpen = Navigator::open)
 
         Destination.Library -> LibraryScreen(
             onOpen = Navigator::open,

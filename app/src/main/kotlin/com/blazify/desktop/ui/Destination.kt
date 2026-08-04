@@ -9,6 +9,7 @@ import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -30,6 +31,10 @@ enum class Destination(
 ) {
     Home("Home", Icons.Rounded.Home),
     Explore("Explore", Icons.Rounded.Search),
+    // Its own place in the rail rather than a filter inside search. Listening
+    // to a programme and listening to music are different evenings, and one of
+    // them was only reachable by typing its name from memory.
+    Podcasts("Podcasts", Icons.Rounded.Podcasts),
     Library("Library", Icons.Rounded.LibraryMusic),
     Together("Blaze Together", Icons.Rounded.People),
 
