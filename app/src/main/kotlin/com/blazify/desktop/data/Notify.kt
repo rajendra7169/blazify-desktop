@@ -24,13 +24,21 @@ import java.io.File
  */
 object Notify {
 
-    var on by mutableStateOf(true)
+    /**
+     * Off unless asked for.
+     *
+     * Something that puts a box on somebody's screen without being asked has
+     * to be opted into. A player that starts announcing itself the first time
+     * it is opened is one people go looking through settings to silence, which
+     * is a worse first evening than one that simply stays quiet.
+     */
+    var on by mutableStateOf(false)
         private set
 
     private val settings: File get() = File(Store.folder, "notify")
 
     init {
-        runCatching { if (settings.exists()) on = settings.readText().trim() != "false" }
+        runCatching { if (settings.exists()) on = settings.readText().trim() == "true" }
     }
 
     fun choose(value: Boolean) {
