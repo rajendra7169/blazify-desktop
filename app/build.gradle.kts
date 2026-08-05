@@ -347,6 +347,13 @@ tasks.register<JavaExec>("resumeCheck") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("artistProbe") {
+    group = "verification"
+    description = "Show what an artist page comes back with"
+    mainClass.set("com.blazify.desktop.tools.artist.ArtistProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("mixedProbe") {
     group = "verification"
     description = "Search both directories, open a show, and check an episode would play"

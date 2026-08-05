@@ -99,6 +99,7 @@ fun CollectionScreen(
     ) {
         item { BackRow(onBack) }
         item { Header(shown, page, onPlay, onShuffle) }
+        page?.about?.let { about -> item { About(about) } }
 
         when {
             problem != null -> item { Trouble(problem!!) { fetch() } }
@@ -200,6 +201,41 @@ private fun Header(
                 }
             }
         }
+    }
+}
+
+/**
+ * Who somebody is, folded up.
+ *
+ * Three lines and a way to see the rest. These paragraphs run to several
+ * hundred words and a page that opens with all of it is a page whose music is
+ * below the fold — but the first three lines are almost always the ones that
+ * say which of the four artists with this name you have found.
+ */
+@Composable
+private fun About(text: String) {
+    var open by remember(text) { mutableStateOf(false) }
+    val (source, hovered) = rememberHovered()
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable { open = !open }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text,
+            color = Blz.muted, fontSize = 13.sp, lineHeight = 20.sp,
+            maxLines = if (open) Int.MAX_VALUE else 3,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            if (open) "Less" else "More",
+            color = Blaze.Amber, fontSize = 12.sp, fontWeight = FontWeight.Medium,
+        )
     }
 }
 

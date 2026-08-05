@@ -817,6 +817,14 @@ object Catalogue {
         val tracks: List<Track> = emptyList(),
         val shelves: List<Shelf> = emptyList(),
         val note: String? = null,
+        /**
+         * Who this is, in their own words or somebody's.
+         *
+         * An artist page without one is a wall of covers that assumes you
+         * already know who you are looking at — which is the opposite of what
+         * a page you arrived at from a search is for.
+         */
+        val about: String? = null,
     )
 
     suspend fun collection(card: Card): Result<Collection> = withContext(Dispatchers.IO) {
@@ -912,7 +920,19 @@ object Catalogue {
                             rows = if (cards.all { it.kind == Kind.Song }) 4 else 1,
                         )
                     },
-                    note = page.subscriberCountText,
+                    // Both numbers where both are given. A monthly figure says
+                    // whether anybody is listening now, and a subscriber figure
+                    // says whether anybody ever did; neither answers for the
+                    // other and the catalogue hands over both.
+                    // Taken as written. The catalogue already says what its
+                    // own numbers are — one comes back as "132M monthly
+                    // audience" — and adding a word of explanation to that
+                    // produces "132M monthly audience monthly listeners".
+                    note = listOfNotNull(
+                        page.monthlyListenerCount,
+                        page.subscriberCountText,
+                    ).joinToString("  ·  ").ifBlank { null },
+                    about = page.description,
                 )
             }
         }
