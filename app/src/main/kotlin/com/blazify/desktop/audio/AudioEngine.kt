@@ -171,26 +171,6 @@ object AudioEngine {
     }
 
     /**
-     * The next thing, opened before it is wanted.
-     *
-     * The silence between two tracks is not the player being slow to start the
-     * second one. It is the second one being fetched: a link resolved, a
-     * connection made, a first chunk pulled down, all beginning at the moment
-     * the first track ends. Doing that while the first is still playing turns
-     * a two-second hole into none at all.
-     *
-     * Not true gapless in the sense a record has — two separate streams cannot
-     * be spliced sample to sample this way — but it removes the part anybody
-     * actually hears.
-     */
-    fun warmNext(mrl: String, userAgent: String? = null) {
-        runCatching {
-            val options = userAgent?.let { arrayOf(":http-user-agent=$it") } ?: emptyArray()
-            player.media().prepare(mrl, *options)
-        }
-    }
-
-    /**
      * Point the player at the copy that travels with the application.
      *
      * Only Windows carries one — a Linux package declares a dependency and the

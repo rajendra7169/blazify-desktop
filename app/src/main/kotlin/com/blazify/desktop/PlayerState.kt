@@ -386,24 +386,32 @@ object PlayerState {
     }
 
     /**
-     * Open the next track's audio before anybody asks for it.
+     * The link for the next track, found before it is wanted.
      *
-     * Only where there is a next one and only where it costs a request rather
-     * than a download: something already on this machine needs no warming, and
-     * something with its own link needs no resolving.
+     * Kept here rather than handed to the player. There is only one player and
+     * giving it the next track is giving up the current one — which is exactly
+     * what happened: four seconds into every streamed song the audio stopped
+     * dead, the bar froze and the button went back to play, while anything on
+     * disk carried on fine because it skipped this path entirely.
+     *
+     * Resolving is the slow half anyway. The gap between two songs is mostly a
+     * conversation with the catalogue — which client to claim to be, which
+     * link comes back, whether it is refused — and having that answer in hand
+     * before the last note is what removes it.
      */
+    private var readyNext: Pair<String, Catalogue.Stream>? = null
+
     private fun warmNext() {
         val next = queue.getOrNull(index + 1) ?: return
+        if (next.stream != null) return
         if (LocalMusic.isLocal(next.id) || Downloads.has(next.id) || Cache.has(next.id)) return
+        if (readyNext?.first == next.id) return
         scope.launch {
             // A moment in, so it never competes with the track that is
             // actually starting for the same connection.
             delay(4000)
-            if (current?.id == queue.getOrNull(index)?.id && queue.getOrNull(index + 1)?.id == next.id) {
-                next.stream?.let { AudioEngine.warmNext(it) }
-                    ?: Catalogue.stream(next.id).getOrNull()
-                        ?.let { AudioEngine.warmNext(it.url, it.userAgent) }
-            }
+            if (queue.getOrNull(index + 1)?.id != next.id) return@launch
+            Catalogue.stream(next.id).getOrNull()?.let { readyNext = next.id to it }
         }
     }
 
@@ -523,6 +531,20 @@ object PlayerState {
         reopening = true
         reopenedAt += 1
 
+        // Found already, while the last song was playing. A link is only good
+        // once, so it is taken rather than copied — a second play of the same
+        // song asks again.
+        readyNext?.takeIf { it.first == track.id }?.let { (_, ready) ->
+            readyNext = null
+            AudioEngine.play(ready.url, ready.userAgent)
+            applySpeed(track)
+            fadeUp()
+            resumeIfLeftOff(track)
+            Library.played(track)
+            warmNext()
+            return
+        }
+
         scope.launch {
             Catalogue.stream(track.id).fold(
                 onSuccess = { AudioEngine.play(it.url, resumeFrom, it.userAgent) },
@@ -597,11 +619,12 @@ object PlayerState {
         failure = null
         seekTarget = null
 
-        // The next track's audio is opened while this one plays. The silence
-        // between two songs is not the player being slow to begin the second;
-        // it is the second one being fetched at the moment the first ends —
-        // link resolved, connection made, first chunk pulled down. Doing that
-        // early turns a two-second hole into none.
+        // The next track's link is found while this one plays. The gap between
+        // two songs is mostly the conversation with the catalogue — which
+        // client to claim to be, which link comes back, whether it is refused —
+        // and having that answer in hand before the last note removes it.
+        // The link only; handing the player the next track is giving up the
+        // one it is playing.
         warmNext()
 
         // The words are fetched now rather than when the panel is opened, and
@@ -654,6 +677,20 @@ object PlayerState {
             fadeUp()
             resumeIfLeftOff(track)
             Library.played(track)
+            return
+        }
+
+        // Found already, while the last song was playing. A link is only good
+        // once, so it is taken rather than copied — a second play of the same
+        // song asks again.
+        readyNext?.takeIf { it.first == track.id }?.let { (_, ready) ->
+            readyNext = null
+            AudioEngine.play(ready.url, ready.userAgent)
+            applySpeed(track)
+            fadeUp()
+            resumeIfLeftOff(track)
+            Library.played(track)
+            warmNext()
             return
         }
 
