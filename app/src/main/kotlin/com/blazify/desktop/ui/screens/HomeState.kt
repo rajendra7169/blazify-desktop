@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.blazify.desktop.data.Catalogue
+import com.blazify.desktop.data.Store
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.LocalMusic
@@ -54,10 +55,41 @@ object HomeState {
     /** Where the page was scrolled to, so coming back lands where you left. */
     var scroll: LazyListState? = null
 
+    private const val KEPT = "home.json"
+
+    /**
+     * The feed as it was last time, put back before anything is fetched.
+     *
+     * A page that is blank until the network answers is a page that is blank
+     * on exactly the mornings the network is bad — which is when somebody most
+     * wants the thing they were listening to yesterday. What was here before
+     * is not stale, it is last night's feed, and last night's feed is a great
+     * deal better than a grey rectangle.
+     *
+     * Replaced the moment the real answer arrives, and only ever shown for the
+     * unfiltered feed: a mood is a question that has to be asked afresh.
+     */
+    private fun remembered(): List<Catalogue.Shelf> =
+        runCatching { Store.read<Catalogue.Shelf>(KEPT) }.getOrDefault(emptyList())
+
+    private fun remember(shelves: List<Catalogue.Shelf>) {
+        // The first few only. The point is a page that opens with something on
+        // it, not a copy of the catalogue on somebody's disk.
+        runCatching { Store.write(KEPT, shelves.take(8)) }
+    }
+
     /** Fill the screen, unless it's already full. */
     suspend fun ensureLoaded() {
         if (loaded) return
         loaded = true
+        // Yesterday's, first and instantly, so the window opens on a page
+        // rather than on a wait.
+        if (shelves.isEmpty() && mood == null) {
+            remembered().takeIf { it.isNotEmpty() }?.let {
+                shelves = it
+                loading = false
+            }
+        }
         loadFeed()
         buildPicks()
     }
@@ -119,9 +151,11 @@ object HomeState {
     }
 
     private suspend fun loadFeed() {
-        loading = true
+        // Left standing while the new one is fetched. Clearing first is what
+        // makes a page flash empty on every visit, and what somebody is
+        // looking at is not wrong until there is something to replace it with.
+        loading = shelves.isEmpty()
         problem = null
-        shelves = emptyList()
         discovered = 0
 
         // No catalogue to ask. What is on this machine is not a poor substitute
@@ -136,6 +170,7 @@ object HomeState {
         Catalogue.home(mood = mood?.params).fold(
             onSuccess = {
                 shelves = it.shelves
+                if (mood == null) remember(it.shelves)
                 more = it.more
                 // Only the unfiltered feed carries the full set; a filtered one
                 // answers with fewer, and losing the rest would strand you.

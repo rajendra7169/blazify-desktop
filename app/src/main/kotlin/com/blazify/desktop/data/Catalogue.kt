@@ -303,6 +303,7 @@ object Catalogue {
     @Serializable
     data class More(val browseId: String, val params: String?)
 
+    @Serializable
     data class Shelf(
         val title: String,
         val cards: List<Card>,
