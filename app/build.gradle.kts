@@ -148,7 +148,12 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.AppImage, TargetFormat.Msi, TargetFormat.Exe)
             packageName = "Blazify"
-            packageVersion = "1.0.0"
+            // Every build a tester is handed carries a new number. Package
+            // managers decide what to do by comparing versions, so a rebuilt
+            // package with the same one is not an upgrade — apt looks at it,
+            // sees the version already installed and does nothing, which reads
+            // as the fix not working.
+            packageVersion = "1.0.1"
 
             // Files copied in beside the application. The Windows folder holds
             // the audio library, so a Windows install needs nothing else.
