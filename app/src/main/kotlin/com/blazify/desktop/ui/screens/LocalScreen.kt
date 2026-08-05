@@ -82,28 +82,49 @@ fun LocalScreen(onPlay: (List<Track>, Int) -> Unit, onShuffle: (List<Track>) -> 
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("On this computer", color = Blz.ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    when {
-                        LocalMusic.scanning -> "Looking through your folders…"
-                        tracks.isEmpty() -> "Add a folder and everything in it turns up here"
-                        else -> "${tracks.size} songs in ${LocalMusic.folders.size} folders"
-                    },
-                    color = Blz.muted, fontSize = 13.sp,
-                )
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                // The covers here come out of the files themselves, so a folder
+                // of well-tagged music shows as itself and a folder of loose
+                // downloads shows as the note it is. Either is more honest than
+                // a heading with nothing beside it.
+                Collage(tracks)
+                Column(
+                    Modifier.weight(1f).padding(bottom = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        "YOUR OWN FILES", color = Blz.muted, fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp,
+                    )
+                    Text(
+                        "On this computer", color = Blz.ink, fontSize = 38.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        when {
+                            LocalMusic.scanning -> "Looking through your folders…"
+                            tracks.isEmpty() -> "Add a folder and everything in it turns up here"
+                            else -> "${tracks.size} songs in ${LocalMusic.folders.size} folders"
+                        },
+                        color = Blz.muted, fontSize = 13.sp,
+                    )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (tracks.isNotEmpty()) {
-                        Pill(Icons.Rounded.PlayArrow, "Play", filled = true) { onPlay(tracks, 0) }
-                        Pill(Icons.Rounded.Shuffle, "Shuffle", filled = false) { onShuffle(tracks) }
-                    }
-                    Pill(Icons.Rounded.CreateNewFolder, "Add folder", filled = tracks.isEmpty()) {
-                        chooseFolder()?.let { folder -> scope.launch { LocalMusic.add(folder) } }
-                    }
-                    if (LocalMusic.folders.isNotEmpty()) {
-                        Pill(Icons.Rounded.Refresh, "Rescan", filled = false) {
-                            scope.launch { LocalMusic.rescan() }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (tracks.isNotEmpty()) {
+                            Pill(Icons.Rounded.PlayArrow, "Play", filled = true) { onPlay(tracks, 0) }
+                            Pill(Icons.Rounded.Shuffle, "Shuffle", filled = false) { onShuffle(tracks) }
+                        }
+                        Pill(Icons.Rounded.CreateNewFolder, "Add folder", filled = tracks.isEmpty()) {
+                            chooseFolder()?.let { folder -> scope.launch { LocalMusic.add(folder) } }
+                        }
+                        if (LocalMusic.folders.isNotEmpty()) {
+                            Pill(Icons.Rounded.Refresh, "Rescan", filled = false) {
+                                scope.launch { LocalMusic.rescan() }
+                            }
                         }
                     }
                 }

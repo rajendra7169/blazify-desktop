@@ -72,28 +72,43 @@ fun DownloadsScreen(onPlay: (List<Track>, Int) -> Unit, onShuffle: (List<Track>)
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text("Downloads", color = Blz.ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            if (kept.isEmpty()) "Keep a song and it plays without the network"
-                            else "${kept.size} songs  ·  ${size(Downloads.bytes)}",
-                            color = Blz.muted, fontSize = 13.sp,
-                        )
+            // The same shape as every other list of songs here: what is in it,
+            // shown as its covers, beside what it is. A page of songs whose
+            // heading is a line of text reads as a report about songs rather
+            // than as the songs themselves.
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Collage(kept)
+                Column(
+                    Modifier.weight(1f).padding(bottom = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        "KEPT", color = Blz.muted, fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp,
+                    )
+                    Text("Downloads", color = Blz.ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (kept.isEmpty()) "Keep a song and it plays without the network"
+                        else "${kept.size} songs  ·  ${size(Downloads.bytes)}",
+                        color = Blz.muted, fontSize = 13.sp,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (kept.isNotEmpty()) {
+                            Pill(Icons.Rounded.PlayArrow, "Play", filled = true) { onPlay(kept, 0) }
+                            Pill(Icons.Rounded.Shuffle, "Shuffle", filled = false) { onShuffle(kept) }
+                            TextAction("Remove all", Downloads::removeAll)
+                        }
                     }
-                    if (kept.isNotEmpty()) TextAction("Remove all", Downloads::removeAll)
-                }
-
-                if (kept.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Pill(Icons.Rounded.PlayArrow, "Play", filled = true) { onPlay(kept, 0) }
-                        Pill(Icons.Rounded.Shuffle, "Shuffle", filled = false) { onShuffle(kept) }
+                    Downloads.failure?.let {
+                        Text(it, color = Blz.muted, fontSize = 12.5.sp)
                     }
-                }
-
-                Downloads.failure?.let {
-                    Text(it, color = Blz.muted, fontSize = 12.5.sp)
                 }
             }
         }

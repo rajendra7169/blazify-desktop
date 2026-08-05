@@ -366,12 +366,13 @@ private fun RowButton(icon: ImageVector, label: String, onClick: () -> Unit) {
  * a grid says at a glance that it's a collection, before a word is read.
  */
 @Composable
-private fun Collage(tracks: List<Track>) {
+fun Collage(tracks: List<Track>, size: androidx.compose.ui.unit.Dp = 210.dp) {
     val covers = tracks.mapNotNull { it.thumbnail }.take(4)
+    val half = size / 2
 
     Box(
         Modifier
-            .size(210.dp)
+            .size(size)
             .clip(RoundedCornerShape(14.dp))
             .background(Blz.surfaceHigh),
         contentAlignment = Alignment.Center,
@@ -379,15 +380,15 @@ private fun Collage(tracks: List<Track>) {
         when {
             covers.size >= 4 -> Column {
                 androidx.compose.foundation.layout.Row {
-                    Artwork(covers[0], size = 105.dp, corner = 0.dp)
-                    Artwork(covers[1], size = 105.dp, corner = 0.dp)
+                    Artwork(covers[0], size = half, corner = 0.dp)
+                    Artwork(covers[1], size = half, corner = 0.dp)
                 }
                 androidx.compose.foundation.layout.Row {
-                    Artwork(covers[2], size = 105.dp, corner = 0.dp)
-                    Artwork(covers[3], size = 105.dp, corner = 0.dp)
+                    Artwork(covers[2], size = half, corner = 0.dp)
+                    Artwork(covers[3], size = half, corner = 0.dp)
                 }
             }
-            covers.isNotEmpty() -> Artwork(covers.first(), size = 210.dp, corner = 0.dp)
+            covers.isNotEmpty() -> Artwork(covers.first(), size = size, corner = 0.dp)
             else -> Icon(Icons.Rounded.QueueMusic, null, Modifier.size(46.dp), tint = Blz.dim)
         }
     }

@@ -87,24 +87,42 @@ fun CachedScreen(onPlay: (List<Track>, Int) -> Unit, onShuffle: (List<Track>) ->
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Kept as you listen", color = Blz.ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Collage(tracks)
+                Column(
+                    Modifier.weight(1f).padding(bottom = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        "KEPT WITHOUT ASKING", color = Blz.muted, fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp,
+                    )
+                    Text(
+                        "Kept as you listen", color = Blz.ink, fontSize = 38.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
                     Text(
                         "${kept.size} songs  ·  ${size(Cache.bytes)} of ${Cache.limitMegabytes} MB  ·  " +
                             "oldest go first",
                         color = Blz.muted, fontSize = 13.sp,
                     )
-                }
-                Text(
-                    "These play without the network. They are not downloads — the oldest are " +
-                        "thrown away to make room — so keep anything you are counting on.",
-                    color = Blz.dim, fontSize = 12.sp, lineHeight = 17.sp,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Pill(Icons.Rounded.PlayArrow, "Play", filled = true) { onPlay(tracks, 0) }
-                    Pill(Icons.Rounded.Shuffle, "Shuffle", filled = false) { onShuffle(tracks) }
-                    TextButton("Clear all") { Cache.forgetAll() }
+                    Text(
+                        "These play without the network. They are not downloads — the oldest " +
+                            "are thrown away to make room — so keep anything you are counting on.",
+                        color = Blz.dim, fontSize = 12.sp, lineHeight = 17.sp,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Pill(Icons.Rounded.PlayArrow, "Play", filled = true) { onPlay(tracks, 0) }
+                        Pill(Icons.Rounded.Shuffle, "Shuffle", filled = false) { onShuffle(tracks) }
+                        TextButton("Clear all") { Cache.forgetAll() }
+                    }
                 }
             }
         }
