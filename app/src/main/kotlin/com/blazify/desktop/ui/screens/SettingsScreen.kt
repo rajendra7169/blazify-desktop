@@ -61,6 +61,7 @@ import com.blazify.desktop.data.Account
 import com.blazify.desktop.data.SignInWindow
 import com.blazify.desktop.data.BrowserSession
 import com.blazify.desktop.data.Backup
+import com.blazify.desktop.data.Cache
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LocalMusic
@@ -222,6 +223,49 @@ fun SettingsScreen() {
                                 if (Downloads.items.isNotEmpty()) {
                                     Button("Remove downloads", Downloads::removeAll)
                                 }
+                            }
+                        }
+                    }
+
+                    item {
+                        Section("Kept as you listen") {
+                            Text(
+                                "Songs are kept on this machine as you play them, with their " +
+                                    "covers and words, so they still play when the connection " +
+                                    "doesn't. The oldest go first when there is no room left — " +
+                                    "it is a good chance rather than a promise, which is what a " +
+                                    "download is for.",
+                                color = Blz.dim, fontSize = 12.sp, lineHeight = 18.sp,
+                            )
+                            SettingSwitch("Keep songs as I play them", Cache.on) {
+                                Cache.choose(it)
+                            }
+                            Line("Kept now", "${Cache.items.size}  ·  ${size(Cache.bytes)}")
+                            Choice(
+                                label = "How much room it may use",
+                                note = "The oldest are thrown away to stay under it",
+                                options = listOf("512 MB", "1 GB", "2 GB", "5 GB", "10 GB"),
+                                selected = when (Cache.limitMegabytes) {
+                                    512 -> "512 MB"
+                                    1024 -> "1 GB"
+                                    5120 -> "5 GB"
+                                    10240 -> "10 GB"
+                                    else -> "2 GB"
+                                },
+                                onSelect = {
+                                    Cache.chooseLimit(
+                                        when (it) {
+                                            "512 MB" -> 512
+                                            "1 GB" -> 1024
+                                            "5 GB" -> 5120
+                                            "10 GB" -> 10240
+                                            else -> 2048
+                                        },
+                                    )
+                                },
+                            )
+                            if (Cache.items.isNotEmpty()) {
+                                Button("Clear what is kept", Cache::forgetAll)
                             }
                         }
                     }
