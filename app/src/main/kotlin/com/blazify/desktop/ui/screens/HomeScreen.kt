@@ -42,6 +42,7 @@ import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.data.Resume
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.Trouble
 import com.blazify.desktop.ui.HomeHero
 import com.blazify.desktop.ui.Look
 import com.blazify.desktop.ui.SkeletonRail
@@ -172,7 +173,7 @@ fun HomeScreen(
             }
             HomeState.problem != null -> item {
                 Box(Modifier.padding(horizontal = 26.dp)) {
-                    Text(HomeState.problem!!, color = Blz.muted, fontSize = 13.sp)
+                    Trouble(HomeState.problem!!) { HomeState.again() }
                 }
             }
             shelves.isEmpty() -> item {

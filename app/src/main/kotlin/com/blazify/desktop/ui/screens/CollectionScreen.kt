@@ -48,6 +48,7 @@ import com.blazify.desktop.data.Track
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.Trouble
 import com.blazify.desktop.ui.SongMenu
 import com.blazify.desktop.ui.SongSheetButton
 import com.blazify.desktop.ui.SkeletonRows
@@ -80,12 +81,15 @@ fun CollectionScreen(
     var page by remember(card.id) { mutableStateOf<Catalogue.Collection?>(null) }
     var problem by remember(card.id) { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(card.id) {
+    suspend fun fetch() {
+        problem = null
         Catalogue.collection(card).fold(
             onSuccess = { page = it },
             onFailure = { problem = "Couldn't open ${card.title}" },
         )
     }
+
+    LaunchedEffect(card.id) { fetch() }
 
     val shown = page?.card ?: card
 
@@ -97,7 +101,7 @@ fun CollectionScreen(
         item { Header(shown, page, onPlay, onShuffle) }
 
         when {
-            problem != null -> item { Text(problem!!, color = Blz.muted, fontSize = 13.sp) }
+            problem != null -> item { Trouble(problem!!) { fetch() } }
             page == null -> item { SkeletonRows(count = 8) }
             page!!.shelves.isNotEmpty() -> items(page!!.shelves) { shelf ->
                 Shelf(shelf, onOpen, onPlayAll)

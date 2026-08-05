@@ -63,6 +63,18 @@ object HomeState {
     }
 
     /**
+     * Try the whole page again.
+     *
+     * The one thing somebody wants after being told a fetch failed, and until
+     * now the only way to it was to change page and come back.
+     */
+    suspend fun again() {
+        loaded = true
+        loadFeed()
+        buildPicks()
+    }
+
+    /**
      * The network came back, or went. Either way the page is now the wrong
      * page, and it is built again rather than left saying what used to be true.
      */

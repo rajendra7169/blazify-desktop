@@ -67,6 +67,7 @@ import com.blazify.desktop.data.asTrack
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.Trouble
 import com.blazify.desktop.ui.SkeletonRows
 import com.blazify.desktop.ui.SongMenu
 import com.blazify.desktop.ui.SongSheetButton
@@ -178,7 +179,16 @@ fun ExploreScreen(
             // when you don't already know what you're after.
             query.trim().length < 2 -> BrowseTab(browse, onOpen) { genre = it }
             searching && results.isEmpty() -> SkeletonRows(count = 8)
-            message != null -> Text(message!!, color = Blz.muted, fontSize = 13.sp)
+            // "Nothing matched" is an answer; a failure to reach the catalogue
+            // is not, and only the second one is worth a button.
+            message == "Nothing matched that" -> Text(message!!, color = Blz.muted, fontSize = 13.sp)
+            message != null -> Trouble(message!!) {
+                val typed = query.trim()
+                Catalogue.search(typed, scope).fold(
+                    onSuccess = { results = it; message = if (it.isEmpty()) "Nothing matched that" else null },
+                    onFailure = { message = "Couldn't reach the catalogue" },
+                )
+            }
             // The unfiltered answer holds both kinds at once. Songs are rows
             // that play; albums, artists and playlists are tiles that open. It
             // used to pick one shape for the whole list, so half the results
