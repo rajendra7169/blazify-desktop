@@ -13,8 +13,8 @@ import androidx.compose.runtime.setValue
  * Which window is showing.
  *
  * Held here rather than inside the window itself because three places ask for
- * it — the tray menu, the player bar, and the small window's own way back —
- * and none of them can see the others' state.
+ * it — the player bar and the small window's own way back — and neither can
+ * see the other's state.
  */
 object WindowMode {
     var mini by mutableStateOf(false)
