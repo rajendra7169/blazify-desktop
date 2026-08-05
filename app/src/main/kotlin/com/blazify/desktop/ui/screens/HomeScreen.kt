@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -42,6 +43,7 @@ import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.data.Resume
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.ListenSheet
 import com.blazify.desktop.ui.Trouble
 import com.blazify.desktop.ui.HomeHero
 import com.blazify.desktop.ui.Look
@@ -102,6 +104,7 @@ fun HomeScreen(
     // Only the music. Episodes have a page of their own and that is where
     // somebody goes back to one.
     val continuing = Resume.unfinishedMusic
+    var listening by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
     LazyColumn(
@@ -193,22 +196,24 @@ fun HomeScreen(
     }
 
     // Sits over the feed in the bottom corner, just above the transport strip.
-    // Everything on this page is songs, and the one thing you might want that
-    // isn't a particular one of them is all of them, in no order.
-    val everything = (picks + shelves).filter { it.isSongs }.flatMap { it.cards }
-    if (everything.isNotEmpty()) {
-        ShuffleButton(
-            Modifier.align(Alignment.BottomEnd).padding(end = 26.dp, bottom = 22.dp),
-        ) { onPlayAll(everything.shuffled(), 0) }
-    }
+    // Always, rather than only when the page has songs on it: what is playing
+    // in the room has nothing to do with what is on the screen, and this is
+    // most wanted on the mornings the feed is empty anyway.
+    ShuffleButton(
+        Modifier.align(Alignment.BottomEnd).padding(end = 26.dp, bottom = 22.dp),
+    ) { listening = true }
+
+    if (listening) ListenSheet { listening = false }
     }
 }
 
 /**
- * Shuffle everything on the page.
+ * What is that.
  *
- * Round and filled, so it reads as the one thing you can do to the whole
- * screen rather than as another control belonging to a shelf.
+ * This corner used to hold a second shuffle, which the greeting card at the
+ * top of the page already offers — the same button twice on one screen, one
+ * of them floating over the music. It now holds the one thing the app cannot
+ * do from anywhere else: listen to the room and name what is playing in it.
  */
 @Composable
 private fun ShuffleButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
@@ -224,8 +229,8 @@ private fun ShuffleButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
-        Icon(Icons.Rounded.Shuffle, "Shuffle everything", Modifier.size(20.dp), tint = Blaze.OnAmber)
-        Text("Shuffle", color = Blaze.OnAmber, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Icon(Icons.Rounded.Mic, "What is playing", Modifier.size(20.dp), tint = Blaze.OnAmber)
+        Text("What's this", color = Blaze.OnAmber, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

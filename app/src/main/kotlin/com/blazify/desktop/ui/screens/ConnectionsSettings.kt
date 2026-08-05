@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.Typing
 import com.blazify.desktop.data.Presence
+import com.blazify.desktop.data.Recognise
 import com.blazify.desktop.data.Scrobbler
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
@@ -58,6 +59,35 @@ fun ConnectionsSettingsSection(
     section("Last.fm", null) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (Scrobbler.signedIn) SignedIn() else SignIn()
+        }
+    }
+
+    section("Recognising a song from the air", null) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                "The \"What's this\" button on the home page listens through the " +
+                    "microphone for ten seconds and asks a service what it heard. The " +
+                    "listening happens here; the recognising does not — fingerprinting " +
+                    "audio is a hard problem somebody else has solved properly.",
+                color = Blz.dim, fontSize = 12.sp, lineHeight = 18.sp,
+            )
+            // The token is the listener's own, for the same reason the Last.fm
+            // key is: one shipped inside an open repository is a token anybody
+            // can lift, and a quota spent by strangers is a feature that stops
+            // working for everybody at once.
+            Entry("Token", "From audd.io", Recognise.token, onValue = Recognise::chooseToken)
+            Text(
+                if (!Recognise.canListen) {
+                    "This machine has no microphone that can be opened, so there is nothing " +
+                        "to listen with."
+                } else if (Recognise.ready) {
+                    "Ready. Press \"What's this\" on the home page while music is playing " +
+                        "near you."
+                } else {
+                    "Get a free token at audd.io — it takes a minute and it stays yours."
+                },
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
         }
     }
 
