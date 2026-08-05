@@ -346,23 +346,21 @@ object AudioEngine {
     }
 
     /**
-     * Set the volume the way it is heard rather than the way it is stored.
+     * Set the volume to where the slider is, and nothing cleverer.
      *
-     * The player underneath takes an amplitude, and amplitude is not loudness:
-     * doubling it does not sound twice as loud. Loudness goes roughly as
-     * amplitude to the power of six tenths, so a slider handed straight over
-     * spends its bottom third covering most of what anybody can hear and its
-     * top half barely changing anything — which is the whole of why it felt
-     * uneven at one end and unusable at the other.
+     * There was a curve here, put in to make equal movements of the pointer
+     * sound like equal changes in loudness. The arithmetic was right and the
+     * result was unusable: a fifth of the way along gave seven per cent of the
+     * volume and a tenth gave two, so the bottom third of the slider did
+     * nothing anybody could hear.
      *
-     * Raising the position to five thirds inverts that: half way along the
-     * slider now sounds half as loud, and every step of the pointer is worth
-     * about the same amount of loudness as every other.
+     * A volume slider is not a place to be clever. Every mixer on every desktop
+     * is linear, people already know what half way along one does, and being
+     * right about psychoacoustics is worth nothing against a control that
+     * appears to be broken.
      */
     fun setVolume(value: Double) {
-        val position = value.coerceIn(0.0, 1.0)
-        val amplitude = Math.pow(position, 5.0 / 3.0)
-        runCatching { player.audio().setVolume(Math.round(amplitude * 100).toInt()) }
+        runCatching { player.audio().setVolume((value.coerceIn(0.0, 1.0) * 100).toInt()) }
     }
 
     /**
