@@ -48,6 +48,10 @@ object SignInWindow {
      * Firefox and its relatives are preferred where they're present: they keep
      * cookies in a plain file, so nothing has to be unlocked at all, and a
      * separate profile is a first-class idea to them rather than a flag.
+     *
+     * The order is a preference and not a decision. A browser that refuses to
+     * open a window of its own hands the turn to the next one — see below,
+     * where that refusal is caught.
      */
     private val OPENERS = listOf(
         Opener("Firefox", "firefox", BrowserSession.Kind.Firefox),
@@ -75,10 +79,13 @@ object SignInWindow {
         Opener("Edge", "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe", BrowserSession.Kind.Chromium),
     )
 
-    /** The browser a window would be opened in, or nothing if there isn't one. */
-    fun opener(): Opener? =
-        if (onWindows) WINDOWS_OPENERS.firstOrNull { File(it.program).isFile }
-        else OPENERS.firstOrNull { which(it.program) != null }
+    /** Every browser on this machine a window could be opened in. */
+    fun openers(): List<Opener> =
+        if (onWindows) WINDOWS_OPENERS.filter { File(it.program).isFile }
+        else OPENERS.filter { which(it.program) != null }
+
+    /** The one that would be tried first. */
+    fun opener(): Opener? = openers().firstOrNull()
 
     private fun which(program: String): String? = runCatching {
         val process = ProcessBuilder("which", program).redirectErrorStream(true).start()
@@ -105,8 +112,9 @@ object SignInWindow {
     suspend fun signIn(
         verify: suspend (String) -> Boolean = { true },
         onStage: (Stage) -> Unit = {},
+        from: Opener? = null,
     ): Result<String> = withContext(Dispatchers.IO) {
-        val opener = opener()
+        val opener = from ?: opener()
             ?: return@withContext Result.failure(
                 IllegalStateException("No browser on this machine to open a window in"),
             )
@@ -142,8 +150,19 @@ object SignInWindow {
         }
 
         val opened = System.currentTimeMillis()
-        val process = runCatching { ProcessBuilder(command).start() }
-            .getOrElse { return@withContext Result.failure(it) }
+        val process = runCatching {
+            ProcessBuilder(command).apply {
+                // Firefox refuses to start a second copy of itself while one is
+                // running, whatever the flags say — the switch that asks for a
+                // separate instance is advice, and this is the instruction.
+                // Without it somebody with Firefox already open is told their
+                // browser "is already running, but is not responding", which is
+                // both alarming and untrue.
+                if (opener.kind == BrowserSession.Kind.Firefox) {
+                    environment()["MOZ_NO_REMOTE"] = "1"
+                }
+            }.start()
+        }.getOrElse { return@withContext Result.failure(it) }
 
         onStage(Stage.Opened)
 
@@ -151,6 +170,23 @@ object SignInWindow {
         val giveUpAt = System.currentTimeMillis() + 15 * 60 * 1000
         var caught: String? = null
         var arrived = 0L
+
+        // A browser that will not start says so by ending. Nothing has been
+        // typed and nothing can have been written in two seconds, so this is
+        // not somebody changing their mind — it is a launcher that refused,
+        // and the next browser on the machine deserves a turn before anybody
+        // is told to paste a session by hand.
+        kotlinx.coroutines.delay(2500)
+        if (!process.isAlive && read(opener)?.getOrNull() == null) {
+            val rest = openers().filterNot { it.program == opener.program }
+            for (next in rest) {
+                val fallback = signIn(verify, onStage, from = next)
+                if (fallback.isSuccess) return@withContext fallback
+            }
+            return@withContext Result.failure(
+                IllegalStateException("${opener.label} wouldn't open a window of its own"),
+            )
+        }
 
         while (process.isAlive && System.currentTimeMillis() < giveUpAt) {
             kotlinx.coroutines.delay(1000)
