@@ -269,6 +269,25 @@ questions in this project were actually settled.
 
 ---
 
+## Support
+
+Blazify is free, has no advertisements, and asks for nothing to work. If it has
+earned you a few evenings and you would like to say so, there is a coffee:
+
+<div align="center">
+
+<img src="docs/coffee.png" width="220" alt="Buy me a coffee">
+
+*Scan to support Blazify*
+
+</div>
+
+Not expected and never asked for inside the application — it sits on the About
+page beside the name, where somebody who has been using a thing for months can
+find it if they go looking.
+
+---
+
 ## Licence
 
 GPL-3.0. See [`LICENSE`](LICENSE).
@@ -284,5 +303,7 @@ sources, and the open podcast directory every podcast application reads.
 <div align="center">
 
 Made with ❤️ by **Rajendra Pandey**
+
+[Website](https://www.rajendrapandey.info.np/) · [GitHub](https://github.com/rajendra7169) · [Instagram](https://www.instagram.com/raja.indra7169)
 
 </div>
