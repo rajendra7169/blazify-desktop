@@ -304,12 +304,39 @@ val declareAudioDependency by tasks.registering {
         }
 
         shell("dpkg-deb", "-R", deb.absolutePath, work.absolutePath)
+
+        // What there is no playing anything without, and what only makes one
+        // thing easier. The audio library is the first kind: without it this
+        // is a window that cannot make a sound. Reading the desktop's password
+        // store is the second — it is asked for through the library directly,
+        // the command-line tool is only a fallback for machines whose library
+        // is somewhere unusual, and without either there is still a way to
+        // sign in by hand. A hard dependency on a convenience is how an
+        // install fails for somebody who would never have noticed its absence.
+        val needed = listOf("libvlc5", "vlc-plugin-base")
+        val helpful = listOf("libsecret-tools")
+
         val control = File(work, "DEBIAN/control")
-        control.writeText(
-            control.readLines().joinToString("\n") { line ->
-                if (line.startsWith("Depends:")) "$line, libvlc5, vlc-plugin-base, libsecret-tools" else line
-            } + "\n",
-        )
+        // Added only where missing, and each name only once. This step runs
+        // whenever the package is built and the package is not always rebuilt,
+        // so appending blindly declares the same dependency twice — which
+        // dpkg reports as two separate unmet dependencies.
+        fun addTo(line: String, names: List<String>): String {
+            val already = line.substringAfter(":").split(",").map { it.trim() }
+            val missing = names.filterNot { it in already }
+            return if (missing.isEmpty()) line else "$line, ${missing.joinToString(", ")}"
+        }
+
+        val lines = control.readLines().toMutableList()
+        val depends = lines.indexOfFirst { it.startsWith("Depends:") }
+        if (depends >= 0) lines[depends] = addTo(lines[depends], needed)
+        val recommends = lines.indexOfFirst { it.startsWith("Recommends:") }
+        if (recommends >= 0) {
+            lines[recommends] = addTo(lines[recommends], helpful)
+        } else if (depends >= 0) {
+            lines.add(depends + 1, "Recommends: ${helpful.joinToString(", ")}")
+        }
+        control.writeText(lines.joinToString("\n") + "\n")
         // Which window belongs to this launcher.
         //
         // The desktop draws the icon in the bar by matching a running window's
@@ -327,7 +354,7 @@ val declareAudioDependency by tasks.registering {
             }
 
         shell("dpkg-deb", "-b", work.absolutePath, deb.absolutePath)
-        println("declared libvlc5, vlc-plugin-base and libsecret-tools in ${deb.name}")
+        println("declared ${needed.joinToString(", ")} (needed) and ${helpful.joinToString(", ")} (helpful) in ${deb.name}")
         println("named the window class so the desktop draws the right icon")
     }
 }
