@@ -1,0 +1,81 @@
+# Blazify Project (C) 2026
+# Licensed under GPL-3.0
+
+# Building the packages people actually install.
+#
+# Windows installers cannot be built anywhere but Windows — the tool that makes
+# them is part of the platform — so this exists because the alternative is
+# owning a second machine. Each side builds its own and the results are
+# collected in one place.
+name: Packages
+
+on:
+  # Cut a release by pushing a tag: git tag v1.0.1 && git push --tags
+  push:
+    tags: ["v*"]
+  # And by hand, for testing the build itself without promising anything.
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # The audio library is a dependency of the package rather than part of
+      # it — a shared copy in the right place is smaller and more correct than
+      # a private one — so it is needed to build and to run.
+      - name: Fetch what the package declares
+        run: sudo apt-get update && sudo apt-get install -y libvlc-dev vlc-plugin-base
+
+      - name: Build the deb
+        run: ./gradlew packageDeb --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blazify-linux-deb
+          path: app/build/compose/binaries/main/deb/*.deb
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Windows has no package manager to declare a dependency to, so the
+      # audio library travels inside the application. The build fetches it.
+      - name: Build the installer
+        run: ./gradlew packageExe --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blazify-windows-exe
+          path: app/build/compose/binaries/main/exe/*.exe
+
+  # Both packages on one page with a version number on it, which is what a
+  # tester should be given rather than a link to a build log.
+  release:
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: packages/**/*
+          draft: true
+          generate_release_notes: true
