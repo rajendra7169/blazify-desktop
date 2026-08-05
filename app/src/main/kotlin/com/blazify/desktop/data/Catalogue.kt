@@ -413,6 +413,27 @@ object Catalogue {
     /** A coloured tile in the browse grid, and where it leads. */
     data class Genre(val title: String, val colour: Long, val browseId: String, val params: String?)
 
+    /**
+     * What everybody is playing, as opposed to what you are.
+     *
+     * The charts page hands back playlists rather than songs — measured, and
+     * it is the only shape it comes in — so the first of them is opened and
+     * its hundred songs are the answer. Which one is first is the catalogue's
+     * judgement about what a chart means today, and it is a better judgement
+     * than a hardcoded id that goes stale.
+     */
+    suspend fun charts(): Result<List<Track>> = withContext(Dispatchers.IO) {
+        ensureIdentity()
+        runCatching {
+            val shelves = genre(Genre("Charts", 0L, "FEmusic_charts", null)).getOrThrow()
+            val playlist = shelves
+                .flatMap { it.cards }
+                .firstOrNull { it.kind == Kind.Playlist }
+                ?: error("The charts came back with nothing to open")
+            collection(playlist).getOrThrow().tracks
+        }
+    }
+
     /** What the browse tab offers: new releases, and the mood and genre tiles. */
     data class Explore(val releases: List<Card>, val genres: List<Genre>)
 
