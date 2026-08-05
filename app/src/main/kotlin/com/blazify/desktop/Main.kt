@@ -30,6 +30,7 @@ import com.blazify.desktop.ui.AppShell
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.BlazifyTheme
 import com.blazify.desktop.ui.blazifyMark
+import com.blazify.desktop.ui.blazifyTrayMark
 import com.blazify.desktop.ui.MiniPlayer
 import com.blazify.desktop.ui.ThemeState
 import com.blazify.desktop.ui.WindowMode
@@ -121,7 +122,7 @@ private fun run() = application {
         // The drawn flame stays as the fallback, for a build where the image
         // cannot be read: an empty square in a system tray is worse than an
         // approximate one.
-        icon = blazifyMark
+        icon = blazifyTrayMark
             ?: Tinted(rememberVectorPainter(Icons.Rounded.LocalFireDepartment), Blaze.Amber),
         tooltip = PlayerState.current?.let { "${it.title} — ${it.artist}" } ?: "Blazify",
         onAction = { showing = true },
