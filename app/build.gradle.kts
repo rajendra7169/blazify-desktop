@@ -310,8 +310,25 @@ val declareAudioDependency by tasks.registering {
                 if (line.startsWith("Depends:")) "$line, libvlc5, vlc-plugin-base, libsecret-tools" else line
             } + "\n",
         )
+        // Which window belongs to this launcher.
+        //
+        // The desktop draws the icon in the bar by matching a running window's
+        // class against the installed applications, and the entry the packager
+        // writes says nothing about that — so a correct icon would be
+        // installed and a generic one would appear beside it, which reads as
+        // two different programs. The application names its own window to
+        // match; this is the other half of the handshake.
+        File(work, "opt/blazify/lib").listFiles().orEmpty()
+            .filter { it.extension == "desktop" }
+            .forEach { entry ->
+                if ("StartupWMClass" !in entry.readText()) {
+                    entry.appendText("StartupWMClass=Blazify\n")
+                }
+            }
+
         shell("dpkg-deb", "-b", work.absolutePath, deb.absolutePath)
         println("declared libvlc5, vlc-plugin-base and libsecret-tools in ${deb.name}")
+        println("named the window class so the desktop draws the right icon")
     }
 }
 
