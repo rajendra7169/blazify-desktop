@@ -42,14 +42,41 @@ object Panel {
      * player that refused to start over it would be worse than one whose media
      * keys are quiet.
      */
+    /** Whether the desktop is being answered at all. */
+    var answering = false
+        private set
+
+    /**
+     * Why it is not, when it is not.
+     *
+     * A failure here is silent by design — the media keys not working is not a
+     * reason to refuse to play music — but silent to the person is not the
+     * same as silent to whoever has to find out why, and the first version of
+     * this threw the reason away.
+     */
+    var trouble: String? = null
+        private set
+
     fun start() {
         if (connection != null) return
-        if (System.getenv("DBUS_SESSION_BUS_ADDRESS").isNullOrBlank()) return
+        if (System.getenv("DBUS_SESSION_BUS_ADDRESS").isNullOrBlank()) {
+            trouble = "no session bus on this desktop"
+            return
+        }
         runCatching {
             val bus = DBusConnectionBuilder.forSessionBus().build()
             bus.requestBusName(NAME)
             bus.exportObject(PATH, Player())
             connection = bus
+            answering = true
+            trouble = null
+        }.onFailure {
+            trouble = "${it.javaClass.simpleName}: ${it.message}"
+            // Said out loud, once. The media keys not working is not a reason
+            // to refuse to play music, so this stays a warning — but a failure
+            // nobody can see is a failure nobody can fix, and the first
+            // version of this threw the reason away entirely.
+            System.err.println("Blazify: the desktop's media controls are unavailable — $trouble")
         }
     }
 
@@ -130,7 +157,12 @@ object Panel {
 
         private fun application(): Map<String, Variant<*>> = mapOf(
             "Identity" to Variant("Blazify"),
-            "DesktopEntry" to Variant("blazify"),
+            // The name of the file the package installs, which is how the
+            // desktop finds the icon and the name to put beside the controls.
+            // Not "blazify": the packager writes blazify-Blazify.desktop, and
+            // a pointer to a file that is not there is a widget with a blank
+            // square on it.
+            "DesktopEntry" to Variant("blazify-Blazify"),
             "CanQuit" to Variant(false),
             "CanRaise" to Variant(false),
             "HasTrackList" to Variant(false),

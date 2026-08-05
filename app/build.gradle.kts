@@ -153,7 +153,21 @@ compose.desktop {
             // package with the same one is not an upgrade — apt looks at it,
             // sees the version already installed and does nothing, which reads
             // as the fix not working.
-            packageVersion = "1.0.1"
+            packageVersion = "1.0.2"
+
+            // Parts of the runtime the packaged copy would otherwise leave out.
+            //
+            // A packaged application does not carry a whole Java runtime, it
+            // carries the parts something can be shown to use — and nothing
+            // can see through a service loader and a reflective call to the
+            // one class that asks the system who you are. Without it the
+            // desktop's own media controls simply never appeared: the
+            // application connected to the bus, failed to authenticate, and
+            // said nothing about it.
+            //
+            // Found by making that failure speak rather than by guessing:
+            // NoClassDefFoundError, com.sun.security.auth.module.UnixSystem.
+            modules("jdk.security.auth", "jdk.crypto.ec", "java.instrument")
 
             // Files copied in beside the application. The Windows folder holds
             // the audio library, so a Windows install needs nothing else.
@@ -414,6 +428,13 @@ tasks.register<JavaExec>("suggestCheck") {
 tasks.register<JavaExec>("resumeCheck") {
     group = "verification"
     mainClass.set("com.blazify.desktop.tools.resume.ResumeCheckKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
+tasks.register<JavaExec>("panelProbe") {
+    group = "verification"
+    description = "Whether the desktop's media controls can be answered"
+    mainClass.set("com.blazify.desktop.tools.panel.PanelProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
