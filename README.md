@@ -38,9 +38,11 @@ as they're sung, and listen to programmes as well as records.
 - **Media keys and the system panel.** Play, pause, next and previous from the
   keyboard; title, artist and cover in your desktop's own media widget.
 
+![Player and audio](docs/screenshots/player-and-audio.png)
+
 ### Words
 
-![Lyrics](docs/screenshots/now-playing-lyrics.png)
+![Lyrics](docs/screenshots/lyrics.png)
 
 - **Lyrics from five sources**, asked in an order you set, because no one
   service has everything — one is excellent for Western pop and thin on
@@ -52,7 +54,7 @@ as they're sung, and listen to programmes as well as records.
 
 ### Programmes
 
-![Podcasts](docs/screenshots/podcasts.png)
+![A podcast](docs/screenshots/podcasts.png)
 
 - **Two directories at once.** The open podcast directory knows the world's
   programmes — Test Match Special with 657 episodes, The Daily with 2,680 — and
@@ -79,7 +81,7 @@ as they're sung, and listen to programmes as well as records.
   were, and a *Pick up where you left off* row puts it back in front of you.
   Music and talk are kept apart — an episode belongs on the podcasts page.
 
-![Pick up where you left off](docs/screenshots/home-continue.png)
+![Kept as you listen](docs/screenshots/kept-as-you-listen.png)
 
 ### Together
 
@@ -99,10 +101,8 @@ as they're sung, and listen to programmes as well as records.
 
 ![Player looks](docs/screenshots/player-looks.png)
 
-- **Colour taken from the artwork**, accent only or the whole window.
-
-![Dynamic colour](docs/screenshots/home-dynamic-colour.png)
-
+- **Colour taken from the artwork**, accent only or the whole window — the
+  screenshots on this page are the same application on the same evening.
 - **Dark, light, or whatever the desktop is doing.**
 - **A mini player** that stays on top, and a tray icon with the transport on it.
 
@@ -112,8 +112,16 @@ as they're sung, and listen to programmes as well as records.
 
 ### Linux
 
+Three shapes, on the [releases page](../../releases/latest):
+
+| | |
+|---|---|
+| **`.deb`** | Debian, Ubuntu, Mint, Pop!_OS |
+| **`.AppImage`** | Fedora, Arch, openSUSE, or anywhere. One file, nothing installed |
+| **`.tar.gz`** | The same application as a plain folder |
+
 ```bash
-sudo apt install ./blazify_1.0.1_amd64.deb
+sudo apt install ./blazify_1.0.2_amd64.deb
 ```
 
 It lands in the applications menu under Sound & Video. The package brings its own
@@ -132,6 +140,14 @@ a browser session, and there's a third that needs nothing at all.
 
 > Use `apt` rather than `dpkg -i`. Both install the package; only one resolves
 > what it depends on.
+
+The AppImage asks for nothing at all — the audio library and its decoders travel
+inside it, so it plays on a machine that has never heard of VLC:
+
+```bash
+chmod +x Blazify-1.0.2-x86_64.AppImage
+./Blazify-1.0.2-x86_64.AppImage
+```
 
 ### Windows
 
