@@ -51,6 +51,21 @@ object Downloads {
         Store.write(INDEX, items)
     }
 
+    /**
+     * Take a copy that is already on disk into the kept list.
+     *
+     * For a song that was cached as it played and is now being asked for
+     * properly: the audio is already here, and fetching it a second time to
+     * change its status would be spending the network on a file this machine
+     * is holding.
+     */
+    fun adopt(track: Track) {
+        if (items.any { it.id == track.id }) return
+        items = listOf(track) + items
+        Store.write(INDEX, items)
+        Offline.keep(track)
+    }
+
     /** Audio is mp4, whatever the source called it. */
     fun fileFor(id: String) = File(folder, "$id.m4a")
 
