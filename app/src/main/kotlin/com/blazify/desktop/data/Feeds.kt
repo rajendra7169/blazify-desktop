@@ -170,6 +170,8 @@ object Feeds {
          * rather than a machine's guess at what it heard.
          */
         val transcript: String?,
+        /** Where the parts of this episode are listed, when they are. */
+        val chapters: String?,
     ) {
         /**
          * As something playable.
@@ -188,6 +190,7 @@ object Feeds {
             notes = notes,
             spoken = true,
             words = transcript,
+            parts = chapters,
         )
     }
 
@@ -228,6 +231,8 @@ object Feeds {
                     published = item.text("pubDate")?.take(16),
                     notes = (item.text("itunes:summary") ?: item.text("description"))?.let(::plainly),
                     transcript = transcriptOf(item),
+                    chapters = (item.getElementsByTagName("podcast:chapters").item(0) as? Element)
+                        ?.getAttribute("url")?.takeIf { it.isNotBlank() },
                 )
             }
         }.getOrDefault(emptyList())
@@ -254,6 +259,32 @@ object Feeds {
             }
         }
         return fallback
+    }
+
+    /** One part of an episode, and where it begins. */
+    data class Part(val at: Double, val title: String)
+
+    /**
+     * The parts of an episode, in the order they happen.
+     *
+     * An hour of talk is four or five things, and a player that cannot show
+     * them is one where finding the bit somebody mentioned means dragging a
+     * bar and listening for it.
+     */
+    suspend fun parts(where: String): List<Part> = withContext(Dispatchers.IO) {
+        val body = fetch(where) ?: return@withContext emptyList()
+        runCatching {
+            json.parseToJsonElement(body).jsonObject["chapters"]?.jsonArray.orEmpty()
+                .mapNotNull { entry ->
+                    val row = entry.jsonObject
+                    val at = row["startTime"]?.jsonPrimitive?.content?.toDoubleOrNull()
+                        ?: return@mapNotNull null
+                    val title = row["title"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
+                        ?: return@mapNotNull null
+                    Part(at, title)
+                }
+                .sortedBy { it.at }
+        }.getOrDefault(emptyList())
     }
 
     /** Whether a tile stands for a programme from a feed rather than the catalogue. */

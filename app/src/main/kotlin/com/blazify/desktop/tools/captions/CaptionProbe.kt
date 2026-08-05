@@ -28,6 +28,11 @@ fun main(): Unit = runBlocking {
         println("\n${show.title}: ${episode.title.take(48)}")
         println("  feed offers words: ${track.words != null}")
 
+        // The parts of it, where the show lists them.
+        val parts = track.parts?.let { Feeds.parts(it) }.orEmpty()
+        println("  chapters: ${parts.size}")
+        parts.take(4).forEach { println("      ${it.at.toInt() / 60}:${"%02d".format(it.at.toInt() % 60)}  ${it.title}") }
+
         val words = Captions.find(track)
         if (words == null) {
             println("  nothing to show")

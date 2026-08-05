@@ -86,6 +86,14 @@ data class Track(
      * panel wants it, the feed is long since read and thrown away.
      */
     val words: String? = null,
+    /**
+     * Where the parts of this are listed, when somebody listed them.
+     *
+     * An hour has parts, and being unable to see them is what makes an hour
+     * feel like a commitment. Carried rather than fetched later, for the same
+     * reason the words are: the feed that knew is long since read.
+     */
+    val parts: String? = null,
 ) {
     /**
      * Whether this is talk, including for what was written down before anybody

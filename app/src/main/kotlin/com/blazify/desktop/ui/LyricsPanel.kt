@@ -150,6 +150,17 @@ fun LyricsPanel(
             RoundIcon(Icons.Rounded.Close, "Close", onClose)
         }
 
+        // The parts of an episode, above the words. Both answer "where in
+        // this am I" — one in headings and one in sentences — and the headings
+        // are the half somebody scans while the sentences are the half they
+        // read. Nothing at all for a song, which has neither.
+        if (track?.parts != null) {
+            ChapterList(
+                track, position,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+
         Body(track, lyrics, position, onSeekTo, scale = 1f, padding = PaddingValues(0.dp))
     }
 }
