@@ -110,9 +110,12 @@ fun ScrubBar(
 
     Box(
         modifier
-            // A hair-thin line is hard to hit with a mouse. The padding widens
-            // the target without changing how it looks.
-            .padding(vertical = 6.dp)
+            // A hair-thin line is hard to hit with a mouse, and a pointer is
+            // not a fingertip — it has to be put somewhere exactly. The
+            // padding widens what can be grabbed to about the height of a row
+            // without changing how any of it looks: the bar is still three
+            // pixels, the target around it is twenty-two.
+            .padding(vertical = 11.dp)
             .onSizeChanged { width = it.width.coerceAtLeast(1) }
             .hoverBackground(Color.Transparent, hovered, source)
             .pointerInput(Unit) {

@@ -314,8 +314,24 @@ object AudioEngine {
         if (duration > 0) anchorAt(target * duration)
     }
 
+    /**
+     * Set the volume the way it is heard rather than the way it is stored.
+     *
+     * The player underneath takes an amplitude, and amplitude is not loudness:
+     * doubling it does not sound twice as loud. Loudness goes roughly as
+     * amplitude to the power of six tenths, so a slider handed straight over
+     * spends its bottom third covering most of what anybody can hear and its
+     * top half barely changing anything — which is the whole of why it felt
+     * uneven at one end and unusable at the other.
+     *
+     * Raising the position to five thirds inverts that: half way along the
+     * slider now sounds half as loud, and every step of the pointer is worth
+     * about the same amount of loudness as every other.
+     */
     fun setVolume(value: Double) {
-        runCatching { player.audio().setVolume((value.coerceIn(0.0, 1.0) * 100).toInt()) }
+        val position = value.coerceIn(0.0, 1.0)
+        val amplitude = Math.pow(position, 5.0 / 3.0)
+        runCatching { player.audio().setVolume(Math.round(amplitude * 100).toInt()) }
     }
 
     fun stop() {

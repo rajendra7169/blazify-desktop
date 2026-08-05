@@ -199,8 +199,11 @@ fun PlayerBar(
                 onClick = onToggleMute,
                 tint = if (volume <= 0f) Blaze.Amber else null,
             )
+            // Wider than it was. Seventy-six pixels of slider is seventy-six
+            // places to put the pointer, and asking somebody to pick a volume
+            // out of that is asking for the one they get by accident.
             ScrubBar(
-                volume, onVolume, Modifier.width(if (narrow) 54.dp else 76.dp),
+                volume, onVolume, Modifier.width(if (narrow) 76.dp else 118.dp),
                 fill = Blz.muted, thickness = 3.dp,
             )
         }
