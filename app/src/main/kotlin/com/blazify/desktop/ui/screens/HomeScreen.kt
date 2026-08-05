@@ -69,12 +69,10 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { HomeState.scroll = listState }
     LaunchedEffect(Unit) { HomeState.ensureLoaded() }
-    // Built again when the line comes or goes — offline the page is a different
-    // page, and a stale one is a page of things that cannot play.
-    LaunchedEffect(Net.online) { HomeState.reactTo(Net.online) }
-
     // Built again when the line comes or goes — offline the page is a
     // different page, and a stale one is a page of things that cannot play.
+    // Once, not twice: this was written out twice and every rebuild happened
+    // in pairs.
     LaunchedEffect(Net.online) { HomeState.reactTo(Net.online) }
 
     val picks = HomeState.picks

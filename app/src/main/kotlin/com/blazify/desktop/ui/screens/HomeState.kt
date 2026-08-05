@@ -82,6 +82,7 @@ object HomeState {
     suspend fun ensureLoaded() {
         if (loaded) return
         loaded = true
+        builtOnline = Net.online
         // Yesterday's, first and instantly, so the window opens on a page
         // rather than on a wait.
         if (shelves.isEmpty() && mood == null) {
@@ -112,9 +113,22 @@ object HomeState {
      */
     suspend fun reactTo(online: Boolean) {
         if (!loaded) return
+        // Only when it has actually changed since the page was built.
+        //
+        // This is told the current state every time the screen appears, not
+        // only when the network moves — so it was rebuilding the whole feed on
+        // arrival, every arrival, on top of the load that had just happened.
+        // Stepping to Explore and back cost a dozen requests and a different
+        // set of songs, which is exactly what the page being held outside the
+        // screen was meant to prevent.
+        if (online == builtOnline) return
+        builtOnline = online
         loadFeed()
         buildPicks()
     }
+
+    /** Which world the page currently on screen was built for. */
+    private var builtOnline: Boolean? = null
 
     /** Throw it away and fetch again — a different twenty songs. */
     suspend fun refresh() {
