@@ -11,6 +11,7 @@ import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LyricsSource
 import com.blazify.desktop.data.Playback
 import com.blazify.desktop.data.Resume
+import com.blazify.desktop.data.Store
 import com.blazify.desktop.data.Scrobbler
 import com.blazify.desktop.together.Did
 import com.blazify.desktop.together.Together
@@ -319,6 +320,35 @@ object PlayerState {
         playing?.let { index = queue.indexOf(it).coerceAtLeast(0) }
     }
 
+    /**
+     * How fast talk plays.
+     *
+     * Only talk. Speeding up a song changes the pitch of it and the whole
+     * point of the song with it, but an hour of somebody explaining something
+     * at one and a half times is the same hour with forty minutes given back —
+     * which is why every application that carries speech has this and no
+     * application that only carries music does.
+     *
+     * Remembered, since somebody who listens at one and a quarter listens at
+     * one and a quarter to everything, and being asked again each episode is
+     * being asked the same question forever.
+     */
+    var speed by mutableStateOf(
+        runCatching { java.io.File(Store.folder, "speed").readText().trim().toFloat() }
+            .getOrDefault(1f),
+    )
+        private set
+
+    fun chooseSpeed(value: Float) {
+        speed = value.coerceIn(0.5f, 3f)
+        runCatching { java.io.File(Store.folder, "speed").writeText(speed.toString()) }
+        // Only where it belongs. A song is left alone whatever this says.
+        if (current?.talk == true) AudioEngine.setRate(speed)
+    }
+
+    /** The speeds worth offering, which is not every number between them. */
+    val speeds = listOf(0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
+
     var volume by mutableStateOf(0.8f)
         private set
 
@@ -353,6 +383,17 @@ object PlayerState {
                 }
             }
         }
+    }
+
+    /**
+     * Put the chosen speed back, for talk, on every new piece of audio.
+     *
+     * The engine forgets it each time — it is a property of what is playing
+     * rather than of the player — so it is set again here. A song always goes
+     * back to one: a sped-up song is a different song, in a different key.
+     */
+    private fun applySpeed(track: Track) {
+        AudioEngine.setRate(if (track.talk) speed else 1f)
     }
 
     /**
@@ -571,6 +612,7 @@ object PlayerState {
         }
         if (onDisk != null) {
             AudioEngine.play(onDisk)
+            applySpeed(track)
             fadeUp()
             resumeIfLeftOff(track)
             Library.played(track)
@@ -579,6 +621,7 @@ object PlayerState {
 
         if (known != null) {
             AudioEngine.play(known)
+            applySpeed(track)
             fadeUp()
             resumeIfLeftOff(track)
             Library.played(track)
@@ -589,6 +632,7 @@ object PlayerState {
             Catalogue.stream(track.id).fold(
                 onSuccess = {
                     AudioEngine.play(it.url, it.userAgent)
+                    applySpeed(track)
                     fadeUp()
                     resumeIfLeftOff(track)
                     // Recorded once it's actually playing rather than on the

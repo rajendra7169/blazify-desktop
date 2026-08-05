@@ -44,6 +44,12 @@ import androidx.compose.material.icons.rounded.VolumeDown
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -173,6 +179,11 @@ fun PlayerBar(
             horizontalArrangement = Arrangement.spacedBy(if (narrow) 10.dp else 16.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Only while talk is playing. A speed control beside a song is an
+            // offer to change its key, which is not something anybody wants
+            // and not what this does.
+            if (PlayerState.current?.talk == true) SpeedButton()
+
             TransportButton(
                 Icons.Rounded.Bedtime, "Sleep timer", 17.dp,
                 onClick = onOpenTimer,
@@ -451,5 +462,62 @@ private fun Meter(fraction: Float, modifier: Modifier = Modifier, fill: Color = 
                 .clip(RoundedCornerShape(2.dp))
                 .background(fill),
         )
+    }
+}
+
+
+/**
+ * How fast talk plays, as the number it is.
+ *
+ * The number rather than an icon, because the number is the whole state: an
+ * icon of a gauge tells you there is a speed and not which one, and which one
+ * is the only thing anybody checks.
+ */
+@Composable
+private fun SpeedButton() {
+    val (source, hovered) = rememberHovered()
+    var open by remember { mutableStateOf(false) }
+    val speed = PlayerState.speed
+
+    Box {
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .hoverBackground(Blz.hover, hovered, source)
+                .clickable { open = true }
+                .padding(horizontal = 9.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                // A round number reads better than one with a nought on it:
+                // people say one and a half, not one point five zero.
+                if (speed == speed.toInt().toFloat()) "${speed.toInt()}×" else "$speed×",
+                color = if (speed != 1f) Blaze.Amber else Blz.muted,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            modifier = Modifier.background(Blz.surface),
+        ) {
+            PlayerState.speeds.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            if (option == option.toInt().toFloat()) "${option.toInt()}×" else "$option×",
+                            color = if (option == speed) Blaze.Amber else Blz.ink,
+                            fontSize = 13.sp,
+                        )
+                    },
+                    onClick = {
+                        PlayerState.chooseSpeed(option)
+                        open = false
+                    },
+                )
+            }
+        }
     }
 }

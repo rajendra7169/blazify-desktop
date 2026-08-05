@@ -334,6 +334,17 @@ object AudioEngine {
         runCatching { player.audio().setVolume(Math.round(amplitude * 100).toInt()) }
     }
 
+    /**
+     * How fast it plays.
+     *
+     * Reset by the player itself on every new piece of audio, so it has to be
+     * set again each time rather than once — which is why this is asked for
+     * after handing over a track rather than when somebody chooses it.
+     */
+    fun setRate(rate: Float) {
+        runCatching { player.controls().setRate(rate.coerceIn(0.5f, 3f)) }
+    }
+
     fun stop() {
         runCatching { player.controls().stop() }
         playing = false
