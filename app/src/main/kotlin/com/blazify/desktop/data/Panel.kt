@@ -1,5 +1,8 @@
 package com.blazify.desktop.data
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.blazify.desktop.PlayerState
 import org.freedesktop.dbus.annotations.DBusInterfaceName
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder
@@ -42,6 +45,28 @@ object Panel {
      * player that refused to start over it would be worse than one whose media
      * keys are quiet.
      */
+    /**
+     * Whether to answer the desktop at all.
+     *
+     * On, because the media keys on a keyboard go through the same door: an
+     * application that does not answer is one where that key does nothing.
+     * Off is offered because the controls appear in the panel and the calendar
+     * whether or not somebody wants them there, and a music player is not
+     * entitled to a permanent seat on somebody's screen.
+     */
+    var on by mutableStateOf(
+        runCatching { settings.readText().trim() != "false" }.getOrDefault(true),
+    )
+        private set
+
+    private val settings: java.io.File get() = java.io.File(Store.folder, "panel")
+
+    fun choose(value: Boolean) {
+        on = value
+        runCatching { settings.writeText(on.toString()) }
+        if (on) start() else stop()
+    }
+
     /** Whether the desktop is being answered at all. */
     var answering = false
         private set
@@ -58,6 +83,7 @@ object Panel {
         private set
 
     fun start() {
+        if (!on) return
         if (connection != null) return
         if (System.getenv("DBUS_SESSION_BUS_ADDRESS").isNullOrBlank()) {
             trouble = "no session bus on this desktop"
@@ -105,6 +131,7 @@ object Panel {
     fun stop() {
         runCatching { connection?.close() }
         connection = null
+        answering = false
     }
 
     /**

@@ -68,6 +68,7 @@ import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LocalMusic
 import com.blazify.desktop.data.Offline
 import com.blazify.desktop.data.Notify
+import com.blazify.desktop.data.Panel
 import com.blazify.desktop.data.Store
 import com.blazify.desktop.data.Updates
 import com.blazify.desktop.ui.Artwork
@@ -243,6 +244,17 @@ fun SettingsScreen() {
                             if (Notify.available) {
                                 SettingSwitch("Say what came on", Notify.on) { Notify.choose(it) }
                             }
+
+                            SettingSwitch(
+                                "Answer the desktop's media controls",
+                                Panel.on,
+                            ) { Panel.choose(it) }
+                            Text(
+                                "The controls in the panel and the calendar, and the play, pause " +
+                                    "and skip keys on a keyboard — all one thing. Turning it off " +
+                                    "takes the keys with it.",
+                                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+                            )
                         }
                     }
                     item {
