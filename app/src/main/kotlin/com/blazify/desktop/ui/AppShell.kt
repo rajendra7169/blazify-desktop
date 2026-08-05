@@ -47,6 +47,7 @@ import com.blazify.desktop.data.Panel
 import com.blazify.desktop.data.Presence
 import com.blazify.desktop.data.Scrobbler
 import com.blazify.desktop.ui.screens.CollectionScreen
+import com.blazify.desktop.ui.screens.CachedScreen
 import com.blazify.desktop.ui.screens.DownloadsScreen
 import com.blazify.desktop.ui.screens.ExploreScreen
 import com.blazify.desktop.ui.screens.HomeScreen
@@ -409,6 +410,11 @@ private fun Content(destination: Destination) {
             onPlay = PlayerState::play,
             onShuffle = PlayerState::shuffle,
             action = "Clear" to Library::clearHistory,
+        )
+
+        Destination.Cached -> CachedScreen(
+            onPlay = PlayerState::play,
+            onShuffle = PlayerState::shuffle,
         )
 
         Destination.Downloads -> DownloadsScreen(

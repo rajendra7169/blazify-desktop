@@ -2,6 +2,7 @@ package com.blazify.desktop.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Computer
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.History
@@ -40,6 +41,10 @@ enum class Destination(
 
     Liked("Liked songs", Icons.Rounded.Favorite, Section.Yours),
     Downloads("Downloads", Icons.Rounded.Download, Section.Yours),
+    // Under the downloads, because that is what it is a weaker version of:
+    // the same songs on the same disk, kept without being asked for and
+    // thrown away when there is no room.
+    Cached("Kept as you listen", Icons.Rounded.Bolt, Section.Yours),
     OnThisComputer("On this computer", Icons.Rounded.Computer, Section.Yours),
     TopSongs("Top songs", Icons.Rounded.TrendingUp, Section.Yours),
     History("History", Icons.Rounded.History, Section.Yours);
