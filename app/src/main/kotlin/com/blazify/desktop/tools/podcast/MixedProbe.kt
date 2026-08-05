@@ -34,6 +34,15 @@ fun main(): Unit = runBlocking {
     }
     println()
 
+    // What the two orders actually do to the same answer.
+    for (subject in listOf("cricket podcast", "news podcast")) {
+        val found = Catalogue.search(subject, Catalogue.Scope.Podcasts).getOrDefault(emptyList())
+        println("\n\"$subject\" as found: " + found.take(4).joinToString(" · ") { "${it.title.take(24)}(${it.count ?: "?"})" })
+        println("        by episodes: " + found.sortedByDescending { it.count ?: -1 }.take(4)
+            .joinToString(" · ") { "${it.title.take(24)}(${it.count ?: "?"})" })
+    }
+    println()
+
     for (words in listOf("the daily", "nepali", "cricket")) {
         val found = Catalogue.search(words, Catalogue.Scope.Podcasts).getOrDefault(emptyList())
         val fromFeeds = found.count { Feeds.isFeed(it.id) }

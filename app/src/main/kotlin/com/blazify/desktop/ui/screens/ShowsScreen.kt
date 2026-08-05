@@ -167,9 +167,22 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
         // looking for that, not for what was on the page a moment ago.
         if (ShowsState.query.trim().length >= 2) {
             if (ShowsState.foundShows.isNotEmpty()) {
-                rail("Shows") {
+                rail(
+                    "Shows",
+                    beside = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            ShowsState.Order.entries.forEach { option ->
+                                Chip(option.label, option == ShowsState.order) {
+                                    ShowsState.sortBy(option)
+                                }
+                            }
+                        }
+                    },
+                ) {
                     LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        items(ShowsState.foundShows, key = { it.id }) { ShowTile(it, onOpen) }
+                        items(ShowsState.inOrder(ShowsState.foundShows), key = { it.id }) {
+                            ShowTile(it, onOpen)
+                        }
                     }
                 }
             }
@@ -276,7 +289,9 @@ fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
             ShowsState.loadingSubject && ShowsState.subjectShows.isEmpty() -> item { SkeletonRail() }
             ShowsState.subjectShows.isNotEmpty() -> rail("${ShowsState.subject} shows") {
                 LazyRow(state = it, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    items(ShowsState.subjectShows, key = { it.id }) { ShowTile(it, onOpen) }
+                    items(ShowsState.inOrder(ShowsState.subjectShows), key = { it.id }) {
+                        ShowTile(it, onOpen)
+                    }
                 }
             }
         }
@@ -538,7 +553,11 @@ private fun ShowTile(card: Catalogue.Card, onOpen: (Catalogue.Card) -> Unit) {
             maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
         Text(
-            card.subtitle, color = Blz.muted, fontSize = 12.sp,
+            listOfNotNull(
+                card.subtitle.takeIf { it.isNotBlank() },
+                card.count?.takeIf { it > 0 }?.let { "$it episodes" },
+            ).joinToString("  ·  "),
+            color = Blz.muted, fontSize = 12.sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
     }

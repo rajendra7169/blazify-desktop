@@ -225,6 +225,16 @@ object Catalogue {
         val thumbnail: String?,
         val kind: Kind,
         val durationSeconds: Int? = null,
+        /**
+         * How many things are in it, where that is known.
+         *
+         * The nearest thing to a popularity figure anybody hands out for
+         * programmes. Nothing publishes listener numbers, but a show with
+         * eight hundred episodes has been made every week for fifteen years
+         * and a show with one was somebody trying it once — and a search that
+         * cannot tell those apart puts them in the same order.
+         */
+        val count: Int? = null,
     ) {
         val duration: String
             get() = durationSeconds?.let { "%d:%02d".format(it / 60, it % 60) } ?: ""

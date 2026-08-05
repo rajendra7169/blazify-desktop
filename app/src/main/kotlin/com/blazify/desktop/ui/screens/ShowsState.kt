@@ -209,6 +209,31 @@ object ShowsState {
     fun type(words: String) { query = words }
 
     /**
+     * What order to put programmes in.
+     *
+     * The directory answers a search by what matches the words, which is the
+     * right answer to a name and the wrong one to a subject: "cricket" matched
+     * a channel of Nepali scorecards with one episode ahead of Test Match
+     * Special with six hundred and fifty-seven. Nobody publishes listener
+     * figures, but the number of episodes says plainly whether a programme has
+     * been made every week for fifteen years or tried once.
+     */
+    enum class Order(val label: String) { Best("Best match"), Established("Most episodes") }
+
+    var order by mutableStateOf(Order.Best)
+        private set
+
+    fun sortBy(picked: Order) { order = picked }
+
+    /** In whichever order was asked for, without disturbing what was found. */
+    fun inOrder(cards: List<Catalogue.Card>): List<Catalogue.Card> = when (order) {
+        Order.Best -> cards
+        // The ones with no count at all keep their place at the back rather
+        // than being called unpopular: not knowing is not the same as zero.
+        Order.Established -> cards.sortedByDescending { it.count ?: -1 }
+    }
+
+    /**
      * Look for a programme by name, in whichever places are being used.
      *
      * A page about podcasts with no way to ask for one by name is a page you

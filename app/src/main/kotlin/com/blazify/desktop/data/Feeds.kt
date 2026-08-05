@@ -104,6 +104,7 @@ object Feeds {
             subtitle = author,
             thumbnail = artwork,
             kind = Catalogue.Kind.Playlist,
+            count = episodeCount,
         )
     }
 
