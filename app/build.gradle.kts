@@ -158,6 +158,12 @@ compose.desktop {
             copyright = "Blazify Project (C) 2026"
 
             windows {
+                // The icon everywhere Windows shows one: the taskbar, the
+                // title bar, the installer and the folder view. One file
+                // holding several sizes, because each of those picks a
+                // different one out of it and a single large image gets
+                // squashed into all of them.
+                iconFile.set(project.file("../packaging/blazify.ico"))
                 menuGroup = "Blazify"     // Start menu entry
                 shortcut = true           // desktop shortcut
                 dirChooser = true         // let people pick the install folder
@@ -168,6 +174,11 @@ compose.desktop {
             }
 
             linux {
+                // The icon in the launcher, the dock and the bar across the
+                // top. Without it the package ships with the toolkit's own
+                // default, which is a coffee cup and says nothing about what
+                // this is.
+                iconFile.set(project.file("../packaging/blazify.png"))
                 menuGroup = "Audio"       // lands under Sound & Video
                 packageName = "blazify"
                 appCategory = "Audio"
