@@ -134,16 +134,23 @@ fun SettingsScreen() {
                 .padding(horizontal = 12.dp, vertical = 22.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            // The way out sits above the headings, where the app's own rail
-            // was a moment ago — so leaving is where arriving came from.
-            BackRow()
             Text(
                 "Settings", color = Blz.ink, fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 10.dp, top = 6.dp, bottom = 14.dp),
+                modifier = Modifier.padding(start = 10.dp, top = 4.dp, bottom = 14.dp),
             )
             SettingsPage.entries.forEach { entry ->
                 PageRow(entry, entry == page) { page = entry }
             }
+
+            // The way out sits where the way in was.
+            //
+            // Settings is opened from the bottom of the rail and was left from
+            // the top of it, so the two halves of one journey were at opposite
+            // ends of the screen — you pressed a thing down here and then went
+            // hunting up there to undo it. Now the door is in the same place
+            // both times.
+            Spacer(Modifier.weight(1f))
+            BackRow()
         }
 
         Box(Modifier.fillMaxHeight().width(1.dp).background(Blz.line))
@@ -486,12 +493,12 @@ private fun BackRow() {
             .clip(RoundedCornerShape(8.dp))
             .hoverBackground(Blz.hover, hovered, source)
             .clickable(onClick = Navigator::closeSettings)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Icon(Icons.Rounded.ArrowBack, "Back", Modifier.size(18.dp), tint = Blz.muted)
-        Text("Back to ${Navigator.destination.label}", color = Blz.muted, fontSize = 13.sp)
+        Icon(Icons.Rounded.ArrowBack, "Back", Modifier.size(19.dp), tint = Blz.muted)
+        Text("Back to ${Navigator.destination.label}", color = Blz.muted, fontSize = 14.5.sp)
     }
 }
 
