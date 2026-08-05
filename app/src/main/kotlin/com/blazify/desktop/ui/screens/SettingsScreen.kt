@@ -63,6 +63,7 @@ import com.blazify.desktop.data.BrowserSession
 import com.blazify.desktop.data.Backup
 import com.blazify.desktop.data.Cache
 import com.blazify.desktop.data.Downloads
+import com.blazify.desktop.data.Levelling
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LocalMusic
 import com.blazify.desktop.data.Offline
@@ -200,6 +201,32 @@ fun SettingsScreen() {
                         }
                     }
                     item { EqualiserSection { title, reset, content -> Section(title, reset) { content() } } }
+
+                    item {
+                        Section("Levelling") {
+                            Text(
+                                "A record mastered in 1975 and one mastered last year are ten " +
+                                    "decibels apart, and a queue that mixes them is one you ride " +
+                                    "with a hand on the volume. This evens out what is heard " +
+                                    "rather than trusting what a file claims, because almost " +
+                                    "nothing played here carries a loudness figure at all.",
+                                color = Blz.dim, fontSize = 12.sp, lineHeight = 18.sp,
+                            )
+                            SettingSwitch("Even out the volume", Levelling.on) { Levelling.choose(it) }
+                            Text(
+                                if (Levelling.on) {
+                                    "It is a compressor, so it takes the top off the loud moments " +
+                                        "— which is exactly what a qawwali building for eight " +
+                                        "minutes does not want. Takes effect next time Blazify " +
+                                        "starts: this belongs to the machinery rather than to a " +
+                                        "track, and cannot be changed under one that is playing."
+                                } else {
+                                    "Takes effect next time Blazify starts."
+                                },
+                                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+                            )
+                        }
+                    }
 
                     item {
                         Section("The desktop") {
