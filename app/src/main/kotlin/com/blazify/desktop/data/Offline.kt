@@ -36,6 +36,34 @@ object Offline {
     private val art: File by lazy { File(Store.folder, "art").apply { mkdirs() } }
     private val words: File by lazy { File(Store.folder, "words").apply { mkdirs() } }
 
+    /**
+     * What the covers and the words are costing.
+     *
+     * Asked for separately from the audio because they behave differently: a
+     * thousand covers is a few dozen megabytes and a thousand songs is
+     * several gigabytes, and somebody clearing space wants to know which of
+     * the two is actually the problem before deleting either.
+     */
+    val artBytes: Long get() = art.listFiles().orEmpty().sumOf { it.length() }
+
+    val wordBytes: Long get() = words.listFiles().orEmpty().sumOf { it.length() }
+
+    val artCount: Int get() = art.listFiles().orEmpty().size
+
+    val wordCount: Int get() = words.listFiles().orEmpty().size
+
+    /**
+     * Throw the covers and the words away, leaving the audio alone.
+     *
+     * They come back on their own the next time each song is played, which is
+     * what makes them the safe thing to delete: nothing is lost that cannot be
+     * had again for the cost of an image.
+     */
+    fun forgetExtras() {
+        art.listFiles().orEmpty().forEach { runCatching { it.delete() } }
+        words.listFiles().orEmpty().forEach { runCatching { it.delete() } }
+    }
+
     fun artFor(id: String) = File(art, "$id.jpg")
     fun wordsFor(id: String) = File(words, "$id.lrc")
 

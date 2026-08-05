@@ -65,6 +65,7 @@ import com.blazify.desktop.data.Cache
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LocalMusic
+import com.blazify.desktop.data.Offline
 import com.blazify.desktop.data.Notify
 import com.blazify.desktop.data.Store
 import com.blazify.desktop.data.Updates
@@ -259,7 +260,15 @@ fun SettingsScreen() {
                             SettingSwitch("Keep songs as I play them", Cache.on) {
                                 Cache.choose(it)
                             }
-                            Line("Kept now", "${Cache.items.size}  ·  ${size(Cache.bytes)}")
+                            // Broken out the way the downloads are, and for
+                            // the same reason: somebody clearing space needs to
+                            // know which of the two is actually the problem.
+                            Line("Songs kept", "${Cache.items.size}  ·  ${size(Cache.bytes)}")
+                            Line(
+                                "Covers and words",
+                                "${Offline.artCount} covers, ${Offline.wordCount} sets  ·  " +
+                                    size(Offline.artBytes + Offline.wordBytes),
+                            )
                             Choice(
                                 label = "How much room it may use",
                                 note = "The oldest are thrown away to stay under it",
@@ -283,8 +292,16 @@ fun SettingsScreen() {
                                     )
                                 },
                             )
-                            if (Cache.items.isNotEmpty()) {
-                                Button("Clear what is kept", Cache::forgetAll)
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                if (Cache.items.isNotEmpty()) {
+                                    Button("Clear kept songs", Cache::forgetAll)
+                                }
+                                if (Offline.artBytes + Offline.wordBytes > 0) {
+                                    // Safe to throw away in a way the audio is
+                                    // not: these come back by themselves the
+                                    // next time each song plays.
+                                    Button("Clear covers and words", Offline::forgetExtras)
+                                }
                             }
                         }
                     }
