@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.PlayerState
 import com.blazify.desktop.SleepTimer
+import com.blazify.desktop.data.Cache
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
@@ -116,6 +117,11 @@ fun AppShell() {
         val playing = PlayerState.current ?: return@LaunchedEffect
         snapshotFlow { PlayerState.positionSeconds }.collect { seconds ->
             Scrobbler.heard(playing, seconds)
+            // Kept once it has actually been listened to. A song skipped after
+            // four seconds is not one anybody will want on a train, and
+            // fetching every one of those would spend a morning's data on
+            // songs nobody chose.
+            if (seconds > 45) Cache.heard(playing)
         }
     }
 

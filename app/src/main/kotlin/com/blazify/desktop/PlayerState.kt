@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.blazify.desktop.audio.AudioEngine
+import com.blazify.desktop.data.Cache
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
@@ -562,6 +563,10 @@ object PlayerState {
         val onDisk = when {
             LocalMusic.isLocal(track.id) -> LocalMusic.pathOf(track.id)
             Downloads.has(track.id) -> Downloads.fileFor(track.id).absolutePath
+            // Kept quietly the last time this played. Same file, same instant
+            // start, and the only difference from a download is that nobody
+            // asked for it.
+            Cache.has(track.id) -> Cache.fileFor(track.id).absolutePath
             else -> null
         }
         if (onDisk != null) {
