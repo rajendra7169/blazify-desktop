@@ -386,6 +386,28 @@ object PlayerState {
     }
 
     /**
+     * Open the next track's audio before anybody asks for it.
+     *
+     * Only where there is a next one and only where it costs a request rather
+     * than a download: something already on this machine needs no warming, and
+     * something with its own link needs no resolving.
+     */
+    private fun warmNext() {
+        val next = queue.getOrNull(index + 1) ?: return
+        if (LocalMusic.isLocal(next.id) || Downloads.has(next.id) || Cache.has(next.id)) return
+        scope.launch {
+            // A moment in, so it never competes with the track that is
+            // actually starting for the same connection.
+            delay(4000)
+            if (current?.id == queue.getOrNull(index)?.id && queue.getOrNull(index + 1)?.id == next.id) {
+                next.stream?.let { AudioEngine.warmNext(it) }
+                    ?: Catalogue.stream(next.id).getOrNull()
+                        ?.let { AudioEngine.warmNext(it.url, it.userAgent) }
+            }
+        }
+    }
+
+    /**
      * Put the chosen speed back, for talk, on every new piece of audio.
      *
      * The engine forgets it each time — it is a property of what is playing
@@ -574,6 +596,13 @@ object PlayerState {
         Together.share(Did.CHANGE_TRACK)
         failure = null
         seekTarget = null
+
+        // The next track's audio is opened while this one plays. The silence
+        // between two songs is not the player being slow to begin the second;
+        // it is the second one being fetched at the moment the first ends —
+        // link resolved, connection made, first chunk pulled down. Doing that
+        // early turns a two-second hole into none.
+        warmNext()
 
         // The words are fetched now rather than when the panel is opened, and
         // the next song's are fetched with them. Several services asked over

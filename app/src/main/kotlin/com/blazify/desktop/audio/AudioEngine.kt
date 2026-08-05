@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
+import com.blazify.desktop.data.Levelling
 import uk.co.caprica.vlcj.player.component.AudioPlayerComponent
 
 /**
@@ -136,7 +137,57 @@ object AudioEngine {
      */
     private val component: AudioPlayerComponent by lazy {
         useBundledLibrary()
-        AudioPlayerComponent().also { it.mediaPlayer().events().addMediaPlayerEventListener(Listener) }
+        // Built from a factory of our own only when there is something to tell
+        // it. The component's own default arguments are sensible and there is
+        // no reason to restate them.
+        val options = startup()
+        val made =
+            if (options.isEmpty()) AudioPlayerComponent()
+            else AudioPlayerComponent(uk.co.caprica.vlcj.factory.MediaPlayerFactory(*options))
+        made.also { it.mediaPlayer().events().addMediaPlayerEventListener(Listener) }
+    }
+
+    /**
+     * What the player is told before it opens anything.
+     *
+     * These cannot be changed afterwards — they belong to the machinery rather
+     * than to a track — so a change of mind about levelling takes effect on
+     * the next launch. That is stated on the switch rather than hidden behind
+     * it.
+     */
+    private fun startup(): Array<String> {
+        val options = mutableListOf<String>()
+        if (Levelling.on) {
+            // Evens out a quiet recording following a loud one, which is the
+            // difference between an album that was mastered in 1975 and one
+            // mastered last year. It works on what it hears rather than on
+            // what the file claims, because most of what is played here
+            // carries no loudness figure at all.
+            options += "--audio-filter=normvol"
+            options += "--norm-buff-size=20"
+            options += "--norm-max-level=${Levelling.target}"
+        }
+        return options.toTypedArray()
+    }
+
+    /**
+     * The next thing, opened before it is wanted.
+     *
+     * The silence between two tracks is not the player being slow to start the
+     * second one. It is the second one being fetched: a link resolved, a
+     * connection made, a first chunk pulled down, all beginning at the moment
+     * the first track ends. Doing that while the first is still playing turns
+     * a two-second hole into none at all.
+     *
+     * Not true gapless in the sense a record has — two separate streams cannot
+     * be spliced sample to sample this way — but it removes the part anybody
+     * actually hears.
+     */
+    fun warmNext(mrl: String, userAgent: String? = null) {
+        runCatching {
+            val options = userAgent?.let { arrayOf(":http-user-agent=$it") } ?: emptyArray()
+            player.media().prepare(mrl, *options)
+        }
     }
 
     /**
