@@ -55,8 +55,6 @@ private class Tinted(private val inner: Painter, private val colour: androidx.co
 }
 
 fun main() {
-    // Before any window exists, because it cannot be changed after one does.
-    nameTheWindow()
     // Before the window, so the very first fetch already knows whose it is.
     Account.restore()
     // Apple's key takes a while to read and everything else waits on it. Read
@@ -69,29 +67,6 @@ fun main() {
     // keyboard reaches this rather than nothing.
     Panel.start()
     run()
-}
-
-/**
- * Tell the desktop what this window is called.
- *
- * A window carries a class name, and the desktop matches that against the
- * installed applications to decide which icon to draw in the bar and which
- * entry to highlight in the dock. Left alone it is whatever the toolkit
- * guessed from the class that started the process, which matches nothing —
- * so the package installs a Blazify icon and the running window shows a
- * generic one beside it, which looks like two different programs.
- *
- * There is no supported way to set it. This is the one that works, and it is
- * wrapped in a shrug because a desktop that will not have it is a desktop with
- * a plain icon rather than a broken application.
- */
-private fun nameTheWindow() {
-    runCatching {
-        val toolkit = java.awt.Toolkit.getDefaultToolkit()
-        val field = toolkit.javaClass.getDeclaredField("awtAppClassName")
-        field.isAccessible = true
-        field.set(toolkit, "Blazify")
-    }
 }
 
 private fun run() = application {

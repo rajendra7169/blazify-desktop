@@ -340,17 +340,27 @@ val declareAudioDependency by tasks.registering {
         // Which window belongs to this launcher.
         //
         // The desktop draws the icon in the bar by matching a running window's
-        // class against the installed applications, and the entry the packager
-        // writes says nothing about that — so a correct icon would be
-        // installed and a generic one would appear beside it, which reads as
-        // two different programs. The application names its own window to
-        // match; this is the other half of the handshake.
+        // class against what is installed, and the entry the packager writes
+        // says nothing about it — so the right icon is installed and a generic
+        // one appears in the dock beside it, which reads as two programs.
+        //
+        // The name is the one the window actually reports rather than the one
+        // it would be nice for it to report. A window's class comes from the
+        // class that started the process, with the dots turned into dashes,
+        // and trying to talk the toolkit out of that from inside the
+        // application did not survive contact with a real desktop: the
+        // installed package announced itself as com-blazify-desktop-MainKt
+        // regardless. Derived from the entry point rather than written out, so
+        // renaming that cannot quietly break the icon.
+        val windowClass = "com.blazify.desktop.MainKt".replace('.', '-')
         File(work, "opt/blazify/lib").listFiles().orEmpty()
             .filter { it.extension == "desktop" }
             .forEach { entry ->
-                if ("StartupWMClass" !in entry.readText()) {
-                    entry.appendText("StartupWMClass=Blazify\n")
-                }
+                val text = entry.readText().lines()
+                    .filterNot { it.startsWith("StartupWMClass") }
+                    .joinToString("\n")
+                    .trimEnd()
+                entry.writeText("$text\nStartupWMClass=$windowClass\n")
             }
 
         shell("dpkg-deb", "-b", work.absolutePath, deb.absolutePath)
