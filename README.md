@@ -283,6 +283,6 @@ sources, and the open podcast directory every podcast application reads.
 
 <div align="center">
 
-Made by **Rajendra Pandey**
+Made with ❤️ by **Rajendra Pandey**
 
 </div>
