@@ -29,6 +29,7 @@ import com.blazify.desktop.data.Paxsenix
 import com.blazify.desktop.ui.AppShell
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.BlazifyTheme
+import com.blazify.desktop.ui.blazifyMark
 import com.blazify.desktop.ui.MiniPlayer
 import com.blazify.desktop.ui.ThemeState
 import com.blazify.desktop.ui.WindowMode
@@ -112,7 +113,16 @@ private fun run() = application {
 
 
     Tray(
-        icon = Tinted(rememberVectorPainter(Icons.Rounded.LocalFireDepartment), Blaze.Amber),
+        // The application's own mark, not a flame from an icon set tinted to
+        // look like it. Everywhere else on this desktop shows what it is up
+        // there — the mark is how somebody finds this among nine other
+        // indicators, and a generic shape says only "something is running".
+        //
+        // The drawn flame stays as the fallback, for a build where the image
+        // cannot be read: an empty square in a system tray is worse than an
+        // approximate one.
+        icon = blazifyMark
+            ?: Tinted(rememberVectorPainter(Icons.Rounded.LocalFireDepartment), Blaze.Amber),
         tooltip = PlayerState.current?.let { "${it.title} — ${it.artist}" } ?: "Blazify",
         onAction = { showing = true },
         menu = {
@@ -138,6 +148,7 @@ private fun run() = application {
     if (mini) {
         Window(
             onCloseRequest = WindowMode::full,
+            icon = blazifyMark,
             state = miniState,
             title = "Blazify",
             resizable = false,
@@ -155,6 +166,9 @@ private fun run() = application {
         state = state,
         visible = showing && !mini,
         title = "Blazify",
+        // The dock, the switcher and the title bar all ask the window itself
+        // what it looks like, and get nothing unless it is told.
+        icon = blazifyMark,
         // Claimed at the window rather than on any one control, so the keys
         // work wherever you happen to be looking.
         onKeyEvent = { Shortcuts.handle(it, typing = Typing.active) },

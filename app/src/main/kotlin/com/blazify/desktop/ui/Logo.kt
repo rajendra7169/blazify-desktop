@@ -41,6 +41,14 @@ private val painter: Painter? by lazy {
     }.getOrNull()
 }
 
+/**
+ * The mark itself, for the places that take a picture rather than draw one.
+ *
+ * The tray and the window both want an image and neither is inside a
+ * composition when it asks, so they cannot use the composable above.
+ */
+val blazifyMark: Painter? get() = painter
+
 @Composable
 fun BlazifyLogo(size: Dp = 26.dp, modifier: Modifier = Modifier) {
     val p = remember { painter }
