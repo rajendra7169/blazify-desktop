@@ -65,6 +65,7 @@ import com.blazify.desktop.data.Cache
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LocalMusic
+import com.blazify.desktop.data.Notify
 import com.blazify.desktop.data.Store
 import com.blazify.desktop.data.Updates
 import com.blazify.desktop.ui.Artwork
@@ -191,6 +192,24 @@ fun SettingsScreen() {
                         }
                     }
                     item { EqualiserSection { title, reset, content -> Section(title, reset) { content() } } }
+
+                    item {
+                        Section("The desktop") {
+                            Text(
+                                if (Notify.available) {
+                                    "The window is usually behind something else, so the moment " +
+                                        "worth interrupting for is the moment the song changes."
+                                } else {
+                                    "This desktop has no notification service to tell, so there " +
+                                        "is nothing to turn on."
+                                },
+                                color = Blz.dim, fontSize = 12.sp, lineHeight = 18.sp,
+                            )
+                            if (Notify.available) {
+                                SettingSwitch("Say what came on", Notify.on) { Notify.choose(it) }
+                            }
+                        }
+                    }
                     item {
                         StreamSettingsSection { title, reset, content ->
                             Section(title, reset) { content() }

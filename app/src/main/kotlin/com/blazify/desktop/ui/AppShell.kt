@@ -43,6 +43,7 @@ import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.Playlists
+import com.blazify.desktop.data.Notify
 import com.blazify.desktop.data.Panel
 import com.blazify.desktop.data.Presence
 import com.blazify.desktop.data.Scrobbler
@@ -109,6 +110,10 @@ fun AppShell() {
         Presence.show(PlayerState.current, PlayerState.playing, PlayerState.positionSeconds)
         // And the desktop itself, which asked once and is waiting to be told.
         Panel.changed()
+        // Said out loud only while something is actually playing: a paused
+        // player announcing a song is a player claiming something that is not
+        // happening.
+        if (PlayerState.playing) Notify.nowPlaying(PlayerState.current)
     }
 
     // A play is only a play once it has been most of a play. Watched from here
