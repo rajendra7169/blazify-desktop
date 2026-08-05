@@ -87,7 +87,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ShowsScreen(onOpen: (Catalogue.Card) -> Unit) {
     val scope = rememberCoroutineScope()
-    val marks = Resume.unfinished
+    val marks = Resume.unfinishedTalk
     val following = Library.saved.filter { Catalogue.isShow(it.id) }
 
     LaunchedEffect(Unit) { ShowsState.ensureLoaded() }

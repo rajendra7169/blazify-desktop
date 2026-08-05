@@ -75,6 +75,18 @@ object Resume {
     val unfinished: List<Mark> get() = all.sortedByDescending { it.at }
 
     /**
+     * The same, split by what kind of thing it is.
+     *
+     * A half-heard episode belongs on the page about programmes and a
+     * half-heard recording belongs on the page about music. One row holding
+     * both puts an hour of talk in the middle of somebody's records, which is
+     * where nobody looks for it and where nobody wants it.
+     */
+    val unfinishedTalk: List<Mark> get() = unfinished.filter { it.track.talk }
+
+    val unfinishedMusic: List<Mark> get() = unfinished.filterNot { it.track.talk }
+
+    /**
      * Note where playback has reached.
      *
      * Called often — every few seconds while something plays — so it does as

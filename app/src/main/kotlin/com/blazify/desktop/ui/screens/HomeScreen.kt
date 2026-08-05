@@ -100,7 +100,9 @@ fun HomeScreen(
         }
     }
 
-    val continuing = Resume.unfinished
+    // Only the music. Episodes have a page of their own and that is where
+    // somebody goes back to one.
+    val continuing = Resume.unfinishedMusic
 
     Box(Modifier.fillMaxSize()) {
     LazyColumn(

@@ -177,6 +177,7 @@ object Feeds {
             stream = audio,
             from = Origin.Feed,
             notes = notes,
+            spoken = true,
         )
     }
 

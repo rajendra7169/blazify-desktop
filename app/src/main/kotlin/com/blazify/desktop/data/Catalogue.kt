@@ -67,7 +67,30 @@ data class Track(
      * it was being thrown away.
      */
     val notes: String? = null,
+    /**
+     * Whether this is talk rather than music.
+     *
+     * The two do not belong on the same shelf. A page of what somebody has
+     * been listening to, built from a history that mixes them, offers an
+     * episode of a programme among the songs — and an episode is not a thing
+     * you put on again, it is a thing you carried on with somewhere else.
+     * Kept on the track because that is the only place that survives being
+     * written to disk and read back a week later.
+     */
+    val spoken: Boolean = false,
 ) {
+    /**
+     * Whether this is talk, including for what was written down before anybody
+     * was recording the fact.
+     *
+     * Everything already on this machine was saved without the flag and would
+     * default to music, which would leave exactly the episodes somebody has
+     * been listening to on exactly the page they were asked to leave. An
+     * episode from a feed is recognisable from its name alone, so the older
+     * entries answer for themselves.
+     */
+    val talk: Boolean get() = spoken || id.startsWith("feed:")
+
     val duration: String
         get() = durationSeconds?.let {
             // An episode is an hour, not four minutes, and 87:13 is a duration
@@ -547,6 +570,8 @@ object Catalogue {
         durationSeconds = duration,
         artistId = artists.firstNotNullOfOrNull { it.id },
         albumId = album?.id,
+        // The catalogue says so itself for the ones it serves as episodes.
+        spoken = isEpisode,
     )
 
     /**
@@ -590,9 +615,16 @@ object Catalogue {
      * were just listening to, then what your likes suggest, then what you've
      * stopped playing, then the artists behind all of it.
      */
-    suspend fun songShelves(history: List<Track>, liked: List<Track>): Result<List<Shelf>> =
+    suspend fun songShelves(played: List<Track>, liked: List<Track>): Result<List<Shelf>> =
         withContext(Dispatchers.IO) {
             runCatching {
+                // Talk is left out of every shelf built here. An hour of
+                // somebody explaining the Mahabharata is not a thing to put on
+                // again between two songs — it is a thing you carried on with
+                // somewhere else — and a history that mixes the two makes
+                // every "what you have been listening to" shelf half wrong.
+                val history = played.filterNot { it.talk }
+
                 val built = mutableListOf<Shelf>()
                 val used = mutableSetOf<String>()
 
