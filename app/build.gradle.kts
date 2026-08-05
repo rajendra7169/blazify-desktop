@@ -347,6 +347,13 @@ tasks.register<JavaExec>("resumeCheck") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("captionProbe") {
+    group = "verification"
+    description = "Fetch an episode's captions and show them as timed lines"
+    mainClass.set("com.blazify.desktop.tools.captions.CaptionProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("chartProbe") {
     group = "verification"
     description = "Show what the catalogue's charts return"

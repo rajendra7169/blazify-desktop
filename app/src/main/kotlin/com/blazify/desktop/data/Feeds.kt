@@ -161,6 +161,15 @@ object Feeds {
         val seconds: Int?,
         val published: String?,
         val notes: String?,
+        /**
+         * Where the words are, when the maker publishes them.
+         *
+         * Feeds have a place to say this and a minority of shows fill it in —
+         * measured across fourteen, two did. Where it is there it is the real
+         * thing: written or checked by the people who made the programme,
+         * rather than a machine's guess at what it heard.
+         */
+        val transcript: String?,
     ) {
         /**
          * As something playable.
@@ -178,6 +187,7 @@ object Feeds {
             from = Origin.Feed,
             notes = notes,
             spoken = true,
+            words = transcript,
         )
     }
 
@@ -217,9 +227,33 @@ object Feeds {
                     seconds = item.text("itunes:duration")?.let(::seconds),
                     published = item.text("pubDate")?.take(16),
                     notes = (item.text("itunes:summary") ?: item.text("description"))?.let(::plainly),
+                    transcript = transcriptOf(item),
                 )
             }
         }.getOrDefault(emptyList())
+    }
+
+    /**
+     * The best transcript on offer for one episode.
+     *
+     * Shows publish the same words in several shapes — a web page to read, a
+     * subtitle file with timings on it, sometimes both. The timed one is worth
+     * far more here, because it can follow the audio rather than sit still,
+     * so it is preferred and the page is only taken when there is nothing else.
+     */
+    private fun transcriptOf(item: Element): String? {
+        val offered = item.getElementsByTagName("podcast:transcript")
+        var fallback: String? = null
+        for (at in 0 until offered.length) {
+            val tag = offered.item(at) as? Element ?: continue
+            val url = tag.getAttribute("url").takeIf { it.isNotBlank() } ?: continue
+            val kind = tag.getAttribute("type").lowercase()
+            when {
+                "subrip" in kind || "srt" in kind || "vtt" in kind -> return url
+                fallback == null -> fallback = url
+            }
+        }
+        return fallback
     }
 
     /** Whether a tile stands for a programme from a feed rather than the catalogue. */

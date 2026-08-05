@@ -78,6 +78,14 @@ data class Track(
      * written to disk and read back a week later.
      */
     val spoken: Boolean = false,
+    /**
+     * Where somebody has published what was said.
+     *
+     * Carried on the track because it comes from the feed the episode came
+     * from and there is no way to ask for it later — by the time the words
+     * panel wants it, the feed is long since read and thrown away.
+     */
+    val words: String? = null,
 ) {
     /**
      * Whether this is talk, including for what was written down before anybody

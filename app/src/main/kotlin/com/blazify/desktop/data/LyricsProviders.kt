@@ -47,7 +47,11 @@ sealed interface LyricsProvider {
 /** Everything the app knows how to ask, in the order it asks by default. */
 object LyricsProviders {
 
-    val all: List<LyricsProvider> = listOf(Paxsenix, LrcLib, LyricsPlus, KuGou, YouTubeMusic)
+    // Captions last of all, and only ever answering for talk. They are the
+    // right answer where nobody wrote the words down and the wrong one
+    // everywhere else, so they wait until every source that deals in written
+    // lyrics has said no.
+    val all: List<LyricsProvider> = listOf(Paxsenix, LrcLib, LyricsPlus, KuGou, YouTubeMusic, Captions)
 
     fun byName(name: String): LyricsProvider? = all.firstOrNull { it.name == name }
 
