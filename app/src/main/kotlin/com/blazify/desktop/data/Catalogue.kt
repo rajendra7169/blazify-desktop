@@ -57,6 +57,16 @@ data class Track(
     val stream: String? = null,
     /** Where it came from, for saying so and for telling two copies apart. */
     val from: Origin = Origin.Catalogue,
+    /**
+     * What this one is about, where anybody bothered to say.
+     *
+     * A song is its own description — you know within four bars whether you
+     * want it. An hour of talk is not: the title is a headline, and deciding
+     * to give up an hour on the strength of a headline is how a queue fills up
+     * with things nobody plays. Feeds carry a paragraph for exactly this and
+     * it was being thrown away.
+     */
+    val notes: String? = null,
 ) {
     val duration: String
         get() = durationSeconds?.let {

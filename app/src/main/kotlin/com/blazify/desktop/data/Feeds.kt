@@ -159,6 +159,7 @@ object Feeds {
         val artwork: String?,
         val seconds: Int?,
         val published: String?,
+        val notes: String?,
     ) {
         /**
          * As something playable.
@@ -174,6 +175,7 @@ object Feeds {
             durationSeconds = seconds,
             stream = audio,
             from = Origin.Feed,
+            notes = notes,
         )
     }
 
@@ -212,6 +214,7 @@ object Feeds {
                     artwork = image(item) ?: showArt,
                     seconds = item.text("itunes:duration")?.let(::seconds),
                     published = item.text("pubDate")?.take(16),
+                    notes = (item.text("itunes:summary") ?: item.text("description"))?.let(::plainly),
                 )
             }
         }.getOrDefault(emptyList())
@@ -239,6 +242,29 @@ object Feeds {
             genre = row["primaryGenreName"]?.jsonPrimitive?.content,
         )
     }.getOrNull()
+
+    /**
+     * A paragraph as feeds write it, which is to say as a web page.
+     *
+     * Tags, entities and links, because the same text is meant to be shown in
+     * a browser. None of that survives here: what is wanted is the sentence
+     * somebody wrote, and the markup around it is noise this window cannot
+     * render anyway.
+     */
+    private fun plainly(written: String): String? = written
+        .replace(Regex("<br\\s*/?>|</p>", RegexOption.IGNORE_CASE), "\n")
+        .replace(Regex("<[^>]{0,400}>"), "")
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace(Regex("\n{3,}"), "\n\n")
+        .replace(Regex("[ \t]{2,}"), " ")
+        .trim()
+        .ifBlank { null }
 
     /** A duration as feeds write it: seconds, or minutes and seconds, or all three. */
     private fun seconds(written: String): Int? {

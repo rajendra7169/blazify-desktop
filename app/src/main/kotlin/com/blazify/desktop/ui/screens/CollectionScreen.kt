@@ -21,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Icon
@@ -225,6 +227,9 @@ private fun Action(icon: ImageVector, label: String, filled: Boolean, onClick: (
 @Composable
 private fun TrackRow(number: Int, track: Track, onPlay: () -> Unit) {
     val (source, hovered) = rememberHovered()
+    var opened by remember(track.id) { mutableStateOf(false) }
+
+    Column(Modifier.fillMaxWidth()) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -259,6 +264,40 @@ private fun TrackRow(number: Int, track: Track, onPlay: () -> Unit) {
         if (track.duration.isNotEmpty()) {
             Text(track.duration, color = Blz.dim, fontSize = 12.sp)
         }
+
+        // Only where there is something to open. An album track has no
+        // paragraph about it and a chevron promising one would be a lie.
+        if (track.notes != null) {
+            val (noteSource, noteHovered) = rememberHovered()
+            Box(
+                Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .hoverBackground(Blz.hover, noteHovered, noteSource)
+                    .clickable { opened = !opened },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    if (opened) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    if (opened) "Less" else "What this is about",
+                    Modifier.size(18.dp),
+                    tint = if (opened || noteHovered.value) Blz.ink else Blz.muted,
+                )
+            }
+        }
+
         SongSheetButton(track, hovered.value)
+    }
+
+    // Underneath rather than in a window of its own: it belongs to the row it
+    // came from, and a dialog would put the list away to say one paragraph
+    // about one thing in it.
+    if (opened && track.notes != null) {
+        Text(
+            track.notes,
+            color = Blz.muted, fontSize = 12.5.sp, lineHeight = 19.sp,
+            modifier = Modifier.padding(start = 92.dp, end = 40.dp, bottom = 14.dp),
+        )
+    }
     }
 }

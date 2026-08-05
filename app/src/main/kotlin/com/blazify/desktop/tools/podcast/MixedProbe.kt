@@ -60,6 +60,7 @@ fun main(): Unit = runBlocking {
             }
             val first = page.tracks.firstOrNull()
             println("  first episode carries its own link: ${first?.stream != null}")
+            println("  and says what it is about: " + (first?.notes?.take(150)?.replace("\n", " ") ?: "no"))
             println("  and would play without asking the catalogue anything: ${first?.from == Origin.Feed}")
         },
         onFailure = { println("  refused — ${it.javaClass.simpleName}") },
