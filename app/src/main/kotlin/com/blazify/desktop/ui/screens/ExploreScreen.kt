@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -108,6 +109,7 @@ fun ExploreScreen(
     var searching by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var guesses by remember { mutableStateOf<List<String>>(emptyList()) }
+    var listening by remember { mutableStateOf(false) }
 
     // Search as you type, but only once you've stopped. Firing on every
     // keystroke would send a request per letter and show results for a prefix
@@ -157,11 +159,15 @@ fun ExploreScreen(
         return
     }
 
+    if (listening) {
+        com.blazify.desktop.ui.ListenSheet { listening = false }
+    }
+
     Column(
         Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        SearchField(query) { query = it }
+        SearchField(query, { query = it }) { listening = true }
 
         // What you looked for before, when there is nothing in the box; what
         // the catalogue thinks you mean, once there is. Never both — they
@@ -543,7 +549,7 @@ private fun RecentSearches(
 }
 
 @Composable
-private fun SearchField(value: String, onChange: (String) -> Unit) {
+private fun SearchField(value: String, onChange: (String) -> Unit, onListen: () -> Unit) {
     val (source, hovered) = rememberHovered()
     Row(
         Modifier
@@ -569,6 +575,26 @@ private fun SearchField(value: String, onChange: (String) -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .onFocusChanged { Typing.active = it.isFocused },
+            )
+        }
+
+        // At the end of the search box, which is where a microphone means
+        // something: both of these answer "find me this song", one from a name
+        // and one from the sound of it. Floating over the feed it was a
+        // question nobody had asked yet.
+        val (micSource, micHovered) = rememberHovered()
+        Box(
+            Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .hoverBackground(Blz.hover, micHovered, micSource)
+                .clickable(onClick = onListen),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Rounded.Mic, "What's playing near me",
+                Modifier.size(16.dp),
+                tint = if (micHovered.value) Blaze.Amber else Blz.dim,
             )
         }
     }

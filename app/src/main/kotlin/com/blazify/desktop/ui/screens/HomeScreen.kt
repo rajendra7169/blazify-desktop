@@ -1,5 +1,9 @@
 package com.blazify.desktop.ui.screens
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +20,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -104,7 +108,6 @@ fun HomeScreen(
     // Only the music. Episodes have a page of their own and that is where
     // somebody goes back to one.
     val continuing = Resume.unfinishedMusic
-    var listening by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
     LazyColumn(
@@ -195,42 +198,48 @@ fun HomeScreen(
         }
     }
 
-    // Sits over the feed in the bottom corner, just above the transport strip.
-    // Always, rather than only when the page has songs on it: what is playing
-    // in the room has nothing to do with what is on the screen, and this is
-    // most wanted on the mornings the feed is empty anyway.
-    ShuffleButton(
-        Modifier.align(Alignment.BottomEnd).padding(end = 26.dp, bottom = 22.dp),
-    ) { listening = true }
-
-    if (listening) ListenSheet { listening = false }
+    // Nothing floats over the feed at rest. A button parked on top of the
+    // artwork has to be worth the piece of the page it is standing on, and
+    // neither of the two that lived here was: the shuffle is on the greeting
+    // card a few inches above, and asking what is playing in the room belongs
+    // with the search box, where a microphone means something.
+    //
+    // The way back to the top is different. It costs nothing when it is not
+    // needed, because it is not there — and after a page and a half of
+    // scrolling it is the only thing anybody wants.
+    val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 2 } }
+    androidx.compose.animation.AnimatedVisibility(
+        visible = scrolled,
+        enter = fadeIn(tween(160)),
+        exit = fadeOut(tween(120)),
+        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 26.dp, bottom = 22.dp),
+    ) {
+        ToTopButton { scope.launch { listState.animateScrollToItem(0) } }
+    }
     }
 }
 
 /**
- * What is that.
+ * Back to the top of a long page.
  *
- * This corner used to hold a second shuffle, which the greeting card at the
- * top of the page already offers — the same button twice on one screen, one
- * of them floating over the music. It now holds the one thing the app cannot
- * do from anywhere else: listen to the room and name what is playing in it.
+ * Round and small rather than a labelled pill: it appears over whatever you
+ * are reading, so it should take as little of it as possible, and an arrow
+ * pointing up needs no word beside it.
  */
 @Composable
-private fun ShuffleButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun ToTopButton(onClick: () -> Unit) {
     val (source, hovered) = rememberHovered()
-    Row(
-        modifier
+    Box(
+        Modifier
+            .size(46.dp)
             .clip(RoundedCornerShape(999.dp))
             .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember)))
-            .hoverLift(hovered, to = 1.05f)
+            .hoverLift(hovered, to = 1.06f)
             .hoverGlow(hovered, source)
-            .clickable(onClick = onClick)
-            .padding(start = 18.dp, end = 22.dp, top = 14.dp, bottom = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(9.dp),
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Rounded.Mic, "What is playing", Modifier.size(20.dp), tint = Blaze.OnAmber)
-        Text("What's this", color = Blaze.OnAmber, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Icon(Icons.Rounded.ArrowUpward, "Back to the top", Modifier.size(21.dp), tint = Blaze.OnAmber)
     }
 }
 
