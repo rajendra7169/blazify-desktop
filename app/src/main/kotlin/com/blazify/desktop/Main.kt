@@ -20,6 +20,7 @@ import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.rememberWindowState
 import com.blazify.desktop.data.Account
 import com.blazify.desktop.data.Offline
@@ -68,8 +69,14 @@ fun main() {
 
 private fun run() = application {
     val state = rememberWindowState(
-        // Wide enough for the rail, the content and the queue panel side by side,
-        // which is the layout the whole app is built around.
+        // Opened at the size of the screen. Every page here is rails of
+        // artwork and lists of songs, and both are the sort of thing where a
+        // window covering two thirds of a monitor is two thirds of a page —
+        // the first thing anybody did was drag it bigger.
+        placement = WindowPlacement.Maximized,
+        // What it goes back to when it stops being maximised: wide enough for
+        // the rail, the content and the queue panel side by side, which is the
+        // layout the whole app is built around.
         size = DpSize(1180.dp, 760.dp),
     )
 
