@@ -281,6 +281,18 @@ object BrowserSession {
                         "${browser.label} locks its cookies with this machine's keyring, and " +
                             "nothing here can read it. Paste the session instead.",
                     )
+                // Chrome, Edge and Brave from version 127 lock their cookies to
+                // the browser itself rather than to the account — the key is
+                // held by a service that hands it back only to the program that
+                // asked for it. Nothing outside that browser can read them, and
+                // no amount of trying here will change that, so it is said
+                // plainly along with the two things that do work.
+                onWindows && found.cookies.isEmpty() && found.lock == "v20" ->
+                    error(
+                        "${browser.label} keeps its cookies in a form only it can read. " +
+                            "Firefox doesn't, so a sign-in there works — or paste the session " +
+                            "by hand, which works with any browser.",
+                    )
                 found.cookies.isEmpty() ->
                     error(
                         "${browser.label} has ${found.rows} YouTube cookies locked with " +

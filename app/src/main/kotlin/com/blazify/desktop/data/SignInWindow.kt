@@ -109,30 +109,89 @@ object SignInWindow {
     /** What the window is doing, for saying so on screen while it does it. */
     enum class Stage { Opened, SignedIn }
 
+    /**
+     * Whether a window is already open for this.
+     *
+     * One at a time, always. Everything below launches a browser, and a second
+     * call while the first is still waiting is a second window — which is how
+     * this managed to open windows until a machine fell over.
+     */
+    @Volatile
+    private var busy = false
+
+    /**
+     * Sign in, trying each browser on the machine at most once.
+     *
+     * Flat rather than recursive, and that is the whole point of the rewrite.
+     * The first version called itself when a browser refused, passing the rest
+     * of the list minus the one that had just failed — so Firefox failing tried
+     * Brave, which failing tried Firefox again, which tried Brave again. Every
+     * branch opened a window. On a machine where launchers hand off to a
+     * running copy and exit immediately, that is every branch, and the count
+     * doubles at each step until the machine gives up. It did.
+     */
     suspend fun signIn(
         verify: suspend (String) -> Boolean = { true },
         onStage: (Stage) -> Unit = {},
-        from: Opener? = null,
     ): Result<String> = withContext(Dispatchers.IO) {
-        val opener = from ?: opener()
-            ?: return@withContext Result.failure(
-                IllegalStateException("No browser on this machine to open a window in"),
+        if (busy) {
+            return@withContext Result.failure(
+                IllegalStateException("A sign-in window is already open — finish or close it first"),
             )
+        }
+        busy = true
+        try {
+            val available = openers()
+            if (available.isEmpty()) {
+                return@withContext Result.failure(
+                    IllegalStateException("No browser on this machine to open a window in"),
+                )
+            }
 
+            var refused: String? = null
+            for (opener in available) {
+                when (val answer = attempt(opener, verify, onStage)) {
+                    is Attempt.Signed -> return@withContext Result.success(answer.session)
+                    // It opened and nothing came of it. Trying the next browser
+                    // would open a second window over somebody who has just
+                    // decided not to sign in, which is worse than saying so.
+                    is Attempt.Nothing -> return@withContext Result.failure(
+                        IllegalStateException(answer.why),
+                    )
+                    // It never opened at all. This is the only case worth
+                    // handing on, and each browser gets exactly one turn.
+                    is Attempt.Refused -> refused = refused ?: answer.why
+                }
+            }
+            Result.failure(IllegalStateException(refused ?: "No browser would open a window"))
+        } finally {
+            busy = false
+        }
+    }
+
+    /** What one browser had to say for itself. */
+    private sealed interface Attempt {
+        data class Signed(val session: String) : Attempt
+        data class Nothing(val why: String) : Attempt
+        data class Refused(val why: String) : Attempt
+    }
+
+    private suspend fun attempt(
+        opener: Opener,
+        verify: suspend (String) -> Boolean,
+        onStage: (Stage) -> Unit,
+    ): Attempt {
         profile.mkdirs()
         // Which pages the last window was on is how this one knows it has
         // arrived, and last time it arrived — so leaving that behind means
-        // arriving before the window has even opened. It is tab state and
-        // nothing else; throwing it away costs nothing and is the difference
-        // between watching for a landing and remembering an old one.
+        // arriving before the window has even opened.
         runCatching { File(profile, "Default/Sessions").deleteRecursively() }
         runCatching { File(profile, "sessionstore-backups").deleteRecursively() }
+
         val command = when (opener.kind) {
             BrowserSession.Kind.Firefox -> listOf(
                 opener.program,
                 "-profile", profile.absolutePath,
-                // Its own instance, so an already-running copy doesn't swallow
-                // the request and open a tab in somebody's everyday window.
                 "-no-remote",
                 "-new-instance",
                 SITE,
@@ -142,8 +201,6 @@ object SignInWindow {
                 "--user-data-dir=${profile.absolutePath}",
                 "--no-first-run",
                 "--no-default-browser-check",
-                // A window, not a tab in something else, and not the whole
-                // apparatus of a browser people are meant to live in.
                 "--new-window",
                 SITE,
             )
@@ -155,51 +212,31 @@ object SignInWindow {
                 // Firefox refuses to start a second copy of itself while one is
                 // running, whatever the flags say — the switch that asks for a
                 // separate instance is advice, and this is the instruction.
-                // Without it somebody with Firefox already open is told their
-                // browser "is already running, but is not responding", which is
-                // both alarming and untrue.
                 if (opener.kind == BrowserSession.Kind.Firefox) {
                     environment()["MOZ_NO_REMOTE"] = "1"
                 }
             }.start()
-        }.getOrElse { return@withContext Result.failure(it) }
+        }.getOrElse { return Attempt.Refused("${opener.label} wouldn't start") }
 
         onStage(Stage.Opened)
 
-        // Long enough for a password, a second factor and a change of mind.
+        // A launcher that hands its work to an already-running copy and exits
+        // is not a window somebody is looking at. Given a moment to prove
+        // otherwise: a window that is genuinely open is still open two seconds
+        // later, and one that handed off is not.
+        kotlinx.coroutines.delay(2500)
+        if (!process.isAlive && !anythingOpen(opener)) {
+            return Attempt.Refused("${opener.label} wouldn't open a window of its own")
+        }
+
         val giveUpAt = System.currentTimeMillis() + 15 * 60 * 1000
         var caught: String? = null
         var arrived = 0L
 
-        // A browser that will not start says so by ending. Nothing has been
-        // typed and nothing can have been written in two seconds, so this is
-        // not somebody changing their mind — it is a launcher that refused,
-        // and the next browser on the machine deserves a turn before anybody
-        // is told to paste a session by hand.
-        kotlinx.coroutines.delay(2500)
-        if (!process.isAlive && read(opener)?.getOrNull() == null) {
-            val rest = openers().filterNot { it.program == opener.program }
-            for (next in rest) {
-                val fallback = signIn(verify, onStage, from = next)
-                if (fallback.isSuccess) return@withContext fallback
-            }
-            return@withContext Result.failure(
-                IllegalStateException("${opener.label} wouldn't open a window of its own"),
-            )
-        }
-
-        while (process.isAlive && System.currentTimeMillis() < giveUpAt) {
+        while (alive(process, opener) && System.currentTimeMillis() < giveUpAt) {
             kotlinx.coroutines.delay(1000)
 
             // The session on disk, which is the only thing that settles this.
-            //
-            // Measured the hard way: a browser keeps its newest cookies in
-            // memory and commits them on a timer, and being killed is not a
-            // reliable way to make it write. Closing the window the moment the
-            // sign-in landed produced a profile holding a completed sign-in and
-            // no session at all — right up to the last redirect and nothing to
-            // show for it. So the window stays open until the thing being
-            // waited for actually exists.
             read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }?.let { session ->
                 if (verify(session)) {
                     caught = session
@@ -209,34 +246,13 @@ object SignInWindow {
             }
             if (caught != null) break
 
-            // Then the arrival, for the ones that don't.
-            //
-            // Measured rather than assumed: eight seconds into browsing, a
-            // Chromium cookie store held nothing at all — every cookie was
-            // still in memory, and they all appeared the instant the browser
-            // was asked to quit. Waiting for them to show up on their own means
-            // waiting out a thirty-second timer for something the window could
-            // have said in two.
-            //
-            // What it does say quickly is where it has been. Landing on the
-            // music site only happens after the sign-in page lets you through,
-            // so that is the signal: close the window, which writes the cookies
-            // out, and read them a moment later.
-            // Landing says the sign-in went through, which is worth saying on
-            // screen — somebody watching a window that has plainly finished sit
-            // there for another half-minute deserves to know it is waiting on
-            // the browser rather than on them.
             if (arrived == 0L && landed(opened)) {
                 arrived = System.currentTimeMillis()
                 onStage(Stage.SignedIn)
             }
 
-            // It has arrived and the session still is not on disk. The browser
-            // is asked to go anyway, and what it leaves behind is taken on its
-            // merits — better than a window that never closes.
             if (arrived != 0L && System.currentTimeMillis() - arrived > PATIENCE) {
                 close(process)
-                process.waitFor()
                 caught = read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }
                     ?: run {
                         kotlinx.coroutines.delay(1500)
@@ -247,16 +263,54 @@ object SignInWindow {
             }
         }
 
-        process.waitFor()
-        // Either it was closed here, or somebody closed it themselves — and a
-        // browser writes its cookies out as it quits, so the second case is
-        // worth one more look rather than a shrug.
-        caught
-            ?: return@withContext read(opener)
-                ?: Result.failure(IllegalStateException("${opener.label} closed without signing in"))
+        close(process)
+        caught?.let { return Attempt.Signed(it) }
 
-        Result.success(caught)
+        // Closed by hand, perhaps after signing in — a browser writes its
+        // cookies out as it quits, so that is worth one more look.
+        val last = read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }
+        if (last != null && verify(last)) return Attempt.Signed(last)
+
+        // What the browser said when it was asked, rather than a guess. On
+        // Windows this is where "Chrome keeps its cookies in a form only it can
+        // read" comes from — the difference between somebody being told what
+        // happened and somebody watching a sign-in they completed do nothing.
+        val why = read(opener)?.exceptionOrNull()?.message
+
+        return Attempt.Nothing(
+            when {
+                why != null && arrived != 0L -> "You signed in, but $why"
+                arrived != 0L ->
+                    "You signed in, but ${opener.label} didn't hand the session over. " +
+                        "Paste it by hand instead — the button below does it in one step."
+                else -> "The ${opener.label} window was closed before signing in"
+            },
+        )
     }
+
+    /**
+     * Whether that browser is still up, however it was started.
+     *
+     * The process that was launched is not always the browser: on some systems
+     * a launcher starts the real thing and exits, and on Windows a second copy
+     * hands its work to the first and exits immediately. Watching only the
+     * process that was started would call a perfectly good window dead.
+     */
+    private fun alive(process: Process, opener: Opener): Boolean =
+        process.isAlive || anythingOpen(opener)
+
+    private fun anythingOpen(opener: Opener): Boolean = runCatching {
+        val marker = profile.absolutePath
+        val command =
+            if (onWindows) listOf("tasklist", "/FI", "IMAGENAME eq ${File(opener.program).name}")
+            else listOf("pgrep", "-f", marker)
+        val process = ProcessBuilder(command).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText()
+        process.waitFor()
+        if (onWindows) output.contains(File(opener.program).name, ignoreCase = true)
+        else output.isNotBlank()
+    }.getOrDefault(false)
+
 
     /**
      * Whether the window has reached the music site.
