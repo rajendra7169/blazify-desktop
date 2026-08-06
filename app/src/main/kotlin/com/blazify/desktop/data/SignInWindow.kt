@@ -202,6 +202,11 @@ object SignInWindow {
                 "--no-first-run",
                 "--no-default-browser-check",
                 "--new-window",
+                // The door a browser keeps for its own tooling, opened on a
+                // port the machine picks. It is how the session is asked for
+                // rather than decrypted — see BrowserTalk, and see Windows,
+                // where decrypting it is no longer possible at all.
+                "--remote-debugging-port=0",
                 SITE,
             )
         }
@@ -236,8 +241,17 @@ object SignInWindow {
         while (alive(process, opener) && System.currentTimeMillis() < giveUpAt) {
             kotlinx.coroutines.delay(1000)
 
-            // The session on disk, which is the only thing that settles this.
-            read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }?.let { session ->
+            // Asked of the browser first, and only read off the disk when
+            // there is nobody to ask. One is instant and always readable; the
+            // other waits for a commit that may never come and, on Windows,
+            // cannot be unlocked afterwards anyway.
+            val held = if (opener.kind == BrowserSession.Kind.Chromium) {
+                BrowserTalk.session(profile)
+            } else {
+                null
+            } ?: read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }
+
+            held?.let { session ->
                 if (verify(session)) {
                     caught = session
                     close(process)
@@ -251,7 +265,13 @@ object SignInWindow {
                 onStage(Stage.SignedIn)
             }
 
-            if (arrived != 0L && System.currentTimeMillis() - arrived > PATIENCE) {
+            // A browser that answers directly has nothing to wait for: the
+            // session is either there or it is not, and it was asked for a
+            // moment ago. This wait exists for the ones that only write to
+            // disk, on a timer of their own.
+            val patience = if (opener.kind == BrowserSession.Kind.Chromium) 20_000L else PATIENCE
+
+            if (arrived != 0L && System.currentTimeMillis() - arrived > patience) {
                 close(process)
                 caught = read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }
                     ?: run {

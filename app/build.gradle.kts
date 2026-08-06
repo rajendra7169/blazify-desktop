@@ -431,6 +431,13 @@ tasks.register<JavaExec>("resumeCheck") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("talkProbe") {
+    group = "verification"
+    description = "Whether a browser hands its session over when asked directly"
+    mainClass.set("com.blazify.desktop.tools.session.TalkProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("panelProbe") {
     group = "verification"
     description = "Whether the desktop's media controls can be answered"
