@@ -153,7 +153,7 @@ compose.desktop {
             // package with the same one is not an upgrade — apt looks at it,
             // sees the version already installed and does nothing, which reads
             // as the fix not working.
-            packageVersion = "1.0.3"
+            packageVersion = "1.0.4"
 
             // Parts of the runtime the packaged copy would otherwise leave out.
             //
