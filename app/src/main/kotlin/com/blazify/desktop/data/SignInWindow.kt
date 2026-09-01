@@ -1,5 +1,7 @@
 package com.blazify.desktop.data
 
+import com.sun.jna.platform.win32.Advapi32Util
+import com.sun.jna.platform.win32.WinReg
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -70,18 +72,150 @@ object SignInWindow {
         Opener("Opera", "opera", BrowserSession.Kind.Chromium, "opera"),
     )
 
-    /** The same list, where Windows keeps its programs. */
-    private val WINDOWS_OPENERS = listOf(
-        Opener("Firefox", "C:\\Program Files\\Mozilla Firefox\\firefox.exe", BrowserSession.Kind.Firefox),
-        Opener("Brave", "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe", BrowserSession.Kind.Chromium),
-        Opener("Chrome", "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", BrowserSession.Kind.Chromium),
-        Opener("Chrome", "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe", BrowserSession.Kind.Chromium),
-        Opener("Edge", "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe", BrowserSession.Kind.Chromium),
+    /**
+     * The browsers Windows might have, told apart by the name of the program.
+     *
+     * The order is the same preference as the list above and doubles as it:
+     * what the registry hands back arrives in whatever order the registry
+     * felt like, and is sorted back into this one.
+     */
+    private data class Known(
+        val label: String,
+        val kind: BrowserSession.Kind,
+        val keyring: String = "chromium",
     )
+
+    private val WINDOWS_KNOWN = linkedMapOf(
+        "firefox.exe" to Known("Firefox", BrowserSession.Kind.Firefox),
+        "librewolf.exe" to Known("LibreWolf", BrowserSession.Kind.Firefox),
+        "zen.exe" to Known("Zen", BrowserSession.Kind.Firefox),
+        "waterfox.exe" to Known("Waterfox", BrowserSession.Kind.Firefox),
+        "floorp.exe" to Known("Floorp", BrowserSession.Kind.Firefox),
+        "brave.exe" to Known("Brave", BrowserSession.Kind.Chromium, "brave"),
+        "chrome.exe" to Known("Chrome", BrowserSession.Kind.Chromium, "chrome"),
+        "chromium.exe" to Known("Chromium", BrowserSession.Kind.Chromium),
+        "msedge.exe" to Known("Edge", BrowserSession.Kind.Chromium),
+        "vivaldi.exe" to Known("Vivaldi", BrowserSession.Kind.Chromium, "vivaldi"),
+        "opera.exe" to Known("Opera", BrowserSession.Kind.Chromium, "opera"),
+    )
+
+    /**
+     * Where Windows keeps its programs, when nothing has said otherwise.
+     *
+     * A floor rather than the answer — the registry below is what actually
+     * finds a browser, and this catches one that installed without registering
+     * itself properly. Program Files is where an administrator's install
+     * lands; AppData is where Chrome and Brave land by default, and that is
+     * the half that used to be missing.
+     */
+    private val windowsGuesses: List<String>
+        get() {
+            val local = System.getenv("LOCALAPPDATA")
+                ?: "${System.getProperty("user.home")}\\AppData\\Local"
+            val files = System.getenv("ProgramFiles") ?: "C:\\Program Files"
+            val filesX86 = System.getenv("ProgramFiles(x86)") ?: "C:\\Program Files (x86)"
+            return listOf(
+                "$files\\Mozilla Firefox\\firefox.exe",
+                "$filesX86\\Mozilla Firefox\\firefox.exe",
+                "$files\\LibreWolf\\librewolf.exe",
+                "$files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
+                "$filesX86\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
+                "$local\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
+                "$files\\Google\\Chrome\\Application\\chrome.exe",
+                "$filesX86\\Google\\Chrome\\Application\\chrome.exe",
+                "$local\\Google\\Chrome\\Application\\chrome.exe",
+                "$local\\Chromium\\Application\\chrome.exe",
+                "$files\\Microsoft\\Edge\\Application\\msedge.exe",
+                "$filesX86\\Microsoft\\Edge\\Application\\msedge.exe",
+                "$files\\Vivaldi\\Application\\vivaldi.exe",
+                "$local\\Vivaldi\\Application\\vivaldi.exe",
+                "$local\\Programs\\Opera\\opera.exe",
+            )
+        }
+
+    /**
+     * Which browsers Windows has, asked of Windows rather than guessed at.
+     *
+     * This was five paths under Program Files, which is where an install made
+     * by an administrator goes. Chrome and Brave install per-user by default,
+     * under AppData, where nothing was looking — so somebody with Chrome and
+     * nothing else was told there was no browser on this machine to open a
+     * window in while looking straight at one. That is the sign-in failing
+     * before it has begun, and it is the ordinary case rather than a rare one.
+     *
+     * A browser registers itself under StartMenuInternet when it installs,
+     * wherever it put itself: per-user installs in HKCU, machine-wide ones in
+     * HKLM, and 32-bit ones in the WOW6432Node view of the same. Reading all
+     * three puts the question to the only thing that knows the answer.
+     */
+    private fun windowsOpeners(): List<Opener> {
+        val paths = LinkedHashSet<String>()
+        paths += registered()
+        paths += windowsGuesses
+
+        val found = LinkedHashMap<String, Opener>()
+        for (path in paths) {
+            val file = File(path)
+            if (!file.isFile) continue
+            val known = WINDOWS_KNOWN[file.name.lowercase()] ?: continue
+            // The same program reached by two routes is still one browser.
+            found.putIfAbsent(
+                file.absolutePath.lowercase(),
+                Opener(known.label, file.absolutePath, known.kind, known.keyring),
+            )
+        }
+
+        val order = WINDOWS_KNOWN.keys.toList()
+        return found.values.sortedBy { order.indexOf(File(it.program).name.lowercase()) }
+    }
+
+    /** Every program Windows has been told is a browser. */
+    private fun registered(): List<String> = buildList {
+        val hives = listOf(
+            WinReg.HKEY_CURRENT_USER to "SOFTWARE\\Clients\\StartMenuInternet",
+            WinReg.HKEY_LOCAL_MACHINE to "SOFTWARE\\Clients\\StartMenuInternet",
+            WinReg.HKEY_LOCAL_MACHINE to "SOFTWARE\\WOW6432Node\\Clients\\StartMenuInternet",
+        )
+        for ((hive, path) in hives) {
+            val keys = runCatching { Advapi32Util.registryGetKeys(hive, path) }.getOrNull() ?: continue
+            for (key in keys) {
+                runCatching {
+                    Advapi32Util.registryGetStringValue(hive, "$path\\$key\\shell\\open\\command", null)
+                }.getOrNull()?.let { command -> programIn(command)?.let(::add) }
+            }
+        }
+
+        // And the older register, for anything that listed its program without
+        // announcing itself as a browser.
+        val appPaths = listOf(
+            WinReg.HKEY_CURRENT_USER to "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths",
+            WinReg.HKEY_LOCAL_MACHINE to "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths",
+        )
+        for ((hive, path) in appPaths) {
+            for (program in WINDOWS_KNOWN.keys) {
+                runCatching {
+                    Advapi32Util.registryGetStringValue(hive, "$path\\$program", null)
+                }.getOrNull()?.let { command -> programIn(command)?.let(::add) }
+            }
+        }
+    }
+
+    /**
+     * The program out of a registered command.
+     *
+     * What is kept there is a command line rather than a path — quoted when it
+     * has a space in it, and sometimes with arguments following.
+     */
+    private fun programIn(command: String): String? {
+        val text = command.trim()
+        if (text.startsWith("\"")) return text.drop(1).substringBefore('"').ifBlank { null }
+        val ends = text.indexOf(".exe", ignoreCase = true)
+        return if (ends < 0) null else text.take(ends + 4).ifBlank { null }
+    }
 
     /** Every browser on this machine a window could be opened in. */
     fun openers(): List<Opener> =
-        if (onWindows) WINDOWS_OPENERS.filter { File(it.program).isFile }
+        if (onWindows) windowsOpeners()
         else OPENERS.filter { which(it.program) != null }
 
     /** The one that would be tried first. */
