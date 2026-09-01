@@ -438,6 +438,20 @@ tasks.register<JavaExec>("talkProbe") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("openerProbe") {
+    group = "verification"
+    description = "Which browsers a sign-in window could be opened in"
+    mainClass.set("com.blazify.desktop.tools.session.OpenerProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
+tasks.register<JavaExec>("collectProbe") {
+    group = "verification"
+    description = "The second half of signing in, on a profile already signed in to"
+    mainClass.set("com.blazify.desktop.tools.session.CollectProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("panelProbe") {
     group = "verification"
     description = "Whether the desktop's media controls can be answered"
