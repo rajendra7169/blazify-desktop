@@ -121,7 +121,7 @@ Three shapes, on the [releases page](../../releases/latest):
 | **`.tar.gz`** | The same application as a plain folder |
 
 ```bash
-sudo apt install ./blazify_1.0.4_amd64.deb
+sudo apt install ./blazify_1.0.5_amd64.deb
 ```
 
 It lands in the applications menu under Sound & Video. The package brings its own
@@ -145,8 +145,8 @@ The AppImage asks for nothing at all — the audio library and its decoders trav
 inside it, so it plays on a machine that has never heard of VLC:
 
 ```bash
-chmod +x Blazify-1.0.4-x86_64.AppImage
-./Blazify-1.0.4-x86_64.AppImage
+chmod +x Blazify-1.0.5-x86_64.AppImage
+./Blazify-1.0.5-x86_64.AppImage
 ```
 
 ### Windows
