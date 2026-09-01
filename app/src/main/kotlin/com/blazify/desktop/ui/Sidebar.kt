@@ -94,7 +94,11 @@ private fun Brand(collapsed: Boolean) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
-        BlazifyLogo(size = 28.dp)
+        // Twenty rather than twenty-eight, for the same mark on screen. The
+        // image used to be two thirds mark and a third empty margin, which is
+        // why the taskbar drew it small; the margin is gone from the file now,
+        // so the box it is given has to lose the same amount to look unchanged.
+        BlazifyLogo(size = 20.dp)
         if (!collapsed) {
             Text("Blazify", color = Blz.ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
         }
