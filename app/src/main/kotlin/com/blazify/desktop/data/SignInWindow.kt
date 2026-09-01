@@ -241,7 +241,7 @@ object SignInWindow {
      * necessary any more.
      */
     /** What the window is doing, for saying so on screen while it does it. */
-    enum class Stage { Opened, SignedIn }
+    enum class Stage { Opened, SignedIn, Collecting }
 
     /**
      * Whether a window is already open for this.
@@ -330,17 +330,17 @@ object SignInWindow {
                 "-new-instance",
                 SITE,
             )
+            // No debugging port here, deliberately. The door this app asks the
+            // session through is the same door Google watches for: a browser
+            // that opens it is refused the sign-in outright, with "this browser
+            // or app may not be secure" and no way past it. The door is opened
+            // afterwards instead — see [collect].
             BrowserSession.Kind.Chromium -> listOf(
                 opener.program,
                 "--user-data-dir=${profile.absolutePath}",
                 "--no-first-run",
                 "--no-default-browser-check",
                 "--new-window",
-                // The door a browser keeps for its own tooling, opened on a
-                // port the machine picks. It is how the session is asked for
-                // rather than decrypted — see BrowserTalk, and see Windows,
-                // where decrypting it is no longer possible at all.
-                "--remote-debugging-port=0",
                 SITE,
             )
         }
@@ -375,50 +375,55 @@ object SignInWindow {
         while (alive(process, opener) && System.currentTimeMillis() < giveUpAt) {
             kotlinx.coroutines.delay(1000)
 
-            // Asked of the browser first, and only read off the disk when
-            // there is nobody to ask. One is instant and always readable; the
-            // other waits for a commit that may never come and, on Windows,
-            // cannot be unlocked afterwards anyway.
-            val held = if (opener.kind == BrowserSession.Kind.Chromium) {
-                BrowserTalk.session(profile)
-            } else {
-                null
-            } ?: read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }
-
-            held?.let { session ->
-                if (verify(session)) {
-                    caught = session
-                    close(process)
-                    return@let
+            // Firefox keeps its cookies in a plain file, so there is something
+            // to read while the window stands open. Chromium's are sealed until
+            // the browser itself is asked, and asking has to wait until the
+            // sign-in is over — so for those there is nothing to do here but
+            // watch for the landing.
+            if (opener.kind == BrowserSession.Kind.Firefox) {
+                val held = read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }
+                if (held != null && verify(held)) {
+                    caught = held
+                    break
                 }
             }
-            if (caught != null) break
 
             if (arrived == 0L && landed(opened)) {
                 arrived = System.currentTimeMillis()
                 onStage(Stage.SignedIn)
             }
 
-            // A browser that answers directly has nothing to wait for: the
-            // session is either there or it is not, and it was asked for a
-            // moment ago. This wait exists for the ones that only write to
-            // disk, on a timer of their own.
-            val patience = if (opener.kind == BrowserSession.Kind.Chromium) 20_000L else PATIENCE
+            // Landed on the music site, which is where the sign-in page sends
+            // somebody it has let through. Firefox still has to write its file
+            // out on a timer of its own; for Chromium the window has done its
+            // job and closing it is what unlocks the profile to be read.
+            val patience = if (opener.kind == BrowserSession.Kind.Chromium) SETTLE else PATIENCE
 
             if (arrived != 0L && System.currentTimeMillis() - arrived > patience) {
-                close(process)
-                caught = read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }
-                    ?: run {
-                        kotlinx.coroutines.delay(1500)
-                        read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }
-                    }
-                if (caught?.let { verify(it) } != true) caught = null
+                if (opener.kind == BrowserSession.Kind.Firefox) {
+                    close(process)
+                    caught = read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }
+                        ?: run {
+                            kotlinx.coroutines.delay(1500)
+                            read(opener)?.getOrNull()?.takeIf { "SAPISID" in it }
+                        }
+                    if (caught?.let { verify(it) } != true) caught = null
+                }
                 break
             }
         }
 
         close(process)
         caught?.let { return Attempt.Signed(it) }
+
+        // The window is shut, either because it had plainly finished or because
+        // somebody shut it themselves. Both mean the same thing here: whatever
+        // was signed in to is now sitting in the profile, and this is the point
+        // at which it can be asked for.
+        if (opener.kind == BrowserSession.Kind.Chromium) {
+            onStage(Stage.Collecting)
+            collect(opener, verify)?.let { return Attempt.Signed(it) }
+        }
 
         // Closed by hand, perhaps after signing in — a browser writes its
         // cookies out as it quits, so that is worth one more look.
@@ -441,6 +446,68 @@ object SignInWindow {
             },
         )
     }
+
+    /**
+     * Ask the browser for the session, once nobody is signing in any more.
+     *
+     * This used to happen through the same window somebody was typing their
+     * password into, and that is what broke it: a Chromium browser started with
+     * its tooling port open is a browser Google will not accept a sign-in
+     * through. It says "this browser or app may not be secure" and there is no
+     * arrangement of the other flags that talks it round — the objection is to
+     * the port, and the port is the whole point of it.
+     *
+     * The two jobs do not have to happen at once, though. Signing in needs an
+     * ordinary browser and nothing else; reading the session needs the port and
+     * nothing else. So the window somebody uses has no port, and when it closes
+     * the same profile is opened a second time — headless, for a second or two,
+     * with the port open and nobody signing in through it. The cookies are
+     * already there. Nothing is decrypted, and Google never sees the door.
+     */
+    private suspend fun collect(
+        opener: Opener,
+        verify: suspend (String) -> Boolean,
+    ): String? {
+        // A second copy on a profile the first is still holding would hand its
+        // work over to the first and exit — which is a browser with no port
+        // again, and no way to ask it anything. So wait for the first to let
+        // go, up to ten seconds, before opening the second.
+        val letGoBy = System.currentTimeMillis() + 10_000
+        while (anythingOpen() && System.currentTimeMillis() < letGoBy) {
+            kotlinx.coroutines.delay(500)
+        }
+
+        val process = runCatching {
+            ProcessBuilder(
+                opener.program,
+                "--user-data-dir=${profile.absolutePath}",
+                "--no-first-run",
+                "--no-default-browser-check",
+                // Nobody is looking at this one, and a window appearing after
+                // the sign-in window has closed would be the app apparently
+                // starting over.
+                "--headless=new",
+                "--remote-debugging-port=0",
+                LANDING,
+            ).redirectErrorStream(true).start()
+        }.getOrElse { return null }
+
+        try {
+            val giveUpAt = System.currentTimeMillis() + 45_000
+            while (System.currentTimeMillis() < giveUpAt) {
+                kotlinx.coroutines.delay(1000)
+                val held = BrowserTalk.session(profile) ?: continue
+                if (verify(held)) return held
+            }
+            return null
+        } finally {
+            // Nothing was signed in to here and nothing needs writing down, so
+            // this one can simply be stopped.
+            process.descendants().forEach { it.destroyForcibly() }
+            process.destroyForcibly()
+        }
+    }
+
 
     /**
      * Whether that browser is still up, however it was started.
@@ -545,6 +612,17 @@ object SignInWindow {
     private const val PATIENCE = 50_000L
 
     /**
+     * How long to leave a Chromium window standing once it has arrived.
+     *
+     * Nothing is being waited for here — the session is asked of the browser
+     * afterwards rather than read off the disk, so there is no commit to
+     * outlast. This is only long enough that the window does not vanish out
+     * from under somebody the instant the page loads, which reads as a crash
+     * rather than as success.
+     */
+    private const val SETTLE = 4_000L
+
+    /**
      * Put the window away, and let it tidy up on the way.
      *
      * The browser's own process is asked to stop — not every process it owns.
@@ -558,8 +636,23 @@ object SignInWindow {
      * would leave the window standing there.
      */
     private fun close(process: Process) {
-        process.children().forEach { it.destroy() }
-        process.destroy()
+        if (onWindows) {
+            // Windows has no polite way to stop a process from Java: destroy
+            // and destroyForcibly are the same call, and it is the abrupt one.
+            // Using it here would kill the browser mid-sentence, before it had
+            // written the session anywhere — and the session on disk is the
+            // whole of what the next step reads. Asking its windows to close
+            // is the request that destroy() only looks like.
+            runCatching {
+                ProcessBuilder("taskkill", "/PID", process.pid().toString(), "/T")
+                    .redirectErrorStream(true)
+                    .start()
+                    .waitFor(10, java.util.concurrent.TimeUnit.SECONDS)
+            }
+        } else {
+            process.children().forEach { it.destroy() }
+            process.destroy()
+        }
 
         // Only if it will not go quietly. Force is the thing that loses the
         // cookies, so it is a last resort with a long fuse rather than a

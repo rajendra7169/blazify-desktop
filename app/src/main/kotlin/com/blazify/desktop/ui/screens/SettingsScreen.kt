@@ -619,9 +619,9 @@ private fun AccountSection() {
             Account.waitingForWindow?.let { browser ->
                 when (Account.windowStage) {
                     SignInWindow.Stage.SignedIn ->
-                        "Signed in — waiting for $browser to write the session down, which it " +
-                            "does on a timer of its own. This takes about half a minute, and " +
-                            "the window closes itself when it's done."
+                        "Signed in — closing the $browser window."
+                    SignInWindow.Stage.Collecting ->
+                        "Asking $browser for the session. A moment, and no window this time."
                     else ->
                         "Sign in to YouTube Music in the $browser window that just opened. " +
                             "It closes itself once you're through."
@@ -635,7 +635,8 @@ private fun AccountSection() {
             if (Account.canOpenWindow) {
                 GoogleButton(
                     when {
-                        Account.windowStage == SignInWindow.Stage.SignedIn -> "Finishing…"
+                        Account.windowStage == SignInWindow.Stage.SignedIn ||
+                            Account.windowStage == SignInWindow.Stage.Collecting -> "Finishing…"
                         Account.waitingForWindow != null -> "Waiting for you to sign in…"
                         Account.checking -> "Signing in…"
                         else -> "Sign in"
