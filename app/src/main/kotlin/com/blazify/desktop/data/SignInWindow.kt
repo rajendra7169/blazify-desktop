@@ -364,7 +364,7 @@ object SignInWindow {
         // otherwise: a window that is genuinely open is still open two seconds
         // later, and one that handed off is not.
         kotlinx.coroutines.delay(2500)
-        if (!process.isAlive && !anythingOpen(opener)) {
+        if (!process.isAlive && !anythingOpen()) {
             return Attempt.Refused("${opener.label} wouldn't open a window of its own")
         }
 
@@ -451,18 +451,48 @@ object SignInWindow {
      * process that was started would call a perfectly good window dead.
      */
     private fun alive(process: Process, opener: Opener): Boolean =
-        process.isAlive || anythingOpen(opener)
+        process.isAlive || anythingOpen()
 
-    private fun anythingOpen(opener: Opener): Boolean = runCatching {
+    /**
+     * Whether a browser pointed at *this* profile is running.
+     *
+     * The question has to be about the profile and not about the program.
+     * Windows was asked whether anything called msedge.exe was running, and on
+     * a machine where somebody has their own browser open the answer is always
+     * yes — a dozen times over, since a browser is a dozen processes. So the
+     * window this app opened was reported as still standing long after it had
+     * been closed, and a sign-in somebody had thought better of sat there
+     * until the fifteen-minute timeout gave up on it. Nothing had gone wrong
+     * that a person could see; the app had simply stopped watching them and
+     * started watching their browser.
+     *
+     * The profile is this application's own and appears on the command line of
+     * the window it opened, and nowhere else on the machine. Asking for
+     * command lines rather than names asks the right question, and is the same
+     * question `pgrep -f` has always answered on Linux.
+     *
+     * Only reached when the process that was launched has already exited —
+     * [alive] asks that first — so listing processes is rare rather than
+     * once a second.
+     */
+    private fun anythingOpen(): Boolean = runCatching {
         val marker = profile.absolutePath
-        val command =
-            if (onWindows) listOf("tasklist", "/FI", "IMAGENAME eq ${File(opener.program).name}")
-            else listOf("pgrep", "-f", marker)
+        val command = if (onWindows) {
+            listOf(
+                "powershell", "-NoProfile", "-NonInteractive", "-Command",
+                // Every process rather than a filtered few, and the matching
+                // done here instead. A filter would need quotes inside this
+                // argument, and Windows does its own quoting as it hands the
+                // argument over — the inner ones do not survive the trip.
+                "Get-CimInstance Win32_Process | ForEach-Object { \$_.CommandLine }",
+            )
+        } else {
+            listOf("pgrep", "-f", marker)
+        }
         val process = ProcessBuilder(command).redirectErrorStream(true).start()
         val output = process.inputStream.bufferedReader().readText()
         process.waitFor()
-        if (onWindows) output.contains(File(opener.program).name, ignoreCase = true)
-        else output.isNotBlank()
+        if (onWindows) output.contains(marker, ignoreCase = true) else output.isNotBlank()
     }.getOrDefault(false)
 
 
