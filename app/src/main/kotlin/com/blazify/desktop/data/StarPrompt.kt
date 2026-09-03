@@ -93,14 +93,7 @@ object StarPrompt {
 
     fun open() {
         stop()
-        runCatching {
-            val windows = System.getProperty("os.name").orEmpty().startsWith("Windows", true)
-            if (windows) {
-                ProcessBuilder("rundll32", "url.dll,FileProtocolHandler", REPO).start()
-            } else {
-                ProcessBuilder("xdg-open", REPO).start()
-            }
-        }
+        Browse.open(REPO)
     }
 
     private fun read() {

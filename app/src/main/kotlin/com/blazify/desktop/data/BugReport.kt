@@ -57,7 +57,7 @@ object BugReport {
 
     fun openTracker() {
         val body = encode(body())
-        open("https://github.com/$OWNER/$REPO/issues/new?body=$body")
+        Browse.open("https://github.com/$OWNER/$REPO/issues/new?body=$body")
     }
 
     /**
@@ -67,7 +67,7 @@ object BugReport {
     fun openEmail() {
         val subject = encode("Blazify ${Updates.RUNNING}: ")
         val body = encode(body())
-        open("mailto:$EMAIL?subject=$subject&body=$body")
+        Browse.mail("mailto:$EMAIL?subject=$subject&body=$body")
     }
 
     /** For anyone with neither a mail client nor an account. */
@@ -78,17 +78,6 @@ object BugReport {
         }
     }
 
-    /** Same approach as the release page: hand it to whatever the desktop uses. */
-    private fun open(where: String) {
-        runCatching {
-            val windows = System.getProperty("os.name").orEmpty().startsWith("Windows", true)
-            if (windows) {
-                ProcessBuilder("rundll32", "url.dll,FileProtocolHandler", where).start()
-            } else {
-                ProcessBuilder("xdg-open", where).start()
-            }
-        }
-    }
 
     /** A literal plus is a space to a mail client, so encode it properly. */
     private fun encode(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")

@@ -37,6 +37,7 @@ import androidx.compose.ui.res.useResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.blazify.desktop.data.Browse
 import com.blazify.desktop.ui.Backdrop
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
@@ -94,9 +95,9 @@ fun AboutSection(
             }
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Social(Icons.Rounded.Language, "Website", Modifier.weight(1f)) { open(WEBSITE) }
-                Social(Icons.Rounded.Code, "GitHub", Modifier.weight(1f)) { open(GITHUB) }
-                Social(Icons.Rounded.PhotoCamera, "Instagram", Modifier.weight(1f)) { open(INSTAGRAM) }
+                Social(Icons.Rounded.Language, "Website", Modifier.weight(1f)) { Browse.open(WEBSITE) }
+                Social(Icons.Rounded.Code, "GitHub", Modifier.weight(1f)) { Browse.open(GITHUB) }
+                Social(Icons.Rounded.PhotoCamera, "Instagram", Modifier.weight(1f)) { Browse.open(INSTAGRAM) }
             }
 
             Text(
@@ -225,11 +226,3 @@ private fun Wide(label: String, icon: ImageVector?, onClick: () -> Unit) {
     }
 }
 
-/** Hand a link to whatever browser this machine uses. */
-private fun open(url: String) {
-    runCatching {
-        val windows = System.getProperty("os.name").orEmpty().startsWith("Windows", true)
-        if (windows) ProcessBuilder("rundll32", "url.dll,FileProtocolHandler", url).start()
-        else ProcessBuilder("xdg-open", url).start()
-    }
-}

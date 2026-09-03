@@ -149,12 +149,7 @@ object Updates {
 
     /** Open the release page in whatever browser this machine uses. */
     fun openReleases() {
-        val where = link ?: "https://github.com/$OWNER/$REPO/releases"
-        runCatching {
-            val windows = System.getProperty("os.name").orEmpty().startsWith("Windows", true)
-            if (windows) ProcessBuilder("rundll32", "url.dll,FileProtocolHandler", where).start()
-            else ProcessBuilder("xdg-open", where).start()
-        }
+        Browse.open(link ?: "https://github.com/$OWNER/$REPO/releases")
     }
 
     private fun kotlinx.serialization.json.JsonElement.plain(): String? =

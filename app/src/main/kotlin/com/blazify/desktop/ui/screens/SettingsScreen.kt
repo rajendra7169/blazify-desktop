@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.blazify.desktop.data.Browse
 import com.blazify.desktop.data.Playlists
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -671,7 +672,7 @@ private fun AccountSection() {
                 if (Account.checking && Account.waitingForWindow == null) "Looking…"
                 else "Use a browser I've already quit",
             ) { Account.signInFromBrowser() }
-            Button("Open YouTube Music") { openInBrowser("https://music.youtube.com") }
+            Button("Open YouTube Music") { Browse.open("https://music.youtube.com") }
         }
 
         Account.problem?.let { trouble ->
@@ -743,24 +744,6 @@ private fun GoogleButton(label: String, onClick: () -> Unit) {
     }
 }
 
-/**
- * Hand a page to whatever the desktop uses for the web.
- *
- * Wrapped because the desktop toolkit refuses on some window managers, and a
- * sign-in that dies on an exception rather than showing its code would be
- * unrecoverable — the code is on screen either way, so it can still be typed
- * in by hand.
- */
-private fun openInBrowser(url: String) {
-    runCatching {
-        val desktop = java.awt.Desktop.getDesktop()
-        if (desktop.isSupported(java.awt.Desktop.Action.BROWSE)) {
-            desktop.browse(java.net.URI(url))
-            return
-        }
-    }
-    runCatching { ProcessBuilder("xdg-open", url).start() }
-}
 
 /**
  * One group of settings under its heading.
