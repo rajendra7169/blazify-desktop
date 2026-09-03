@@ -70,6 +70,7 @@ import com.blazify.desktop.data.Offline
 import com.blazify.desktop.data.Notify
 import com.blazify.desktop.data.Panel
 import com.blazify.desktop.data.Store
+import com.blazify.desktop.data.BugReport
 import com.blazify.desktop.data.Updates
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
@@ -429,6 +430,29 @@ fun SettingsScreen() {
                         Section("About") {
                             Line("Blazify", "Version ${Updates.RUNNING}")
                             Line("A music player", "for Linux and Windows")
+                        }
+                    }
+
+                    item {
+                        Section("Report a problem") {
+                            Text(
+                                "Describe what happened and it goes with the details " +
+                                    "below, so nobody has to ask which version you are on.",
+                                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+                            )
+                            // Shown, not merely attached. Nothing about somebody's
+                            // machine should leave without them having seen it.
+                            Text(
+                                BugReport.details(),
+                                color = Blz.muted, fontSize = 11.5.sp, lineHeight = 17.sp,
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                // Email first: it is the only one that asks nothing
+                                // of somebody who just wants to say it is broken.
+                                Button("Send an email", BugReport::openEmail)
+                                Button("Open the tracker", BugReport::openTracker)
+                                Button("Copy the details", BugReport::copyDetails)
+                            }
                         }
                     }
 
