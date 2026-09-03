@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.blazify.desktop.data.StarPrompt
 import com.blazify.desktop.PlayerState
 import com.blazify.desktop.SleepTimer
 import com.blazify.desktop.data.Cache
@@ -282,6 +283,11 @@ fun AppShell() {
         // Above every screen, because somebody knocking is waiting on an
         // answer and you will not be looking at the room page when they do.
         KnockDialog()
+
+        // Asked once the application has been opened on three separate days,
+        // and never while anything is playing.
+        LaunchedEffect(Unit) { StarPrompt.onOpened(PlayerState.playing) }
+        StarPromptDialog()
 
         // Over everything, including the transport — a dialog that the bar
         // could be clicked through is not a dialog.
