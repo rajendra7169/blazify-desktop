@@ -1,0 +1,15 @@
+Blazify for desktop
+Copyright (C) 2026 Rajendra Pandey
+
+The desktop application — its interface, theming, branding, audio engine,
+local library and feature work — is original.
+
+The `innertube` module, which talks to YouTube Music, builds on the work of the
+InnerTune, OuterTune, and Metrolist projects, all licensed under the GNU General
+Public License v3.0. Their copyright notices are preserved here as that license
+requires, and with thanks.
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See the LICENSE file for the full license text.
