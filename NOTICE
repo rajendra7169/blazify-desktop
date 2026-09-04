@@ -4,8 +4,7 @@ Copyright (C) 2026 Rajendra Pandey
 The desktop application — its interface, theming, branding, audio engine,
 local library and feature work — is original.
 
-The `innertube` module, which talks to YouTube Music, builds on the work of the
-InnerTune, OuterTune, and Metrolist projects, all licensed under the GNU General
+The `innertube` module, which talks to YouTube Music, all licensed under the GNU General
 Public License v3.0. Their copyright notices are preserved here as that license
 requires, and with thanks.
 
