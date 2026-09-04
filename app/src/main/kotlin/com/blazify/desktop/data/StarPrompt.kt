@@ -4,7 +4,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.io.File
-import java.time.LocalDate
 
 /**
  * Blazify Project (C) 2026
@@ -12,16 +11,16 @@ import java.time.LocalDate
  */
 
 /**
- * Asking for a star, at most three times, and then never again.
+ * Asking for a star: once a day after the first launch, then weekly for two
+ * months, and then never again.
  *
  * The rules matter more than the feature. A prompt that keeps returning is how
  * a program earns a bad word from somebody who actually liked it, so:
  *
- * - Days are counted by opening the application, not by the calendar since it
- *   was installed. Somebody who installed it and forgot has not used it for
- *   three days.
- * - Later means later, and the gap grows: three days, then a fortnight, then a
- *   month, after which it stops on its own.
+ * - The clock starts on first launch and the first ask is a day later, so a
+ *   program opened once and abandoned never asks at all.
+ * - Later means later: a week each time, and after the last of them it stops
+ *   on its own rather than carrying on.
  * - No thanks means never, with no route back into the schedule.
  * - It is never shown while something is playing, which the caller enforces,
  *   because interrupting music to ask a favour is worse than not asking.
@@ -32,12 +31,16 @@ import java.time.LocalDate
 object StarPrompt {
     const val REPO = "https://github.com/rajendra7169/blazify-desktop"
 
-    private const val DAYS_BEFORE_FIRST_ASK = 3
-    private val LATER_GAPS = listOf(15L, 30L)
-    private const val MAX_ASKS = 3
+    private const val HOURS_BEFORE_FIRST_ASK = 24L
+    private const val DAYS_BETWEEN_ASKS = 7L
+
+    /** The first ask a day in, then one a week: the last lands just short of two months. */
+    private const val MAX_ASKS = 9
 
     private val store = File(Store.folder, "star")
 
+    // Fields 1 and 2 of the store file, kept so a file written by an older
+    // build still parses. The schedule no longer counts days of use.
     private var daysUsed = 0
     private var lastDay = ""
     private var nextAt = 0L
@@ -53,28 +56,30 @@ object StarPrompt {
     }
 
     /**
-     * Records that the application was opened today, and shows the prompt if it
-     * is due. Safe to call on every launch: the day counter moves at most once
-     * per calendar day.
+     * Records the launch and shows the prompt if it is due. Safe to call on
+     * every launch: the schedule only moves when an ask is actually shown.
      */
     fun onOpened(somethingIsPlaying: Boolean) {
         if (done || somethingIsPlaying) return
-
-        val today = LocalDate.now().toString()
-        if (lastDay != today) {
-            lastDay = today
-            daysUsed += 1
-            write()
-        }
-
-        if (daysUsed < DAYS_BEFORE_FIRST_ASK) return
         if (asks >= MAX_ASKS) return
+
+        if (nextAt == 0L) {
+            // First launch. Start the clock and ask nothing yet — a program
+            // that begs for a star before it has played a song has not earned
+            // one.
+            nextAt = System.currentTimeMillis() + HOURS_BEFORE_FIRST_ASK * 3_600_000L
+            write()
+            return
+        }
         if (System.currentTimeMillis() < nextAt) return
 
         asks += 1
-        // The next gap is longer, and after the last one there is no next.
-        val gap = LATER_GAPS.getOrNull(asks - 1)
-        if (gap == null) done = true else nextAt = System.currentTimeMillis() + gap * 86_400_000L
+        // A week until the next, and after the last one there is no next.
+        if (asks >= MAX_ASKS) {
+            done = true
+        } else {
+            nextAt = System.currentTimeMillis() + DAYS_BETWEEN_ASKS * 86_400_000L
+        }
         write()
         showing = true
     }
