@@ -43,20 +43,28 @@ import java.time.LocalDate
  */
 
 /**
- * Keeping a queue.
+ * Keeping a list of songs as a playlist of your own.
  *
- * A queue is the one list nobody sits down to build — it collects out of what
- * you played, what you added and wherever a radio wandered off to, and it is
- * gone the moment you press play on something else. This is how an evening
- * becomes something you can put on again.
+ * Two things arrive here. A queue is the one list nobody sits down to build —
+ * it collects out of what you played, what you added and wherever a radio
+ * wandered off to, and it is gone the moment you press play on something else.
+ * Somebody else's playlist or album is the opposite: deliberate, but not yours,
+ * and liable to have songs taken out of it by whoever made it.
  *
- * It goes onto the account when there is one, so it follows you, and stays here
- * when there isn't. Named after today by default, since that is
- * almost always what it was.
+ * Either way the answer is the same list of songs under a name you chose. It
+ * goes onto the account when there is one, so it follows you, and stays here
+ * when there isn't.
  */
 @Composable
-fun SaveQueueDialog(queue: List<Track>, onDismiss: () -> Unit) {
-    var name by remember { mutableStateOf("Queue · ${LocalDate.now()}") }
+fun KeepSongsDialog(
+    songs: List<Track>,
+    heading: String,
+    confirm: String,
+    defaultName: String,
+    onDismiss: () -> Unit,
+) {
+    val queue = songs
+    var name by remember { mutableStateOf(defaultName) }
     var working by remember { mutableStateOf(false) }
     var trouble by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -75,9 +83,9 @@ fun SaveQueueDialog(queue: List<Track>, onDismiss: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("Keep this queue", color = Blz.ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(heading, color = Blz.ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    "${queue.size} songs, in the order they're lined up",
+                    "${queue.size} songs, kept in this order",
                     color = Blz.muted, fontSize = 12.5.sp,
                 )
             }
@@ -105,7 +113,7 @@ fun SaveQueueDialog(queue: List<Track>, onDismiss: () -> Unit) {
             trouble?.let { Text(it, color = Blaze.Amber, fontSize = 11.5.sp, lineHeight = 17.sp) }
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Pill(if (working) "Keeping…" else "Keep", filled = true, Modifier.weight(1f)) {
+                Pill(if (working) "$confirm…" else confirm, filled = true, Modifier.weight(1f)) {
                     if (working || name.isBlank()) return@Pill
                     if (!Account.signedIn) {
                         Playlists.create(name, queue)
@@ -168,3 +176,14 @@ private fun Pill(label: String, filled: Boolean, modifier: Modifier = Modifier, 
         )
     }
 }
+
+/** The queue, named after today, since that is almost always what it was. */
+@Composable
+fun SaveQueueDialog(queue: List<Track>, onDismiss: () -> Unit) =
+    KeepSongsDialog(
+        songs = queue,
+        heading = "Keep this queue",
+        confirm = "Keep",
+        defaultName = "Queue · ${LocalDate.now()}",
+        onDismiss = onDismiss,
+    )

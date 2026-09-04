@@ -82,6 +82,43 @@ object Plays {
         ).take(limit)
     }
 
+    /** An artist and what they add up to over a window. */
+    data class Tally(
+        val name: String,
+        val id: String?,
+        val thumbnail: String?,
+        val plays: Int,
+        val songs: Int,
+    )
+
+    /**
+     * The most played artists in a window, most first.
+     *
+     * Grouped by name rather than by id, because the catalogue leaves the id
+     * off often enough that grouping by it would file half of somebody's songs
+     * under "no artist". The id is kept from whichever song had one, so a row
+     * can still open their page.
+     */
+    fun topArtists(span: Span, from: List<Track>, limit: Int = 100): List<Tally> {
+        val counted = top(span, from, limit = Int.MAX_VALUE)
+        if (counted.isEmpty()) return emptyList()
+
+        return counted
+            .filter { it.first.artist.isNotBlank() }
+            .groupBy { it.first.artist }
+            .map { (name, rows) ->
+                Tally(
+                    name = name,
+                    id = rows.firstNotNullOfOrNull { it.first.artistId },
+                    thumbnail = rows.firstNotNullOfOrNull { it.first.thumbnail },
+                    plays = rows.sumOf { it.second },
+                    songs = rows.size,
+                )
+            }
+            .sortedWith(compareByDescending<Tally> { it.plays }.thenByDescending { it.songs })
+            .take(limit)
+    }
+
     /** How many plays are on record in a window, for saying so out loud. */
     fun countIn(span: Span): Int {
         val since = span.days?.let {

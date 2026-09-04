@@ -65,6 +65,9 @@ import com.blazify.desktop.ui.rememberHovered
  */
 private enum class Whose(val label: String) { Everyone("Charts"), Mine("Yours") }
 
+/** Songs, or the people who made them. */
+private enum class Counting(val label: String) { Songs("Songs"), Artists("Artists") }
+
 /**
  * What you actually played, counted.
  *
@@ -93,8 +96,10 @@ fun TopSongsScreen(
     LaunchedEffect(Unit) { fetchCharts() }
 
     var span by remember { mutableStateOf(Plays.Span.Month) }
+    var counting by remember { mutableStateOf(Counting.Songs) }
     val known = remember(Library.history, Library.liked) { Library.known() }
     val top = remember(span, Plays.all, known) { Plays.top(span, known) }
+    val artists = remember(span, Plays.all, known) { Plays.topArtists(span, known) }
 
     Column(Modifier.fillMaxSize()) {
         Column(
@@ -103,7 +108,11 @@ fun TopSongsScreen(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Top songs", color = Blz.ink, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (whose == Whose.Mine && counting == Counting.Artists) "Top artists"
+                        else "Top songs",
+                        color = Blz.ink, fontSize = 26.sp, fontWeight = FontWeight.Bold,
+                    )
                     Text(
                         if (whose == Whose.Everyone) {
                             if (charts.isEmpty()) "What everybody is playing"
@@ -145,6 +154,11 @@ fun TopSongsScreen(
                         Chip(option.label, option == span) { span = option }
                     }
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Counting.entries.forEach { option ->
+                        Chip(option.label, option == counting) { counting = option }
+                    }
+                }
             }
         }
 
@@ -166,7 +180,7 @@ fun TopSongsScreen(
             return
         }
 
-        if (top.isEmpty()) {
+        if (top.isEmpty() || (counting == Counting.Artists && artists.isEmpty())) {
             EmptyState(
                 Icons.Rounded.TrendingUp,
                 "Nothing counted yet",
@@ -183,12 +197,77 @@ fun TopSongsScreen(
                 start = 26.dp, end = 26.dp, bottom = 24.dp,
             ),
         ) {
-            items(top, key = { (track, _) -> track.id }) { (track, count) ->
-                Line(track, count, top.first().second) {
-                    onPlay(top.map { it.first }, top.indexOfFirst { it.first.id == track.id })
+            if (counting == Counting.Artists) {
+                items(artists, key = { it.name }) { tally ->
+                    ArtistLine(tally, artists.first().plays) {
+                        // Everything of theirs that got counted, in the order
+                        // it was counted in.
+                        val theirs = top.filter { it.first.artist == tally.name }.map { it.first }
+                        if (theirs.isNotEmpty()) onPlay(theirs, 0)
+                    }
+                }
+            } else {
+                items(top, key = { (track, _) -> track.id }) { (track, count) ->
+                    Line(track, count, top.first().second) {
+                        onPlay(top.map { it.first }, top.indexOfFirst { it.first.id == track.id })
+                    }
                 }
             }
         }
+    }
+}
+
+/**
+ * One artist, with everything of theirs added up.
+ *
+ * The same bar as a song row, because the question is the same one: not how
+ * many plays, but who is running away with it. A round picture, since it is a
+ * person rather than a record.
+ */
+@Composable
+private fun ArtistLine(tally: Plays.Tally, most: Int, onPlay: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(onClick = onPlay)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Artwork(tally.thumbnail, size = 42.dp, corner = 21.dp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                tally.name, color = Blz.ink, fontSize = 13.5.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                if (tally.songs == 1) "1 song" else "${tally.songs} songs",
+                color = Blz.muted, fontSize = 11.5.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Box(
+            Modifier
+                .width(90.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(Blz.surfaceHigh),
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth((tally.plays.toFloat() / most).coerceIn(0.06f, 1f))
+                    .size(width = 90.dp, height = 5.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))),
+            )
+        }
+        Text(
+            "${tally.plays}", color = Blz.muted, fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.width(30.dp),
+        )
     }
 }
 

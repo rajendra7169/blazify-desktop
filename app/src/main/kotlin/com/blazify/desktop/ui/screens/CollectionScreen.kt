@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Icon
@@ -45,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.Track
+import com.blazify.desktop.ui.KeepSongsDialog
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
@@ -80,6 +82,7 @@ fun CollectionScreen(
 ) {
     var page by remember(card.id) { mutableStateOf<Catalogue.Collection?>(null) }
     var problem by remember(card.id) { mutableStateOf<String?>(null) }
+    var importing by remember(card.id) { mutableStateOf(false) }
 
     suspend fun fetch() {
         problem = null
@@ -93,12 +96,13 @@ fun CollectionScreen(
 
     val shown = page?.card ?: card
 
+    Box(Modifier.fillMaxSize()) {
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         item { BackRow(onBack) }
-        item { Header(shown, page, onPlay, onShuffle) }
+        item { Header(shown, page, onPlay, onShuffle) { importing = true } }
         page?.about?.let { about -> item { About(about) } }
 
         when {
@@ -111,6 +115,17 @@ fun CollectionScreen(
                 SongMenu(track) { TrackRow(at + 1, track) { onPlay(page!!.tracks, at) } }
             }
         }
+    }
+
+    if (importing) {
+        KeepSongsDialog(
+            songs = page?.tracks.orEmpty(),
+            heading = "Import this ${shown.kind.name.lowercase()}",
+            confirm = "Import",
+            defaultName = shown.title,
+            onDismiss = { importing = false },
+        )
+    }
     }
 }
 
@@ -137,6 +152,7 @@ private fun Header(
     page: Catalogue.Collection?,
     onPlay: (List<Track>, Int) -> Unit,
     onShuffle: (List<Track>) -> Unit,
+    onImport: () -> Unit,
 ) {
     val round = card.kind == Catalogue.Kind.Artist
     val tracks = page?.tracks.orEmpty()
@@ -179,6 +195,15 @@ private fun Header(
                 if (tracks.isNotEmpty()) {
                     Action(Icons.Rounded.PlayArrow, "Play", filled = true) { onPlay(tracks, 0) }
                     Action(Icons.Rounded.Shuffle, "Shuffle", filled = false) { onShuffle(tracks) }
+                }
+                // Saving a playlist keeps a pointer to somebody else's list.
+                // Importing takes a copy, which is the only version that
+                // survives them removing half of it — so both are offered, and
+                // only where there is a list to copy.
+                if (tracks.isNotEmpty() &&
+                    (card.kind == Catalogue.Kind.Playlist || card.kind == Catalogue.Kind.Album)
+                ) {
+                    Action(Icons.Rounded.LibraryAdd, "Import", filled = false, onClick = onImport)
                 }
                 // Songs aren't saved from here — the heart in the bar is where
                 // that lives, and two ways to do one thing is one too many.
