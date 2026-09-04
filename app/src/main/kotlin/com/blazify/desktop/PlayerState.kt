@@ -10,6 +10,7 @@ import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LyricsSource
 import com.blazify.desktop.data.Playback
+import com.blazify.desktop.data.LastSession
 import com.blazify.desktop.data.Resume
 import com.blazify.desktop.data.Store
 import com.blazify.desktop.data.Scrobbler
@@ -381,6 +382,9 @@ object PlayerState {
                 if (length > 0 && resuming == null) {
                     Resume.note(track, AudioEngine.position, length)
                 }
+                // The whole queue too, not just this recording — on the same
+                // tick, so a crash costs three seconds rather than the evening.
+                remember()
             }
         }
     }
@@ -444,8 +448,17 @@ object PlayerState {
      * asked for before that is a jump into nothing.
      */
     private fun resumeIfLeftOff(track: Track) {
-        val mark = Resume.mark(track.id) ?: return
-        resuming = mark.seconds
+        // A restored session takes precedence: it is where this very song was
+        // when the window closed, which is newer than any mark left behind.
+        val seconds = restoredAt?.takeIf { track.id == restoredFor } ?: Resume.mark(track.id)?.seconds
+        restoredAt = null
+        restoredFor = null
+        if (seconds == null || seconds <= 1.0) return
+        resumeAt(track, seconds)
+    }
+
+    private fun resumeAt(track: Track, seconds: Double) {
+        resuming = seconds
         scope.launch {
             val deadline = System.currentTimeMillis() + 20_000
             while (System.currentTimeMillis() < deadline) {
@@ -454,12 +467,43 @@ object PlayerState {
                 // listening to any more.
                 if (current?.id != track.id) break
                 if (AudioEngine.duration <= 0) continue
-                seekTo(mark.seconds)
+                seekTo(seconds)
                 delay(600)
                 break
             }
             resuming = null
         }
+    }
+
+    /** Where the restored song was, and which song that was. */
+    private var restoredAt: Double? = null
+    private var restoredFor: String? = null
+
+    /**
+     * Put back the queue the window closed on, paused where it stopped.
+     *
+     * Nothing plays. The transport fills in so the bar and the times are not
+     * blank before the first press, and the first press starts the song from
+     * where it was rather than from the top.
+     */
+    fun restore() {
+        if (queue.isNotEmpty()) return
+        val last = LastSession.load() ?: return
+        queue = last.tracks
+        ordered = last.tracks
+        index = last.index
+        restoredAt = last.seconds
+        restoredFor = last.tracks[last.index].id
+    }
+
+    /**
+     * Keep the queue and the position, for the next time the window opens.
+     *
+     * Called as songs change and while one plays, so a crash or a power cut
+     * loses a few seconds rather than the evening.
+     */
+    fun remember() {
+        LastSession.save(queue, index, restoredAt ?: AudioEngine.position)
     }
 
     /**

@@ -43,6 +43,10 @@ fun main() {
     // Answer the desktop when it asks what is playing, so the media key on a
     // keyboard reaches this rather than nothing.
     Panel.start()
+    // Put back the queue the window closed on, paused where it stopped.
+    PlayerState.restore()
+    // A kill, a crash or a power cut skips the close handler; this does not.
+    Runtime.getRuntime().addShutdownHook(Thread { PlayerState.remember() })
     run()
 }
 
@@ -95,7 +99,12 @@ private fun run() = application {
     }
 
     Window(
-        onCloseRequest = ::exitApplication,
+        onCloseRequest = {
+            // Written before the process goes, so the next launch opens on
+            // exactly what this one closed on.
+            PlayerState.remember()
+            exitApplication()
+        },
         state = state,
         visible = !mini,
         title = "Blazify",

@@ -4,6 +4,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.blazify.desktop.PlayerState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import java.net.URLDecoder
 import org.freedesktop.dbus.annotations.DBusInterfaceName
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder
 import org.freedesktop.dbus.interfaces.DBusInterface
@@ -134,6 +139,50 @@ object Panel {
         answering = false
     }
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * Find what an address asks for and play it.
+     *
+     * A song id is pulled out of a link where there is one; everything else
+     * becomes a search, and the first result is what plays. First rather than
+     * a list, because the caller here is a voice or a script — there is nobody
+     * present to choose from five.
+     */
+    internal fun open(uri: String) {
+        val wanted = wanted(uri).takeIf { it.isNotBlank() } ?: return
+        scope.launch {
+            val id = videoId(uri)
+            val found = if (id != null) {
+                Catalogue.search(id).getOrNull()?.firstOrNull { it.id == id }
+                    ?: Catalogue.search(wanted).getOrNull()?.firstOrNull()
+            } else {
+                Catalogue.search(wanted).getOrNull()?.firstOrNull()
+            }
+            found?.let { PlayerState.startRadio(it) }
+        }
+    }
+
+    /** The words in an address, however it was written. */
+    private fun wanted(uri: String): String {
+        val text = uri.trim()
+        val query = QUERY.find(text)?.groupValues?.get(1)
+        val raw = query ?: text
+            .removePrefix("blazify://")
+            .removePrefix("blazify:")
+            .substringBefore('?')
+        return runCatching { URLDecoder.decode(raw.replace('+', ' '), "UTF-8") }.getOrDefault(raw)
+            .removePrefix("search")
+            .trim(' ', '/', ':')
+    }
+
+    /** The song a YouTube link points at, when it is one. */
+    private fun videoId(uri: String): String? =
+        VIDEO.find(uri)?.groupValues?.get(1)?.takeIf { it.length == 11 }
+
+    private val QUERY = Regex("[?&]q=([^&]*)")
+    private val VIDEO = Regex("(?:v=|youtu\\.be/|/watch/)([A-Za-z0-9_-]{11})")
+
     /**
      * What the desktop is told, and what it is allowed to ask for.
      *
@@ -166,6 +215,24 @@ object Panel {
         /** Asked for in microseconds, because this protocol was written in 2006. */
         fun Seek(by: Long) = PlayerState.nudge(by / 1_000_000.0)
 
+        /**
+         * Play something named from outside the app.
+         *
+         * The rest of this interface can only work the transport — press play,
+         * skip, seek. Nothing in it could ever say *what* to play, which is
+         * the one thing a voice assistant or a script actually wants: "play
+         * this in Blazify" had no way in at all.
+         *
+         * Two kinds of address are understood. A link to a song is played
+         * outright. Anything else is treated as words to search for, so
+         * `blazify:search?q=purple%20rain` works, and so does handing over a
+         * bare `blazify:purple rain`.
+         *
+         * Returns immediately: the bus is not kept waiting on the network, and
+         * a caller that wants to know what happened can ask what is playing.
+         */
+        fun OpenUri(uri: String) = Panel.open(uri)
+
         // Handed back still wrapped. Unwrapping it first leaves the bus to
         // guess how to describe a bare map, which it cannot do — the metadata
         // is the one property here whose type has to be spelled out, and the
@@ -193,7 +260,7 @@ object Panel {
             "CanQuit" to Variant(false),
             "CanRaise" to Variant(false),
             "HasTrackList" to Variant(false),
-            "SupportedUriSchemes" to Variant(arrayOf<String>()),
+            "SupportedUriSchemes" to Variant(arrayOf("blazify", "http", "https")),
             "SupportedMimeTypes" to Variant(arrayOf<String>()),
         )
 
