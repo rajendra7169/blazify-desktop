@@ -10,6 +10,10 @@ Search a catalogue of millions of songs or point it at the music already on your
 machine, keep what you want for when the network isn't there, follow the words
 as they're sung, and listen to programmes as well as records.
 
+**Download it now** — one click, straight from the newest release.
+
+[![android](https://img.shields.io/badge/Download_for_Android-FFA726?style=for-the-badge&logoColor=1A0E00&logo=android)](https://github.com/rajendra7169/blazify/releases/latest/download/Blazify.apk) [![windows](https://img.shields.io/badge/Download_for_Windows-FFA726?style=for-the-badge&logoColor=1A0E00&logo=windows)](https://github.com/rajendra7169/blazify-desktop/releases/latest/download/Blazify-setup.exe) [![linux](https://img.shields.io/badge/Download_for_Linux-FFA726?style=for-the-badge&logoColor=1A0E00&logo=linux)](https://github.com/rajendra7169/blazify-desktop/releases/latest/download/Blazify.deb) [![iphone](https://img.shields.io/badge/Download_for_iPhone-FFA726?style=for-the-badge&logoColor=1A0E00&logo=apple)](https://github.com/rajendra7169/blazify-ios/releases/latest/download/Blazify.ipa)
+
 </div>
 
 ![Home](docs/screenshots/home.png)
@@ -18,14 +22,16 @@ as they're sung, and listen to programmes as well as records.
 
 ## Blazify everywhere else
 
-The same player, built natively for each place you use it.
+The same player, built natively for each place you use it. The buttons at
+the top of this page download any of them directly — these are the repos, if
+you want the source.
 
-| Platform | Download | Source |
-|---|:---:|---|
-| **Android**<br><sub>phones and tablets</sub> | [![Blazify.apk](https://img.shields.io/badge/Blazify.apk-FFA726?style=for-the-badge&logoColor=1A0E00&logo=android)](https://github.com/rajendra7169/blazify/releases/latest/download/Blazify.apk) | [rajendra7169/blazify](https://github.com/rajendra7169/blazify) |
-| **Windows**<br><sub>installer</sub> | [![Blazify--setup.exe](https://img.shields.io/badge/Blazify--setup.exe-FFA726?style=for-the-badge&logoColor=1A0E00&logo=windows)](https://github.com/rajendra7169/blazify-desktop/releases/latest/download/Blazify-setup.exe) | [rajendra7169/blazify-desktop](https://github.com/rajendra7169/blazify-desktop) **← you are here** |
-| **Linux**<br><sub>any distribution</sub> | [![deb_AppImage_tar.gz](https://img.shields.io/badge/deb_AppImage_tar.gz-FFA726?style=for-the-badge&logoColor=1A0E00&logo=linux)](https://github.com/rajendra7169/blazify-desktop/releases/latest) | [rajendra7169/blazify-desktop](https://github.com/rajendra7169/blazify-desktop) **← you are here** |
-| **iPhone**<br><sub>sideloaded</sub> | [![Blazify.ipa](https://img.shields.io/badge/Blazify.ipa-FFA726?style=for-the-badge&logoColor=1A0E00&logo=apple)](https://github.com/rajendra7169/blazify-ios/releases/latest/download/Blazify.ipa) | [rajendra7169/blazify-ios](https://github.com/rajendra7169/blazify-ios) |
+| Platform | Source |
+|---|---|
+| **Android**<br><sub>phones and tablets</sub> | [rajendra7169/blazify](https://github.com/rajendra7169/blazify) |
+| **Windows**<br><sub>installer</sub> | [rajendra7169/blazify-desktop](https://github.com/rajendra7169/blazify-desktop) **← you are here** |
+| **Linux**<br><sub>deb, AppImage or tar.gz</sub> | [rajendra7169/blazify-desktop](https://github.com/rajendra7169/blazify-desktop) **← you are here** |
+| **iPhone**<br><sub>sideloaded</sub> | [rajendra7169/blazify-ios](https://github.com/rajendra7169/blazify-ios) |
 
 Screenshots, install guides and everything else: **[blazify website](https://rajendra7169.github.io/blazify/)**
 
