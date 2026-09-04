@@ -135,4 +135,19 @@ object Library {
         else listOf(card) + saved
         Store.write(SAVED, saved)
     }
+    /**
+     * Read the files in now, before anything draws.
+     *
+     * These lists are created the first time anything touches this object. If
+     * that first touch happens inside a composition — which it does the moment
+     * a restored queue gives the player a song to show a heart for — the state
+     * is newer than the snapshot reading it, and Compose refuses the read.
+     * Touching them during startup puts them safely before the first frame.
+     */
+    fun warm() {
+        liked.size
+        history.size
+        saved.size
+    }
+
 }

@@ -22,3 +22,6 @@ local.properties
 # Fetched at package time, not stored here
 app/resources/windows/
 Screenshots/
+
+# Release artefacts, built not committed
+*.tar.gz

@@ -15,6 +15,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.rememberWindowState
 import com.blazify.desktop.data.Account
+import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.Offline
 import com.blazify.desktop.data.Panel
 import com.blazify.desktop.data.Paxsenix
@@ -43,6 +44,9 @@ fun main() {
     // Answer the desktop when it asks what is playing, so the media key on a
     // keyboard reaches this rather than nothing.
     Panel.start()
+    // Read before the first frame, not during it — a restored song makes the
+    // shell ask whether it is liked while it is still being composed.
+    Library.warm()
     // Put back the queue the window closed on, paused where it stopped.
     PlayerState.restore()
     // A kill, a crash or a power cut skips the close handler; this does not.

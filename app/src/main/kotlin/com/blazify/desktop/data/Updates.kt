@@ -43,7 +43,7 @@ object Updates {
     private const val REPO = "blazify-desktop"
 
     /** What this build calls itself. Kept beside the packaging version. */
-    const val RUNNING = "1.0.5"
+    const val RUNNING = "1.1.0"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val client by lazy {
