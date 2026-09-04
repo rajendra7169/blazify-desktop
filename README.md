@@ -313,10 +313,7 @@ find it if they go looking.
 
 GPL-3.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
 
-The module that talks to YouTube Music builds on the
-[InnerTune](https://github.com/z-huang/InnerTune),
-[OuterTune](https://github.com/OuterTune/OuterTune) and
-[Metrolist](https://github.com/mostafaalagamy/Metrolist) projects, all GPL-3.0.
+The module that talks to YouTube Music, all GPL-3.0.
 Everything else here, the interface, the audio engine, the local library and the
 feature work, is original.
 
