@@ -121,6 +121,14 @@ object Headless {
         // start a second time if an old one is lying around claiming a port
         // nothing is listening on.
         val portFile = File(profile, "DevToolsActivePort").also { it.delete() }
+        // A browser killed rather than asked to leave keeps its claim on the
+        // profile, and the next one refuses to start at all rather than risk two
+        // of them in one folder — "Failed to create a ProcessSingleton", then
+        // nothing. The claim is only ever ours: one copy of this application
+        // runs at a time and no person ever opens this profile.
+        listOf("SingletonLock", "SingletonSocket", "SingletonCookie").forEach {
+            runCatching { File(profile, it).delete() }
+        }
 
         val started = runCatching {
             ProcessBuilder(
@@ -267,9 +275,18 @@ object Headless {
         return runCatching { value.jsonPrimitive.content }.getOrNull()
     }
 
-    /** Let go of the browser. Called when the application closes. */
+    /**
+     * Let go of the browser. Called when the application closes.
+     *
+     * Asked to leave before being made to: a browser told to close puts its
+     * profile down tidily, and one that is killed leaves its claim on it behind
+     * for the next start to trip over.
+     */
     fun stop() {
-        scope.launch { gate.withLock { stopInternal() } }
+        scope.launch {
+            withTimeoutOrNull(4_000) { send("Browser.close", waitMs = 3_000) }
+            gate.withLock { stopInternal() }
+        }
     }
 
     private fun stopInternal() {
