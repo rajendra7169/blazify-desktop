@@ -37,6 +37,8 @@ import com.blazify.desktop.data.LyricsProvider
 import com.blazify.desktop.data.LyricsProviders
 import com.blazify.desktop.data.Romanize
 import com.blazify.desktop.data.Playback
+import com.blazify.desktop.data.Headless
+import com.blazify.desktop.data.PlayerScript
 import com.blazify.desktop.data.Streams
 import com.blazify.desktop.data.Translate
 import androidx.compose.ui.focus.onFocusChanged
@@ -336,6 +338,26 @@ fun StreamSettingsSection(
                     "With none of them on, nothing will play. Turn at least one back on.",
                     color = Blaze.Amber, fontSize = 11.5.sp,
                 )
+            }
+
+            // The borrowed engine, said out loud. It is a browser starting on
+            // somebody's machine because they pressed play, which they are
+            // entitled to know about — and when there is no browser to borrow,
+            // this is the line that explains every song that won't play.
+            Text(
+                Headless.borrowed?.let {
+                    "Some of what YouTube hands over is scrambled, and unscrambling it needs a " +
+                        "browser engine. This borrows the one already here — $it, with no window " +
+                        "and a profile of its own" +
+                        (PlayerScript.version?.let { player -> ", running player $player." } ?: ".")
+                } ?: Headless.trouble
+                    ?: "Some of what YouTube hands over is scrambled, and unscrambling it borrows " +
+                    "the browser engine already on this machine — no window, and a profile of its own.",
+                color = if (Headless.borrowed == null && Headless.trouble != null) Blaze.Amber else Blz.dim,
+                fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
+            PlayerScript.trouble?.takeIf { Headless.borrowed != null }?.let {
+                Text(it, color = Blaze.Amber, fontSize = 11.5.sp, lineHeight = 17.sp)
             }
         }
     }
