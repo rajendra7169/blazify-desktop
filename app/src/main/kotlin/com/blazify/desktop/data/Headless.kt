@@ -21,6 +21,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -78,6 +79,16 @@ object Headless {
     private var socket: DefaultClientWebSocketSession? = null
     private var pump: Job? = null
 
+    /**
+     * True while the application is closing.
+     *
+     * Asking the browser to close goes through the same door as everything else,
+     * and that door starts a browser when there isn't one — which would mean
+     * shutting down by starting a browser and leaving it behind.
+     */
+    @Volatile
+    private var leaving = false
+
     /** Replies waiting to be matched to the call that asked for them. */
     private val waiting = mutableMapOf<Int, CompletableDeferred<JsonObject>>()
 
@@ -108,6 +119,7 @@ object Headless {
      */
     suspend fun ready(): Boolean = gate.withLock {
         if (socket != null && process?.isAlive == true) return@withLock true
+        if (leaving) return@withLock false
         stopInternal()
 
         val opener = find() ?: run {
@@ -282,11 +294,20 @@ object Headless {
      * profile down tidily, and one that is killed leaves its claim on it behind
      * for the next start to trip over.
      */
-    fun stop() {
-        scope.launch {
-            withTimeoutOrNull(4_000) { send("Browser.close", waitMs = 3_000) }
-            gate.withLock { stopInternal() }
+    fun stop() = runBlocking {
+        leaving = true
+        socket?.let { open ->
+            runCatching {
+                withTimeoutOrNull(3_000) {
+                    open.send(Frame.Text("{\"id\":0,\"method\":\"Browser.close\"}"))
+                    // Long enough for it to put the profile down tidily, not
+                    // long enough to be noticed on the way out.
+                    while (process?.isAlive == true) delay(50)
+                }
+            }
         }
+        gate.withLock { stopInternal() }
+        leaving = false
     }
 
     private fun stopInternal() {
@@ -299,11 +320,21 @@ object Headless {
             waiting.clear()
         }
         process?.let { running ->
+            // The children as well as the parent. A browser is a tree of
+            // processes, and taking only the root down leaves the rest of it
+            // sitting there holding the profile folder.
+            val family = runCatching { running.descendants().toList() }.getOrDefault(emptyList())
             runCatching { running.destroy() }
             // A browser that ignores being asked is a browser left running after
             // the application it belonged to has gone.
             if (!running.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)) {
                 runCatching { running.destroyForcibly() }
+            }
+            family.forEach { child ->
+                if (child.isAlive) {
+                    runCatching { child.destroy() }
+                    runCatching { child.destroyForcibly() }
+                }
             }
         }
         process = null
