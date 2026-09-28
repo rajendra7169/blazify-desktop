@@ -412,6 +412,15 @@ tasks.register<JavaExec>("sourceProbe") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+// Whether this machine will lend its browser engine at all, and how quickly.
+//   ./gradlew :app:engineProbe
+tasks.register<JavaExec>("engineProbe") {
+    group = "verification"
+    description = "Borrow the machine's browser engine and run a line of script in it"
+    mainClass.set("com.blazify.desktop.tools.engine.EngineProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("sessionProbe") {
     group = "verification"
     description = "Show which cookies each browser gives, and whether the catalogue accepts them"
