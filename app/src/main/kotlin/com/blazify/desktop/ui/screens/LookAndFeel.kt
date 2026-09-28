@@ -359,6 +359,27 @@ fun StreamSettingsSection(
             PlayerScript.trouble?.takeIf { Headless.borrowed != null }?.let {
                 Text(it, color = Blaze.Amber, fontSize = 11.5.sp, lineHeight = 17.sp)
             }
+
+            // For a machine whose browser this application has never heard of.
+            // The list of names it looks under cannot be complete — somebody is
+            // always running the one nobody wrote down — so there has to be a
+            // way to simply point at it, and it has to be visible before
+            // anything goes wrong rather than only after.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Tap(if (Headless.chosen == null) "Point at a browser…" else "Point at a different one…") {
+                    chooseProgram()?.let { Headless.choose(it.absolutePath) }
+                }
+                Headless.chosen?.let { program ->
+                    Text(
+                        program.substringAfterLast('/').substringAfterLast('\\'),
+                        color = Blz.muted, fontSize = 11.5.sp, modifier = Modifier.weight(1f),
+                    )
+                    Tap("Forget it") { Headless.choose(null) }
+                }
+            }
         }
     }
 }
@@ -828,6 +849,43 @@ private fun Choices(options: List<String>, selected: String, onSelect: (String) 
         }
     }
 }
+
+/** A small piece of text that does something when pressed. */
+@Composable
+private fun Tap(label: String, onPress: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Text(
+        label,
+        color = Blaze.Amber,
+        fontSize = 11.5.sp,
+        fontWeight = FontWeight.Medium,
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(onClick = onPress)
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+    )
+}
+
+/**
+ * Let somebody point at the program themselves.
+ *
+ * The system's own dialog rather than one drawn here: picking a file is a thing
+ * the desktop already knows how to do, and the one somebody recognises is the
+ * one their desktop draws.
+ */
+private fun chooseProgram(): java.io.File? = runCatching {
+    javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName())
+    val chooser = javax.swing.JFileChooser("/usr/bin").apply {
+        fileSelectionMode = javax.swing.JFileChooser.FILES_ONLY
+        dialogTitle = "Choose a Chromium-based browser"
+    }
+    if (chooser.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) {
+        chooser.selectedFile
+    } else {
+        null
+    }
+}.getOrNull()
 
 @Composable
 private fun Switch(label: String, on: Boolean, onChange: (Boolean) -> Unit) {

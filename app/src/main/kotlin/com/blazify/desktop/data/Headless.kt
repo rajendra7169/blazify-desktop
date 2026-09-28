@@ -95,43 +95,234 @@ object Headless {
     /** Who wants to hear about what the page does, by event name. */
     private val listeners = mutableMapOf<String, MutableList<(JsonObject) -> Unit>>()
 
+    /** One thing worth trying, and what to call it if it works. */
+    private data class Candidate(val label: String, val command: List<String>)
+
     /**
-     * Which browser to borrow, or none.
+     * Chromium under names this application has never heard of.
      *
-     * The same list the sign-in window opens, minus the Firefox family: only
-     * the Chromium ones can be driven this way, and that list already knows
-     * where Windows hides its programs. Two lists of browsers in one
-     * application is one list that will be wrong.
+     * The engine is the same in all of them, and somebody running a fork is not
+     * running a worse browser — they are running one whose name nobody thought
+     * to write down. Every one of these is Chromium wearing a different badge.
      */
-    private fun find(): SignInWindow.Opener? =
-        SignInWindow.openers().firstOrNull { it.kind == BrowserSession.Kind.Chromium }
+    private val ALSO = listOf(
+        "thorium-browser", "thorium", "ungoogled-chromium", "chromium-freeworld",
+        "brave-browser-stable", "brave-browser-beta", "google-chrome-beta",
+        "google-chrome-unstable", "microsoft-edge-beta", "microsoft-edge-dev",
+        "vivaldi-stable", "vivaldi-snapshot", "opera-beta", "yandex-browser",
+        "chrome", "chromium-bin",
+    )
 
-    /** Whether there is a browser to borrow at all, without starting one. */
-    fun possible(): Boolean = find() != null
+    /** Where package formats that aren't on the path put things. */
+    private val ELSEWHERE = listOf(
+        "/snap/bin/chromium", "/snap/bin/brave", "/snap/bin/chromium-browser",
+        "/usr/lib/chromium/chromium", "/usr/lib/chromium-browser/chromium-browser",
+        "/opt/google/chrome/chrome", "/opt/brave.com/brave/brave",
+        "/opt/microsoft/msedge/msedge", "/opt/vivaldi/vivaldi-bin",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    )
+
+    /** Flatpak keeps its programs off the path entirely, behind its own runner. */
+    private val FLATPAKS = listOf(
+        "com.brave.Browser", "com.google.Chrome", "org.chromium.Chromium",
+        "com.microsoft.Edge", "com.vivaldi.Vivaldi", "com.opera.Opera",
+    )
 
     /**
-     * Start it if it isn't running, and answer whether it can be talked to.
+     * Everything worth trying, best first.
      *
-     * Started with nothing of its own: no window, no sound, no extensions, and a
-     * profile folder that belongs to this application. It is left running
-     * afterwards, because starting a browser is the expensive part and every
-     * song after the first should not pay it again.
+     * Deliberately generous, because the alternative is telling somebody with a
+     * perfectly good browser that they haven't got one. A name being on this
+     * list is not a claim that it works — the only honest test is starting it
+     * and seeing whether it answers, which is what [ready] does, one candidate
+     * after another. The one that answered last time goes first, so the usual
+     * case is one attempt.
+     */
+    private fun candidates(): List<Candidate> {
+        val found = LinkedHashMap<String, Candidate>()
+        fun offer(label: String, command: List<String>) {
+            val key = command.joinToString(" ")
+            if (key.isNotBlank()) found.putIfAbsent(key, Candidate(label, command))
+        }
+
+        // What somebody pointed at themselves outranks everything: they know
+        // what is on their machine better than any list does.
+        chosen?.takeIf { it.isNotBlank() }?.let { offer("the browser you chose", it.split(" ")) }
+        // Then whatever worked last time, which saves trying the rest again.
+        remembered()?.let { offer(it.first, it.second.split(" ")) }
+
+        // The list the sign-in window already keeps, minus the Firefox family:
+        // only the Chromium ones can be driven this way.
+        SignInWindow.openers()
+            .filter { it.kind == BrowserSession.Kind.Chromium }
+            .forEach { offer(it.label, listOf(it.program)) }
+
+        if (!onWindows) {
+            ALSO.forEach { name -> which(name)?.let { offer(pretty(name), listOf(it)) } }
+            ELSEWHERE.forEach { path -> if (File(path).canExecute()) offer(pretty(File(path).name), listOf(path)) }
+            // The browser this machine opens links with, whatever it is called.
+            // This is what catches a fork nobody has heard of.
+            systemDefault()?.let { offer(pretty(File(it.first()).name), it) }
+            installedFlatpaks().forEach { id -> offer(pretty(id.substringAfterLast('.')), listOf("flatpak", "run", id)) }
+        }
+        return found.values.toList()
+    }
+
+    private val onWindows: Boolean
+        get() = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
+
+    /** A name fit to show somebody, out of a program name. */
+    private fun pretty(name: String): String = name
+        .removeSuffix(".exe").removeSuffix("-bin").removeSuffix("-browser")
+        .removeSuffix("-stable").split('-', '.').joinToString(" ") {
+            it.replaceFirstChar { first -> first.uppercase() }
+        }.trim()
+
+    private fun which(program: String): String? = runCatching {
+        val process = ProcessBuilder("which", program).redirectErrorStream(true).start()
+        val path = process.inputStream.bufferedReader().readText().trim().lines().firstOrNull().orEmpty()
+        if (process.waitFor() == 0 && path.isNotBlank() && File(path).canExecute()) path else null
+    }.getOrNull()
+
+    /**
+     * The program behind whatever this machine opens web links with.
+     *
+     * The desktop names it as a launcher file rather than a program, and that
+     * file says how to run it — which may be a flatpak runner, a wrapper script
+     * or a path nobody would have guessed. Reading it is how an unheard-of
+     * browser gets a fair chance.
+     */
+    private fun systemDefault(): List<String>? = runCatching {
+        val name = ProcessBuilder("xdg-settings", "get", "default-web-browser")
+            .redirectErrorStream(true).start().let {
+                val text = it.inputStream.bufferedReader().readText().trim()
+                if (it.waitFor() == 0) text else ""
+            }
+        if (!name.endsWith(".desktop")) return null
+
+        val homes = listOf(
+            File(System.getProperty("user.home"), ".local/share/applications"),
+            File("/usr/share/applications"),
+            File("/var/lib/flatpak/exports/share/applications"),
+            File(System.getProperty("user.home"), ".local/share/flatpak/exports/share/applications"),
+        )
+        val entry = homes.map { File(it, name) }.firstOrNull { it.isFile } ?: return null
+        val exec = entry.readLines().firstOrNull { it.startsWith("Exec=") }?.removePrefix("Exec=") ?: return null
+        // The launcher line carries placeholders for the address it was asked to
+        // open, and quoting that is nobody's idea of fun. Neither belongs here.
+        val words = exec.split(" ").filter { it.isNotBlank() && !it.startsWith("%") }.map { it.trim('"') }
+        words.takeIf { it.isNotEmpty() && (File(it.first()).canExecute() || which(it.first()) != null) }
+    }.getOrNull()
+
+    private fun installedFlatpaks(): List<String> = runCatching {
+        val process = ProcessBuilder("flatpak", "list", "--app", "--columns=application")
+            .redirectErrorStream(true).start()
+        val listed = process.inputStream.bufferedReader().readText().lines().map { it.trim() }
+        if (process.waitFor() != 0) return emptyList()
+        FLATPAKS.filter { it in listed }
+    }.getOrDefault(emptyList())
+
+    /** What somebody pointed this at themselves, if they had to. */
+    var chosen by mutableStateOf<String?>(null)
+        private set
+
+    private val choiceStore: File get() = File(Store.folder, "engine-browser")
+
+    /** Point it at a program by hand, for a machine whose browser is its own secret. */
+    fun choose(program: String?) {
+        chosen = program?.takeIf { it.isNotBlank() }
+        runCatching {
+            if (chosen == null) choiceStore.delete() else choiceStore.writeText(chosen!!)
+        }
+        // Whatever is running was started from the old answer.
+        stop()
+    }
+
+    private fun remembered(): Pair<String, String>? = runCatching {
+        val lines = File(Store.folder, "engine-worked").takeIf { it.exists() }?.readLines() ?: return null
+        val label = lines.getOrNull(0)?.takeIf { it.isNotBlank() } ?: return null
+        val command = lines.getOrNull(1)?.takeIf { it.isNotBlank() } ?: return null
+        label to command
+    }.getOrNull()
+
+    private fun remember(candidate: Candidate) {
+        runCatching {
+            File(Store.folder, "engine-worked")
+                .writeText(candidate.label + "\n" + candidate.command.joinToString(" "))
+        }
+    }
+
+    /** Whether there is anything to try at all, without starting one. */
+    fun possible(): Boolean = candidates().isNotEmpty()
+
+    /**
+     * Everything that would be tried, in order, for the probe to print.
+     *
+     * Worth being able to see from a terminal: "no browser found" on a machine
+     * with three of them is a bug in the looking, and the only way to tell that
+     * from the truth is to see the list.
+     */
+    fun candidatesForProbe(): List<Pair<String, List<String>>> =
+        candidates().map { it.label to it.command }
+
+    init {
+        runCatching { chosen = choiceStore.takeIf { it.exists() }?.readText()?.trim()?.ifBlank { null } }
+    }
+
+    /**
+     * Start something if nothing is running, and answer whether it can be
+     * talked to.
+     *
+     * Every candidate gets a turn, because a name on a list is not proof: a
+     * browser can be installed and still refuse, and the next one along may be
+     * perfectly willing. The one that works is remembered, so the usual case
+     * afterwards is a single attempt.
+     *
+     * It is left running, because starting a browser is the expensive part and
+     * every song after the first should not pay it again.
      */
     suspend fun ready(): Boolean = gate.withLock {
         if (socket != null && process?.isAlive == true) return@withLock true
         if (leaving) return@withLock false
         stopInternal()
 
-        val opener = find() ?: run {
-            trouble = "No Chromium-based browser on this machine — " +
-                "Chromium, Chrome, Brave or Edge is what this needs, and any of them will do"
+        val tries = candidates()
+        if (tries.isEmpty()) {
+            trouble = "No Chromium-based browser on this machine. Chromium, Chrome, Brave, Edge, " +
+                "Vivaldi and Opera all work, and one that is here under another name can be " +
+                "pointed at by hand in settings."
             return@withLock false
         }
 
+        val refused = mutableListOf<String>()
+        for (candidate in tries) {
+            val why = launch(candidate)
+            if (why == null) {
+                borrowed = candidate.label
+                trouble = null
+                remember(candidate)
+                return@withLock true
+            }
+            refused += "${candidate.label} — $why"
+            stopInternal()
+        }
+        trouble = "None of the browsers here would lend their engine: ${refused.joinToString("; ")}"
+        false
+    }
+
+    /**
+     * Try one of them. Null means it worked; anything else is what went wrong.
+     *
+     * Started with nothing of its own: no window, no sound, no extensions, and a
+     * profile folder belonging to this application rather than to the person.
+     */
+    private suspend fun launch(candidate: Candidate): String? {
         val profile = File(Store.folder, "engine").apply { mkdirs() }
-        // Chromium writes the port it settled on into this file, and refuses to
-        // start a second time if an old one is lying around claiming a port
-        // nothing is listening on.
+        // Chromium writes the port it settled on into this file, and an old one
+        // lying around claims a port nothing is listening on.
         val portFile = File(profile, "DevToolsActivePort").also { it.delete() }
         // A browser killed rather than asked to leave keeps its claim on the
         // profile, and the next one refuses to start at all rather than risk two
@@ -144,23 +335,21 @@ object Headless {
 
         val started = runCatching {
             ProcessBuilder(
-                opener.program,
-                "--headless=new",
-                "--remote-debugging-port=0",
-                "--user-data-dir=${profile.absolutePath}",
-                "--no-first-run",
-                "--no-default-browser-check",
-                "--disable-extensions",
-                "--disable-gpu",
-                "--mute-audio",
-                "--disable-background-networking",
-                "--window-size=1280,720",
-                "about:blank",
+                candidate.command + listOf(
+                    "--headless=new",
+                    "--remote-debugging-port=0",
+                    "--user-data-dir=${profile.absolutePath}",
+                    "--no-first-run",
+                    "--no-default-browser-check",
+                    "--disable-extensions",
+                    "--disable-gpu",
+                    "--mute-audio",
+                    "--disable-background-networking",
+                    "--window-size=1280,720",
+                    "about:blank",
+                ),
             ).redirectErrorStream(true).start()
-        }.getOrElse {
-            trouble = "${opener.label} wouldn't start: ${it.message}"
-            return@withLock false
-        }
+        }.getOrElse { return "wouldn't start (${it.message})" }
         process = started
         // Nothing reads what it prints, and a pipe nobody empties is a pipe that
         // fills and stops the program writing to it.
@@ -174,12 +363,7 @@ object Headless {
                 delay(120)
             }
             @Suppress("UNREACHABLE_CODE") null
-        }
-        if (port == null) {
-            trouble = "${opener.label} started but never said where to reach it"
-            stopInternal()
-            return@withLock false
-        }
+        } ?: return "started but never said where to reach it"
 
         val target = runCatching {
             val listing = client.get("http://127.0.0.1:$port/json/list").bodyAsText()
@@ -189,19 +373,11 @@ object Headless {
                     ?.firstOrNull { it["type"]?.jsonPrimitive?.content == "page" }
                     ?.get("webSocketDebuggerUrl")?.jsonPrimitive?.content
             }
-        }.getOrNull()
-        if (target == null) {
-            trouble = "${opener.label} is running but offered no page to work in"
-            stopInternal()
-            return@withLock false
-        }
+        }.getOrNull() ?: return "offered no page to work in"
 
         val session = runCatching { client.webSocketSession(target) }.getOrNull()
-        if (session == null) {
-            trouble = "Couldn't connect to ${opener.label}"
-            stopInternal()
-            return@withLock false
-        }
+            ?: return "wouldn't accept a connection"
+
         socket = session
         pump = scope.launch {
             runCatching {
@@ -213,9 +389,7 @@ object Headless {
             // next thing that needs the engine starts it again.
             gate.withLock { if (socket === session) stopInternal() }
         }
-        borrowed = opener.label
-        trouble = null
-        true
+        return null
     }
 
     /** Sort a reply to whoever asked, or an event to whoever is listening. */

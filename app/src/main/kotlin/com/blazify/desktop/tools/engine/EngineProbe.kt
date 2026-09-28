@@ -18,6 +18,9 @@ import kotlinx.coroutines.runBlocking
  */
 fun main(): Unit = runBlocking {
     println("looking for a browser to borrow…")
+    Headless.candidatesForProbe().forEachIndexed { at, (label, command) ->
+        println("  ${at + 1}. $label — ${command.joinToString(" ")}")
+    }
     if (!Headless.possible()) {
         println("  none found — ${Headless.trouble ?: "nothing Chromium-based on this machine"}")
         return@runBlocking
