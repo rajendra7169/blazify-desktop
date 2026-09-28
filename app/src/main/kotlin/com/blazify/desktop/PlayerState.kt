@@ -4,7 +4,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.blazify.desktop.audio.AudioEngine
-import com.blazify.desktop.data.Account
 import com.blazify.desktop.data.Cache
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
@@ -774,19 +773,17 @@ object PlayerState {
      *
      * Not "couldn't play this song": the song is fine and the next one will be
      * refused in the same breath, so saying so is the difference between a
-     * player that looks broken and one that tells you what happened. Signing in
-     * is not the whole answer — the check is about the program, not the person —
-     * but it is the one thing somebody signed out can still try, so it is only
-     * offered to them.
+     * player that looks broken and one that tells you what happened.
+     *
+     * It does not suggest signing in, which it used to. Asked signed in and
+     * signed out, for the same song, the service answers identically — the same
+     * scrambled offer either way. The check is about the program, not the
+     * person, so telling somebody to sign in would be sending them to do
+     * something that measurably changes nothing.
      */
     private fun refusalMessage(): String =
-        if (Account.signedIn) {
-            "YouTube wanted proof this isn't a robot, and no source could give it — " +
-                "Settings shows what each of them said"
-        } else {
-            "YouTube wanted proof this isn't a robot, and no source could give it — " +
-                "signing in from Settings is the first thing worth trying"
-        }
+        "YouTube wanted proof this isn't a robot, and no source could give it — " +
+            "Settings shows what each of them said"
 
     /** Put the last failure away, once it has been read. */
     fun forgetFailure() { failure = null }
