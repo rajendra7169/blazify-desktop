@@ -60,31 +60,6 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 object Headless {
 
-    /**
-     * What each browser calls its program, in the order they are looked for.
-     *
-     * Plain Chromium first: it is the smallest and the most likely to be there
-     * on the kind of machine that has a choice. The rest are the same engine
-     * wearing different names, and any of them will do.
-     */
-    private val UNIX_NAMES = listOf(
-        "chromium", "chromium-browser", "google-chrome", "google-chrome-stable",
-        "brave-browser", "microsoft-edge", "microsoft-edge-stable", "vivaldi", "opera",
-    )
-
-    /**
-     * Where Windows installers put them.
-     *
-     * Edge is part of Windows itself, so the last entry is one that is always
-     * there — which is why a Windows install needs nothing extra for this.
-     */
-    private val WINDOWS_PATHS = listOf(
-        "Google\\Chrome\\Application\\chrome.exe",
-        "Chromium\\Application\\chrome.exe",
-        "BraveSoftware\\Brave-Browser\\Application\\brave.exe",
-        "Microsoft\\Edge\\Application\\msedge.exe",
-    )
-
     /** The browser being borrowed, by name, for settings to show. */
     var borrowed by mutableStateOf<String?>(null)
         private set
@@ -110,37 +85,15 @@ object Headless {
     private val listeners = mutableMapOf<String, MutableList<(JsonObject) -> Unit>>()
 
     /**
-     * The program to run, or null if this machine has none.
+     * Which browser to borrow, or none.
      *
-     * A name on the path is enough on Unix. Windows keeps programs in one of
-     * three folders depending on whether the installer ran for everybody or for
-     * one person, so all three are tried.
+     * The same list the sign-in window opens, minus the Firefox family: only
+     * the Chromium ones can be driven this way, and that list already knows
+     * where Windows hides its programs. Two lists of browsers in one
+     * application is one list that will be wrong.
      */
-    private fun find(): File? {
-        val windows = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
-        if (windows) {
-            val roots = listOfNotNull(
-                System.getenv("PROGRAMFILES"),
-                System.getenv("PROGRAMFILES(X86)"),
-                System.getenv("LOCALAPPDATA"),
-            )
-            for (root in roots) {
-                for (tail in WINDOWS_PATHS) {
-                    val exe = File(root, tail)
-                    if (exe.canExecute()) return exe
-                }
-            }
-            return null
-        }
-        val path = System.getenv("PATH").orEmpty().split(File.pathSeparatorChar)
-        for (name in UNIX_NAMES) {
-            for (dir in path) {
-                val exe = File(dir, name)
-                if (exe.canExecute()) return exe
-            }
-        }
-        return null
-    }
+    private fun find(): SignInWindow.Opener? =
+        SignInWindow.openers().firstOrNull { it.kind == BrowserSession.Kind.Chromium }
 
     /** Whether there is a browser to borrow at all, without starting one. */
     fun possible(): Boolean = find() != null
@@ -157,9 +110,9 @@ object Headless {
         if (socket != null && process?.isAlive == true) return@withLock true
         stopInternal()
 
-        val exe = find() ?: run {
-            trouble = "No Chromium-based browser found on this machine — " +
-                "installing Chromium, Chrome, Brave or Edge is what this needs"
+        val opener = find() ?: run {
+            trouble = "No Chromium-based browser on this machine — " +
+                "Chromium, Chrome, Brave or Edge is what this needs, and any of them will do"
             return@withLock false
         }
 
@@ -171,7 +124,7 @@ object Headless {
 
         val started = runCatching {
             ProcessBuilder(
-                exe.absolutePath,
+                opener.program,
                 "--headless=new",
                 "--remote-debugging-port=0",
                 "--user-data-dir=${profile.absolutePath}",
@@ -185,7 +138,7 @@ object Headless {
                 "about:blank",
             ).redirectErrorStream(true).start()
         }.getOrElse {
-            trouble = "${exe.name} wouldn't start: ${it.message}"
+            trouble = "${opener.label} wouldn't start: ${it.message}"
             return@withLock false
         }
         process = started
@@ -203,7 +156,7 @@ object Headless {
             @Suppress("UNREACHABLE_CODE") null
         }
         if (port == null) {
-            trouble = "${exe.name} started but never said where to reach it"
+            trouble = "${opener.label} started but never said where to reach it"
             stopInternal()
             return@withLock false
         }
@@ -218,14 +171,14 @@ object Headless {
             }
         }.getOrNull()
         if (target == null) {
-            trouble = "${exe.name} is running but offered no page to work in"
+            trouble = "${opener.label} is running but offered no page to work in"
             stopInternal()
             return@withLock false
         }
 
         val session = runCatching { client.webSocketSession(target) }.getOrNull()
         if (session == null) {
-            trouble = "Couldn't connect to ${exe.name}"
+            trouble = "Couldn't connect to ${opener.label}"
             stopInternal()
             return@withLock false
         }
@@ -240,7 +193,7 @@ object Headless {
             // next thing that needs the engine starts it again.
             gate.withLock { if (socket === session) stopInternal() }
         }
-        borrowed = exe.name
+        borrowed = opener.label
         trouble = null
         true
     }
