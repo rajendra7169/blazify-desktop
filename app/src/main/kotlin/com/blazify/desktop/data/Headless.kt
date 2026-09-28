@@ -265,6 +265,22 @@ object Headless {
     }
 
     /**
+     * Point the page at an address and wait until it has actually loaded.
+     *
+     * The reply to the navigation says the browser accepted the address, not
+     * that there is a document to work in — so the document is asked itself.
+     */
+    suspend fun open(url: String, waitMs: Long = 20_000): Boolean {
+        send("Page.navigate", buildJsonObject { put("url", url) }, waitMs) ?: return false
+        val deadline = System.currentTimeMillis() + waitMs
+        while (System.currentTimeMillis() < deadline) {
+            if (evaluate("document.readyState", waitMs = 5_000) == "complete") return true
+            delay(100)
+        }
+        return false
+    }
+
+    /**
      * Run a piece of JavaScript in the page and bring the value back.
      *
      * Values come back as themselves rather than as handles to something inside

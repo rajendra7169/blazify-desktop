@@ -421,6 +421,15 @@ tasks.register<JavaExec>("engineProbe") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+// The whole way from a song's id to bytes arriving, step by step.
+//   ./gradlew :app:scriptProbe --args="EJWehzWKz7Y"
+tasks.register<JavaExec>("scriptProbe") {
+    group = "verification"
+    description = "Resolve one song and try to fetch it, printing every step"
+    mainClass.set("com.blazify.desktop.tools.engine.ScriptProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("sessionProbe") {
     group = "verification"
     description = "Show which cookies each browser gives, and whether the catalogue accepts them"

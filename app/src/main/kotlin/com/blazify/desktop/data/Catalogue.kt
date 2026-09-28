@@ -9,6 +9,7 @@ import com.blazify.innertube.models.PlaylistItem
 import com.blazify.innertube.models.SongItem
 import com.blazify.innertube.models.WatchEndpoint
 import com.blazify.innertube.models.YouTubeClient
+import com.blazify.innertube.models.response.PlayerResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -1063,7 +1064,19 @@ object Catalogue {
 
         var checked = false
         for (source in Streams.chain()) {
-            val response = YouTube.player(videoId, client = source.client).getOrNull()
+            // A client that scrambles its answers has to be told which player
+            // script to scramble for, or what comes back can't be unscrambled
+            // with the one we hold. Preparing that is the browser work, so it
+            // happens only for the sources that need it — a machine where a
+            // plain source works never starts a browser at all.
+            val stamp = if (source.client.useSignatureTimestamp) {
+                PlayerScript.ready()
+                PlayerScript.timestamp
+            } else {
+                null
+            }
+
+            val response = YouTube.player(videoId, client = source.client, signatureTimestamp = stamp).getOrNull()
             if (response == null) {
                 Streams.note(source, "no answer")
                 continue
@@ -1088,41 +1101,71 @@ object Catalogue {
                 ?.adaptiveFormats
                 ?.filter { it.mimeType.startsWith("audio") }
                 .orEmpty()
-            val playable = audio.filter { !it.url.isNullOrEmpty() }
+            // A plain address is preferred over a scrambled one even at a lower
+            // bitrate: unscrambling is a question asked of a browser, and one
+            // that doesn't have to be asked is a song that starts sooner.
+            val plain = audio.filter { !it.url.isNullOrEmpty() }
+            val scrambled = audio.filter { it.url.isNullOrEmpty() && !offerIn(it).isNullOrEmpty() }
+            val offered = plain.ifEmpty { scrambled }
 
-            if (playable.isEmpty()) {
+            if (offered.isEmpty()) {
                 Streams.note(
                     source,
-                    when {
-                        audio.isEmpty() -> "answered, but offered no audio"
-                        // A link locked behind the service's own scrambling. It
-                        // is a real offer, and unscrambling it needs the player
-                        // script run as a browser runs it.
-                        audio.any { !it.signatureCipher.isNullOrEmpty() || !it.cipher.isNullOrEmpty() } ->
-                            "answered, but every link was scrambled"
-                        // Formats described in full, with no address anywhere:
-                        // the service expects to be asked for the audio a piece
-                        // at a time over a protocol of its own.
-                        else -> "answered, but left the links out"
-                    },
+                    if (audio.isEmpty()) "answered, but offered no audio"
+                    // Formats described in full, with no address anywhere: the
+                    // service expects to be asked for the audio a piece at a
+                    // time over a protocol of its own.
+                    else "answered, but left the links out",
                 )
                 continue
             }
 
-            val chosen = Streams.pick(playable) { it.bitrate }?.url
-            if (chosen == null) {
-                Streams.note(source, "answered, but nothing in it could be used")
+            val chosen = Streams.pick(offered) { it.bitrate }
+            val address = chosen?.let { address(it, source) }
+            if (address == null) {
+                Streams.note(
+                    source,
+                    "answered, but its link couldn't be opened — " +
+                        (PlayerScript.trouble ?: "unscrambling it didn't work"),
+                )
                 continue
             }
 
             Streams.worked(source)
-            return Result.success(Stream(chosen, source.client.userAgent))
+            return Result.success(Stream(address, source.client.userAgent))
         }
 
         return Result.failure(
             if (checked) BotCheck(videoId)
             else IllegalStateException("No playable audio for $videoId"),
         )
+    }
+
+    /** The scrambled offer on a format, whichever of the two names it came under. */
+    private fun offerIn(format: PlayerResponse.StreamingData.Format): String? =
+        format.signatureCipher?.takeIf { it.isNotBlank() } ?: format.cipher?.takeIf { it.isNotBlank() }
+
+    /**
+     * The address to actually fetch, out of what a client offered.
+     *
+     * Two things can be wrong with it. A scrambled offer has to be put through
+     * the player script before it is an address at all. And a web client's
+     * address carries a parameter that decides how fast the audio arrives, which
+     * the same script rewrites — left alone, the song is handed over slower than
+     * it plays. Clients that aren't the web player are given neither treatment:
+     * their addresses arrive finished, and rewriting one would break it.
+     */
+    private suspend fun address(
+        format: PlayerResponse.StreamingData.Format,
+        source: Streams.Source,
+    ): String? {
+        val asBrowser = source.client.useWebPoTokens
+        format.url?.takeIf { it.isNotBlank() }?.let {
+            return if (asBrowser) PlayerScript.retune(it) else it
+        }
+        val offer = offerIn(format) ?: return null
+        val unscrambled = PlayerScript.unscramble(offer) ?: return null
+        return if (asBrowser) PlayerScript.retune(unscrambled) else unscrambled
     }
 
     suspend fun stream(videoId: String): Result<Stream> = withContext(Dispatchers.IO) {
