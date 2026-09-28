@@ -69,6 +69,17 @@ object Headless {
     var trouble by mutableStateOf<String?>(null)
         private set
 
+    /**
+     * What each browser said when it was asked, including the ones that refused
+     * before a later one agreed.
+     *
+     * Kept even on success. A machine where the third candidate is doing the
+     * work is a machine where two browsers are refusing for a reason, and that
+     * reason is invisible unless it is written down somewhere.
+     */
+    var refusals by mutableStateOf<List<String>>(emptyList())
+        private set
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val client by lazy { HttpClient(OkHttp) { install(WebSockets) } }
     private val json = Json { ignoreUnknownKeys = true }
@@ -89,14 +100,30 @@ object Headless {
     @Volatile
     private var leaving = false
 
+    /** Which language the browser now running answers. */
+    private var speaking = Speaks.Chromium
+
+    /** The page being worked in, for the browsers that make you name it. */
+    private var context: String? = null
+
     /** Replies waiting to be matched to the call that asked for them. */
     private val waiting = mutableMapOf<Int, CompletableDeferred<JsonObject>>()
 
     /** Who wants to hear about what the page does, by event name. */
     private val listeners = mutableMapOf<String, MutableList<(JsonObject) -> Unit>>()
 
-    /** One thing worth trying, and what to call it if it works. */
-    private data class Candidate(val label: String, val command: List<String>)
+    /**
+     * The two languages a browser can be driven in.
+     *
+     * Chromium and everything built on it answer one; Firefox and its relatives
+     * answer the other, and stopped answering Chromium's in version 129. They
+     * ask for the same things in different words, so the difference is kept in
+     * one place — here, and the three methods that send anything.
+     */
+    private enum class Speaks { Chromium, Gecko }
+
+    /** One thing worth trying, what to call it, and which language it answers. */
+    private data class Candidate(val label: String, val command: List<String>, val speaks: Speaks)
 
     /**
      * Chromium under names this application has never heard of.
@@ -129,7 +156,35 @@ object Headless {
     private val FLATPAKS = listOf(
         "com.brave.Browser", "com.google.Chrome", "org.chromium.Chromium",
         "com.microsoft.Edge", "com.vivaldi.Vivaldi", "com.opera.Opera",
+        "org.mozilla.firefox", "io.gitlab.librewolf-community", "app.zen_browser.zen",
+        "one.ablaze.floorp", "net.waterfox.waterfox",
     )
+
+    /**
+     * Firefox and its relatives, which most Linux machines have and some have
+     * only.
+     *
+     * Tried after the Chromium family rather than never: a machine with Firefox
+     * alone is an ordinary machine, and the alternative for it is no music.
+     */
+    private val GECKOS = listOf(
+        "firefox", "firefox-esr", "firefox-bin", "librewolf", "waterfox",
+        "floorp", "zen-browser", "zen", "iceweasel",
+    )
+
+    /** Where those get installed when they aren't on the path. */
+    private val GECKO_ELSEWHERE = listOf(
+        "/snap/bin/firefox", "/usr/lib/firefox/firefox", "/usr/lib/firefox-esr/firefox-esr",
+        "/opt/firefox/firefox", "/opt/waterfox/waterfox", "/opt/zen-browser-bin/zen-bin",
+        "/Applications/Firefox.app/Contents/MacOS/firefox",
+    )
+
+    /** Which language a program answers, judged by what it is called. */
+    private fun speaks(command: List<String>): Speaks {
+        val words = command.joinToString(" ").lowercase()
+        val gecko = listOf("firefox", "librewolf", "waterfox", "floorp", "zen", "iceweasel", "mozilla")
+        return if (gecko.any { it in words }) Speaks.Gecko else Speaks.Chromium
+    }
 
     /**
      * Everything worth trying, best first.
@@ -145,7 +200,7 @@ object Headless {
         val found = LinkedHashMap<String, Candidate>()
         fun offer(label: String, command: List<String>) {
             val key = command.joinToString(" ")
-            if (key.isNotBlank()) found.putIfAbsent(key, Candidate(label, command))
+            if (key.isNotBlank()) found.putIfAbsent(key, Candidate(label, command, speaks(command)))
         }
 
         // What somebody pointed at themselves outranks everything: they know
@@ -154,10 +209,10 @@ object Headless {
         // Then whatever worked last time, which saves trying the rest again.
         remembered()?.let { offer(it.first, it.second.split(" ")) }
 
-        // The list the sign-in window already keeps, minus the Firefox family:
-        // only the Chromium ones can be driven this way.
-        SignInWindow.openers()
-            .filter { it.kind == BrowserSession.Kind.Chromium }
+        // The list the sign-in window already keeps. Chromium first: it starts
+        // faster and has been driven this way for longer.
+        val openers = SignInWindow.openers()
+        openers.filter { it.kind == BrowserSession.Kind.Chromium }
             .forEach { offer(it.label, listOf(it.program)) }
 
         if (!onWindows) {
@@ -166,6 +221,19 @@ object Headless {
             // The browser this machine opens links with, whatever it is called.
             // This is what catches a fork nobody has heard of.
             systemDefault()?.let { offer(pretty(File(it.first()).name), it) }
+        }
+
+        // Then the Firefox family, by the same three routes.
+        openers.filter { it.kind == BrowserSession.Kind.Firefox }
+            .forEach { offer(it.label, listOf(it.program)) }
+        if (!onWindows) {
+            GECKOS.forEach { name -> which(name)?.let { offer(pretty(name), listOf(it)) } }
+            GECKO_ELSEWHERE.forEach { path ->
+                if (File(path).canExecute()) offer(pretty(File(path).name), listOf(path))
+            }
+        }
+
+        if (!onWindows) {
             installedFlatpaks().forEach { id -> offer(pretty(id.substringAfterLast('.')), listOf("flatpak", "run", id)) }
         }
         return found.values.toList()
@@ -237,6 +305,10 @@ object Headless {
         runCatching {
             if (chosen == null) choiceStore.delete() else choiceStore.writeText(chosen!!)
         }
+        // And forget which one worked, because it was this one. Kept, it would
+        // go on being used after being told to stop being used — the choice
+        // would look undone and nothing would change.
+        runCatching { File(Store.folder, "engine-worked").delete() }
         // Whatever is running was started from the old answer.
         stop()
     }
@@ -303,10 +375,12 @@ object Headless {
             if (why == null) {
                 borrowed = candidate.label
                 trouble = null
+                refusals = refused
                 remember(candidate)
                 return@withLock true
             }
             refused += "${candidate.label} — $why"
+            refusals = refused.toList()
             stopInternal()
         }
         trouble = "None of the browsers here would lend their engine: ${refused.joinToString("; ")}"
@@ -319,8 +393,31 @@ object Headless {
      * Started with nothing of its own: no window, no sound, no extensions, and a
      * profile folder belonging to this application rather than to the person.
      */
-    private suspend fun launch(candidate: Candidate): String? {
-        val profile = File(Store.folder, "engine").apply { mkdirs() }
+    private suspend fun launch(candidate: Candidate): String? =
+        if (candidate.speaks == Speaks.Gecko) startGecko(candidate) else startChromium(candidate)
+
+    /**
+     * Where this particular browser is able to keep a profile.
+     *
+     * A browser installed as a flatpak has its own idea of what the filesystem
+     * looks like and cannot see this application's folder at all — it answers
+     * "Could not find profile folder" and stops, which from the outside looks
+     * exactly like a browser that refused. Its own data folder is the one place
+     * it is certain to be allowed to write.
+     */
+    private fun profileFor(candidate: Candidate): File {
+        val name = if (candidate.speaks == Speaks.Gecko) "engine-gecko" else "engine"
+        val flatpak = candidate.command.takeIf { it.firstOrNull() == "flatpak" }?.lastOrNull()
+        val where = if (flatpak != null) {
+            File(System.getProperty("user.home"), ".var/app/$flatpak/data/blazify-$name")
+        } else {
+            File(Store.folder, name)
+        }
+        return where.apply { mkdirs() }
+    }
+
+    private suspend fun startChromium(candidate: Candidate): String? {
+        val profile = profileFor(candidate)
         // Chromium writes the port it settled on into this file, and an old one
         // lying around claims a port nothing is listening on.
         val portFile = File(profile, "DevToolsActivePort").also { it.delete() }
@@ -379,6 +476,80 @@ object Headless {
             ?: return "wouldn't accept a connection"
 
         socket = session
+        speaking = Speaks.Chromium
+        listenOn(session)
+        return null
+    }
+
+    /**
+     * The same thing for Firefox, which asks to be started differently.
+     *
+     * It writes no file saying which port it settled on, so a free one is found
+     * here and handed to it; and it will quietly join a copy of itself that is
+     * already running unless told not to, which would mean driving somebody's
+     * own browser instead of one of ours.
+     */
+    private suspend fun startGecko(candidate: Candidate): String? {
+        val profile = profileFor(candidate)
+        val port = runCatching { java.net.ServerSocket(0).use { it.localPort } }.getOrNull()
+            ?: return "couldn't find a free port for it"
+
+        val started = runCatching {
+            ProcessBuilder(
+                candidate.command + listOf(
+                    "--headless",
+                    "--no-remote",
+                    "--profile", profile.absolutePath,
+                    "--remote-debugging-port", port.toString(),
+                    // Without this it starts, accepts the connection, opens a
+                    // session — and then refuses to run anything at all:
+                    // "System access is required." Found by keeping the
+                    // complaint instead of throwing it away.
+                    "--remote-allow-system-access",
+                ),
+            ).redirectErrorStream(true).start()
+        }.getOrElse { return "wouldn't start (${it.message})" }
+        process = started
+        scope.launch { runCatching { started.inputStream.use { it.readBytes() } } }
+
+        // No port file to watch, so the only sign it is ready is that it
+        // answers. A first start also has a profile to build, which is why this
+        // waits longer than the other one does.
+        val session = withTimeoutOrNull(40_000) {
+            while (true) {
+                if (!started.isAlive) return@withTimeoutOrNull null
+                val attempt = runCatching { client.webSocketSession("ws://127.0.0.1:$port/session") }.getOrNull()
+                if (attempt != null) return@withTimeoutOrNull attempt
+                delay(300)
+            }
+            @Suppress("UNREACHABLE_CODE") null
+        } ?: return "started but never answered"
+
+        socket = session
+        speaking = Speaks.Gecko
+        listenOn(session)
+
+        // Firefox hands nothing out until a session is opened, and the page to
+        // work in has to be asked for by name rather than assumed.
+        dispatch("session.new", buildJsonObject { put("capabilities", buildJsonObject { }) }, 20_000)
+            ?: return "wouldn't open a session"
+        // A page of our own asking, rather than whatever it happened to have
+        // open: started headless it may hold nothing a script can run in, and a
+        // window belonging to the browser itself is not a page.
+        val made = dispatch(
+            "browsingContext.create",
+            buildJsonObject { put("type", "tab") },
+            20_000,
+        )?.get("context")?.jsonPrimitive?.content
+        context = made ?: dispatch("browsingContext.getTree", waitMs = 20_000)
+            ?.get("contexts")?.jsonArrayOrNull()
+            ?.firstOrNull()?.jsonObject?.get("context")?.jsonPrimitive?.content
+            ?: return "offered no page to work in"
+        return null
+    }
+
+    /** Keep reading whatever the browser says, for as long as it says anything. */
+    private fun listenOn(session: DefaultClientWebSocketSession) {
         pump = scope.launch {
             runCatching {
                 session.incoming.consumeEach { frame ->
@@ -389,14 +560,27 @@ object Headless {
             // next thing that needs the engine starts it again.
             gate.withLock { if (socket === session) stopInternal() }
         }
-        return null
     }
+
+    /**
+     * The last complaint a browser made, for the probe to print.
+     *
+     * A refusal to run something arrives as a reply like any other and would
+     * otherwise be thrown away, leaving "it didn't work" and nothing else. Both
+     * languages word it differently, so the whole reply is kept rather than one
+     * field of it.
+     */
+    var lastComplaint by mutableStateOf<String?>(null)
+        private set
 
     /** Sort a reply to whoever asked, or an event to whoever is listening. */
     private fun heard(text: String) {
         val message = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull() ?: return
         val id = message["id"]?.jsonPrimitive?.intOrNull()
         if (id != null) {
+            if (message["error"] != null || message["type"]?.jsonPrimitive?.content == "error") {
+                lastComplaint = text.take(400)
+            }
             val waiter = synchronized(waiting) { waiting.remove(id) }
             waiter?.complete(message["result"]?.jsonObject ?: JsonObject(emptyMap()))
             return
@@ -420,6 +604,22 @@ object Headless {
      */
     suspend fun send(method: String, params: JsonObject = JsonObject(emptyMap()), waitMs: Long = 30_000): JsonObject? {
         if (!ready()) return null
+        return dispatch(method, params, waitMs)
+    }
+
+    /**
+     * The same, for callers that already hold the lock.
+     *
+     * Opening a session is part of starting a browser, and starting a browser
+     * happens with the lock held — so going back through [send], which waits for
+     * that same lock, would be waiting for itself. That deadlock is why this is
+     * a separate step rather than a flag.
+     */
+    private suspend fun dispatch(
+        method: String,
+        params: JsonObject = JsonObject(emptyMap()),
+        waitMs: Long = 30_000,
+    ): JsonObject? {
         val session = socket ?: return null
         val id = counter.incrementAndGet()
         val reply = CompletableDeferred<JsonObject>()
@@ -445,7 +645,21 @@ object Headless {
      * that there is a document to work in — so the document is asked itself.
      */
     suspend fun open(url: String, waitMs: Long = 20_000): Boolean {
-        send("Page.navigate", buildJsonObject { put("url", url) }, waitMs) ?: return false
+        if (!ready()) return false
+        val asked = if (speaking == Speaks.Gecko) {
+            dispatch(
+                "browsingContext.navigate",
+                buildJsonObject {
+                    put("context", context.orEmpty())
+                    put("url", url)
+                    put("wait", "complete")
+                },
+                waitMs,
+            )
+        } else {
+            dispatch("Page.navigate", buildJsonObject { put("url", url) }, waitMs)
+        }
+        asked ?: return false
         val deadline = System.currentTimeMillis() + waitMs
         while (System.currentTimeMillis() < deadline) {
             if (evaluate("document.readyState", waitMs = 5_000) == "complete") return true
@@ -462,17 +676,34 @@ object Headless {
      * token — and a handle would have to be fetched a second time to be read.
      */
     suspend fun evaluate(js: String, waitMs: Long = 30_000): String? {
-        val result = send(
-            "Runtime.evaluate",
-            buildJsonObject {
-                put("expression", js)
-                put("returnByValue", true)
-                put("awaitPromise", true)
-                put("timeout", waitMs.toDouble())
-            },
-            waitMs,
-        ) ?: return null
+        if (!ready()) return null
+        val result = if (speaking == Speaks.Gecko) {
+            dispatch(
+                "script.evaluate",
+                buildJsonObject {
+                    put("expression", js)
+                    put("target", buildJsonObject { put("context", context.orEmpty()) })
+                    put("awaitPromise", true)
+                },
+                waitMs,
+            )
+        } else {
+            dispatch(
+                "Runtime.evaluate",
+                buildJsonObject {
+                    put("expression", js)
+                    put("returnByValue", true)
+                    put("awaitPromise", true)
+                    put("timeout", waitMs.toDouble())
+                },
+                waitMs,
+            )
+        } ?: return null
+
+        // Both of them nest the value one level down and say separately whether
+        // the script threw, in their own words.
         if (result["exceptionDetails"] != null) return null
+        if (result["type"]?.jsonPrimitive?.content == "exception") return null
         val value = result["result"]?.jsonObject?.get("value") ?: return null
         return runCatching { value.jsonPrimitive.content }.getOrNull()
     }
@@ -487,9 +718,14 @@ object Headless {
     fun stop() = runBlocking {
         leaving = true
         socket?.let { open ->
+            val goodbye = if (speaking == Speaks.Gecko) {
+                "{\"id\":0,\"method\":\"browser.close\",\"params\":{}}"
+            } else {
+                "{\"id\":0,\"method\":\"Browser.close\"}"
+            }
             runCatching {
                 withTimeoutOrNull(3_000) {
-                    open.send(Frame.Text("{\"id\":0,\"method\":\"Browser.close\"}"))
+                    open.send(Frame.Text(goodbye))
                     // Long enough for it to put the profile down tidily, not
                     // long enough to be noticed on the way out.
                     while (process?.isAlive == true) delay(50)
@@ -528,6 +764,7 @@ object Headless {
             }
         }
         process = null
+        context = null
     }
 
     init {
