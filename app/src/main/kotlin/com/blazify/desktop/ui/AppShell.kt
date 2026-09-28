@@ -221,6 +221,11 @@ fun AppShell() {
             Column {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Blz.line))
 
+        PlayerState.failure?.let { why ->
+            PlaybackNotice(why, PlayerState::forgetFailure)
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Blz.line))
+        }
+
         PlayerBar(
             now = PlayerState.current?.let {
                 NowPlaying(

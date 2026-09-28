@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -110,6 +112,45 @@ fun Trouble(
                 )
             }
         }
+    }
+}
+
+/**
+ * Why the song didn't start, said where the song was expected.
+ *
+ * Playback failures were being kept and never shown: the player moved on, the
+ * next song was refused in the same breath, and from the outside the whole
+ * queue simply flicked past. A line here is the smallest honest version of what
+ * happened — above the controls, on the way to the close button, gone the
+ * moment something plays.
+ */
+@Composable
+fun PlaybackNotice(message: String, onDismiss: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(Blz.surface)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(Icons.Rounded.ErrorOutline, null, Modifier.size(16.dp), tint = Blaze.Amber)
+        Text(
+            message,
+            color = Blz.ink, fontSize = 12.5.sp, lineHeight = 17.sp,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            Icons.Rounded.Close, "Dismiss",
+            Modifier
+                .size(26.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .hoverBackground(Blz.hover, hovered, source)
+                .clickable(onClick = onDismiss)
+                .padding(5.dp),
+            tint = Blz.muted,
+        )
     }
 }
 

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -268,9 +269,10 @@ fun StreamSettingsSection(
     section("Where the audio comes from", Streams::reset) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
-                "Tried top to bottom until one hands over a stream. If a song refuses to " +
-                    "play, moving a source up is usually the fix — no two of them are " +
-                    "offered the same things.",
+                "Asked in turn until one hands over a stream, starting with whichever " +
+                    "worked last. No two of them are offered the same things, so moving one " +
+                    "up is worth trying — and under each is what it said when it was last " +
+                    "asked.",
                 color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
             )
 
@@ -312,8 +314,21 @@ fun StreamSettingsSection(
                 }
                 Text(
                     source.blurb, color = Blz.dim, fontSize = 11.sp,
-                    modifier = Modifier.padding(start = 24.dp, bottom = 2.dp),
+                    modifier = Modifier.padding(start = 24.dp),
                 )
+                // What it actually said, last time it was asked. A list of
+                // sources with no sign of which of them answered is a list of
+                // guesses; this turns "nothing plays" into something a person
+                // can read and act on.
+                Streams.notes[source.name]?.let { said ->
+                    Text(
+                        said,
+                        color = if (source.name == Streams.working) Blaze.Amber else Blz.muted,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(start = 24.dp),
+                    )
+                }
+                Spacer(Modifier.height(2.dp))
             }
 
             if (Streams.enabled.isEmpty()) {

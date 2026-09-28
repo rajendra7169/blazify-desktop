@@ -1017,46 +1017,119 @@ object Catalogue {
      */
     data class Stream(val url: String, val userAgent: String)
 
-    suspend fun stream(videoId: String): Result<Stream> = withContext(Dispatchers.IO) {
+    /**
+     * Nothing was handed over, and the next song will go the same way.
+     *
+     * YouTube now wants proof that whatever is asking is a real program on a
+     * real device before it parts with audio. The refusals say "Sign in to
+     * confirm you're not a bot", and being signed in does not answer them —
+     * the check is about the program, not the person. The clients that do
+     * answer hand back scrambled links instead, which is the same wall wearing
+     * a different coat. It is worth a type of its own because nothing about it
+     * is fixed by trying the next song, which is what a plain failure here sets
+     * off: one refusal becomes a queue racing past every song in it.
+     */
+    class BotCheck(videoId: String) :
+        IllegalStateException("YouTube wanted proof this isn't a robot before handing over $videoId")
+
+    /**
+     * Whether a refusal was that check rather than something about the song.
+     *
+     * Its wording differs by client — "Sign in to confirm you're not a bot"
+     * from one, a bare "Please sign in" from another — so the words are read
+     * rather than the status, which is LOGIN_REQUIRED on one client and
+     * UNPLAYABLE on the next for the very same song.
+     */
+    private fun wantsRobotCheck(reason: String?): Boolean {
+        val words = reason?.lowercase() ?: return false
+        return "sign in" in words || "log in" in words || "bot" in words
+    }
+
+    /**
+     * Ask each source in turn until one hands over something playable.
+     *
+     * Which ways of asking, and in what order, is a setting — see [Streams].
+     * The catalogue answers differently to each of its own clients, and which
+     * one works changes over time without anything here changing.
+     *
+     * Every source leaves a note of what it said, because when none of them
+     * work the useful question is which wall was hit — turned away at the door,
+     * or answered with links nothing here can open — and that should not be
+     * something only a log file knows. The notes are shown beside the sources
+     * in settings.
+     */
+    private suspend fun resolve(videoId: String): Result<Stream> {
         ensureIdentity()
 
+        var checked = false
         for (source in Streams.chain()) {
-            val response = YouTube.player(videoId, client = source.client).getOrNull() ?: continue
-            if (response.playabilityStatus.status != "OK") continue
-
-            val offered = response.streamingData
-                ?.adaptiveFormats
-                ?.filter { it.mimeType.startsWith("audio/mp4") && !it.url.isNullOrEmpty() }
-                .orEmpty()
-            if (offered.isEmpty()) continue
-
-            val chosen = Streams.pick(offered) { it.bitrate } ?: continue
-            chosen.url?.let {
-                return@withContext Result.success(Stream(it, source.client.userAgent))
+            val response = YouTube.player(videoId, client = source.client).getOrNull()
+            if (response == null) {
+                Streams.note(source, "no answer")
+                continue
             }
+
+            val status = response.playabilityStatus
+            if (status.status != "OK") {
+                val reason = status.reason?.takeIf { it.isNotBlank() }
+                if (wantsRobotCheck(reason)) {
+                    checked = true
+                    Streams.note(source, "turned away — it wanted proof this isn't a robot")
+                } else {
+                    Streams.note(source, "turned away — ${reason ?: status.status.lowercase()}")
+                }
+                continue
+            }
+
+            // Anything audio, not only the one container: which of them a client
+            // offers is its own choice, and refusing everything but one means
+            // being handed a stream and calling the song broken.
+            val audio = response.streamingData
+                ?.adaptiveFormats
+                ?.filter { it.mimeType.startsWith("audio") }
+                .orEmpty()
+            val playable = audio.filter { !it.url.isNullOrEmpty() }
+
+            if (playable.isEmpty()) {
+                Streams.note(
+                    source,
+                    when {
+                        audio.isEmpty() -> "answered, but offered no audio"
+                        // A link locked behind the service's own scrambling. It
+                        // is a real offer, and unscrambling it needs the player
+                        // script run as a browser runs it.
+                        audio.any { !it.signatureCipher.isNullOrEmpty() || !it.cipher.isNullOrEmpty() } ->
+                            "answered, but every link was scrambled"
+                        // Formats described in full, with no address anywhere:
+                        // the service expects to be asked for the audio a piece
+                        // at a time over a protocol of its own.
+                        else -> "answered, but left the links out"
+                    },
+                )
+                continue
+            }
+
+            val chosen = Streams.pick(playable) { it.bitrate }?.url
+            if (chosen == null) {
+                Streams.note(source, "answered, but nothing in it could be used")
+                continue
+            }
+
+            Streams.worked(source)
+            return Result.success(Stream(chosen, source.client.userAgent))
         }
-        Result.failure(IllegalStateException("No playable audio for $videoId"))
+
+        return Result.failure(
+            if (checked) BotCheck(videoId)
+            else IllegalStateException("No playable audio for $videoId"),
+        )
+    }
+
+    suspend fun stream(videoId: String): Result<Stream> = withContext(Dispatchers.IO) {
+        resolve(videoId)
     }
 
     suspend fun streamUrl(videoId: String): Result<String> = withContext(Dispatchers.IO) {
-        ensureIdentity()
-
-        // Which ways of asking, and in what order, is a setting — see Streams.
-        // The catalogue answers differently to each of its own clients, and
-        // which one works changes over time without anything here changing.
-        for (source in Streams.chain()) {
-            val response = YouTube.player(videoId, client = source.client).getOrNull() ?: continue
-            if (response.playabilityStatus.status != "OK") continue
-
-            val offered = response.streamingData
-                ?.adaptiveFormats
-                ?.filter { it.mimeType.startsWith("audio/mp4") && !it.url.isNullOrEmpty() }
-                .orEmpty()
-            if (offered.isEmpty()) continue
-
-            val chosen = Streams.pick(offered) { it.bitrate } ?: continue
-            chosen.url?.let { return@withContext Result.success(it) }
-        }
-        Result.failure(IllegalStateException("No playable audio for $videoId"))
+        resolve(videoId).map { it.url }
     }
 }

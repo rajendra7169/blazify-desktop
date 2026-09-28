@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.blazify.desktop.audio.AudioEngine
+import com.blazify.desktop.data.Account
 import com.blazify.desktop.data.Cache
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
@@ -592,9 +593,10 @@ object PlayerState {
         scope.launch {
             Catalogue.stream(track.id).fold(
                 onSuccess = { AudioEngine.play(it.url, resumeFrom, it.userAgent) },
-                onFailure = {
-                    failure = "Lost the connection to ${track.title}"
-                    if (Playback.skipBroken && index + 1 in queue.indices) next()
+                onFailure = { why ->
+                    val refused = why is Catalogue.BotCheck
+                    failure = if (refused) refusalMessage() else "Lost the connection to ${track.title}"
+                    if (!refused && Playback.skipBroken && index + 1 in queue.indices) next()
                 },
             )
             reopening = false
@@ -750,16 +752,44 @@ object PlayerState {
                     // false entry in a list of what you listened to.
                     Library.played(track)
                 },
-                onFailure = {
-                    failure = "Couldn't play ${track.title}"
+                onFailure = { why ->
+                    // A song YouTube will not hand over without an account is
+                    // not a broken song, and the next one will be refused for
+                    // the same reason — skipping there only races through the
+                    // queue, which is what "it just goes next, next, next"
+                    // looks like from the outside.
+                    val refused = why is Catalogue.BotCheck
+                    failure = if (refused) refusalMessage() else "Couldn't play ${track.title}"
                     // Sitting on a song that will not play, waiting to be
                     // rescued, is the worst of the options — so move on unless
                     // that was asked for.
-                    if (Playback.skipBroken && index + 1 in queue.indices) next()
+                    if (!refused && Playback.skipBroken && index + 1 in queue.indices) next()
                 },
             )
         }
     }
+
+    /**
+     * What to say when YouTube refused every way of asking.
+     *
+     * Not "couldn't play this song": the song is fine and the next one will be
+     * refused in the same breath, so saying so is the difference between a
+     * player that looks broken and one that tells you what happened. Signing in
+     * is not the whole answer — the check is about the program, not the person —
+     * but it is the one thing somebody signed out can still try, so it is only
+     * offered to them.
+     */
+    private fun refusalMessage(): String =
+        if (Account.signedIn) {
+            "YouTube wanted proof this isn't a robot, and no source could give it — " +
+                "Settings shows what each of them said"
+        } else {
+            "YouTube wanted proof this isn't a robot, and no source could give it — " +
+                "signing in from Settings is the first thing worth trying"
+        }
+
+    /** Put the last failure away, once it has been read. */
+    fun forgetFailure() { failure = null }
 
     /** Keep whatever is playing, so it works without the network. */
     fun downloadCurrent() {

@@ -41,10 +41,10 @@ object Streams {
         /** Whether this machine can actually fetch what this source hands over. */
         val usable: Boolean = true,
     ) {
-        Headset("Headset", "The one that plays here, and at the highest bitrates", YouTubeClient.ANDROID_VR_NO_AUTH),
+        Headset("Headset", "The highest bitrates, when it answers at all", YouTubeClient.ANDROID_VR_NO_AUTH),
         Visual("Visual", "A second opinion when the first is refused", YouTubeClient.VISIONOS),
         Studio("Studio", "Reaches some things the others are refused", YouTubeClient.ANDROID_CREATOR),
-        Browser("Browser", "The plain web client; last resort", YouTubeClient.WEB_REMIX),
+        Browser("Browser", "The plain web client — answers while signed in, but scrambles its links", YouTubeClient.WEB_REMIX),
         Handheld(
             "Handheld",
             "Answers, but its links are refused to anything that isn't a phone",
@@ -77,6 +77,26 @@ object Streams {
     var quality by mutableStateOf(Quality.Best)
         private set
 
+    /**
+     * What each source said the last time it was asked.
+     *
+     * Kept for this run only and shown in settings beside the sources. When a
+     * song will not play, the difference between "turned away at the door" and
+     * "answered with a link that can't be opened" is the whole diagnosis, and
+     * it should be readable by the person it is happening to rather than buried
+     * in a log.
+     */
+    var notes by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+
+    /** The source that last handed over a stream, if one has this run. */
+    var working by mutableStateOf<String?>(null)
+        private set
+
+    fun note(source: Source, said: String) { notes = notes + (source.name to said) }
+
+    fun worked(source: Source) { working = source.name; note(source, "handed over a stream") }
+
     init {
         runCatching {
             if (!store.exists()) return@runCatching
@@ -105,6 +125,8 @@ object Streams {
     fun chooseQuality(value: Quality) { quality = value; save() }
 
     fun reset() {
+        notes = emptyMap()
+        working = null
         order = Source.entries.map { it.name }
         enabled = Source.entries.filter { it.usable }.map { it.name }.toSet()
         quality = Quality.Best
@@ -121,7 +143,14 @@ object Streams {
     fun chain(): List<Source> {
         val known = Source.entries
         val ordered = order.mapNotNull { name -> known.firstOrNull { it.name == name } }
-        return (ordered + known.filterNot { it in ordered }).filter { it.name in enabled }
+        val chain = (ordered + known.filterNot { it in ordered }).filter { it.name in enabled }
+        // The one that worked a moment ago goes first, whatever the list says.
+        // The order is a preference about which source is wanted, not a promise
+        // to ask three that are being refused today before reaching the one
+        // that isn't — and paying for that on every single song is the
+        // difference between a player that starts and one that thinks about it.
+        val first = chain.firstOrNull { it.name == working } ?: return chain
+        return listOf(first) + chain.filterNot { it == first }
     }
 
     /**
