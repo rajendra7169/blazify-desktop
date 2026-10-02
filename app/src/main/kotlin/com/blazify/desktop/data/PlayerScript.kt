@@ -75,7 +75,16 @@ object PlayerScript {
     /** Only a plain name is ever run. */
     private val NAME = Regex("""^[A-Za-z0-9${'$'}_]{1,8}$""")
 
-    private val VERSION = Regex("""/s/player/([0-9a-z]{8})/""")
+    /**
+     * The player version, in a file that writes its slashes escaped.
+     *
+     * The address arrives inside a JavaScript string literal — `\/s\/player\/`
+     * rather than `/s/player/` — so a pattern written the way the address looks
+     * in a browser matches nothing at all. It cost a silent failure: the lookup
+     * returned nothing, the cipher never prepared, and the only sign was a line
+     * saying it could not find out which player was being served.
+     */
+    private val VERSION = Regex("""player\\?/([0-9a-z]{8})\\?/""")
 
     /** What one version of the player script needs to be asked. */
     private data class Recipe(val sig: String, val nClass: String, val sts: Int?)
