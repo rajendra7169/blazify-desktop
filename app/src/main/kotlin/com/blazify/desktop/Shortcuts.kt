@@ -3,9 +3,12 @@ package com.blazify.desktop
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import com.blazify.desktop.ui.Theatre
+import com.blazify.desktop.ui.Transfers
 
 /**
  * Blazify Project (C) 2026
@@ -61,6 +64,12 @@ object Shortcuts {
         if (released && event.key == Key.Escape && Theatre.leave()) return true
 
         if (typing) return false
+
+        // A link pasted onto the window rather than into a box: a shared
+        // playlist or a Spotify one is taken up, anything else is left alone.
+        if (event.key == Key.V && (event.isCtrlPressed || event.isMetaPressed)) {
+            return if (released) Transfers.pasted() else false
+        }
 
         // By degree — held down, these keep going.
         if (pressed) {

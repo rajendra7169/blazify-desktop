@@ -96,6 +96,31 @@ class PlaylistTransferTest {
     }
 
     @Test
+    fun `a shared link carries the name and the songs, and reads back the same`() {
+        val songs = listOf(track("fJ9rUzIMcZQ"), track("file:/home/x/song.mp3"), track("dQw4w9WgXcQ"))
+        val link = SharedPlaylists.link("Mix ✨ für dich", songs)
+        assertTrue(link.url.startsWith("https://rajendra7169.github.io/blazify/playlist#1."))
+        assertTrue(link.url.endsWith(".fJ9rUzIMcZQdQw4w9WgXcQ"))
+        assertTrue('=' !in link.url)
+        assertEquals(2, link.shared)
+        assertEquals(1, link.unshareable)
+
+        val back = assertNotNull(SharedPlaylists.parse("listen to this: ${link.url} !"))
+        assertEquals("Mix ✨ für dich", back.name)
+        assertEquals(listOf("fJ9rUzIMcZQ", "dQw4w9WgXcQ"), back.ids)
+    }
+
+    @Test
+    fun `a shared link stops at a hundred and fifty songs`() {
+        val songs = (0 until 160).map { track("id%08d".format(it).padEnd(11, 'x')) }
+        val link = SharedPlaylists.link("Long", songs)
+        assertEquals(150, link.shared)
+        assertEquals(10, link.overLimit)
+        assertEquals(150, SharedPlaylists.parse(link.url)?.ids?.size)
+        assertNull(SharedPlaylists.parse("https://rajendra7169.github.io/blazify/playlist#2.TG9uZw.fJ9rUzIMcZQ"))
+    }
+
+    @Test
     fun `Spotify links are recognised, and the embedded player's list is read`() {
         assertEquals(
             Spotify.Ref("playlist", "37i9dQZF1DXcBWIGoYBM5M"),

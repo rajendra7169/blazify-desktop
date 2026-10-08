@@ -68,6 +68,8 @@ import com.blazify.desktop.data.asTrack
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
+import com.blazify.desktop.ui.PlaylistLinkFound
+import com.blazify.desktop.ui.isPlaylistLink
 import com.blazify.desktop.ui.Trouble
 import com.blazify.desktop.ui.SkeletonRows
 import com.blazify.desktop.ui.SongMenu
@@ -117,6 +119,12 @@ fun ExploreScreen(
     // straight away — the words haven't changed, so there's nothing to wait for.
     LaunchedEffect(query, scope) {
         val typed = query.trim()
+        // A playlist link pasted into the box is a playlist to offer, not
+        // words to look for — searching for it finds nothing and says so.
+        if (isPlaylistLink(typed)) {
+            results = emptyList(); searching = false; message = null; guesses = emptyList()
+            return@LaunchedEffect
+        }
         if (typed.length < 2) {
             results = emptyList(); searching = false; message = null
             return@LaunchedEffect
@@ -178,9 +186,10 @@ fun ExploreScreen(
             Guesses(guesses) { query = it }
         }
 
-        if (query.trim().length >= 2) ScopeChips(scope) { scope = it }
+        if (query.trim().length >= 2 && !isPlaylistLink(query)) ScopeChips(scope) { scope = it }
 
         when {
+            isPlaylistLink(query) -> PlaylistLinkFound(query.trim())
             // Nothing typed: the browse tab, which is what this screen is for
             // when you don't already know what you're after.
             query.trim().length < 2 -> BrowseTab(browse, onOpen) { genre = it }

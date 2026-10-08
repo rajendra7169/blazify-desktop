@@ -1,5 +1,6 @@
 package com.blazify.desktop.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,11 +29,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -44,8 +49,13 @@ import com.blazify.desktop.data.OwnPlaylist
 import com.blazify.desktop.data.PlaylistFiles
 import com.blazify.desktop.data.PlaylistImport
 import com.blazify.desktop.data.Playlists
+import com.blazify.desktop.data.QrCode
+import com.blazify.desktop.data.SharedPlaylists
 import com.blazify.desktop.data.Spotify
 import com.blazify.desktop.data.Wanted
+import java.awt.Toolkit
+import java.awt.datatransfer.DataFlavor
+import java.awt.datatransfer.StringSelection
 import java.io.File
 
 /**
@@ -54,7 +64,7 @@ import java.io.File
  */
 
 /**
- * Playlists going in and out: files, and Spotify links.
+ * Playlists going in and out: files, Spotify links, and links to share.
  *
  * Asked for from wherever the button is — the library, a playlist's own page,
  * the search box, a paste — and drawn over the whole window by the shell, for
@@ -68,6 +78,14 @@ object Transfers {
         private set
     var linkText by mutableStateOf("")
 
+    /** The playlist being shared, by id. */
+    var sharing by mutableStateOf<String?>(null)
+        private set
+
+    /** A shared playlist somebody pasted, waiting on a yes or a no. */
+    var offered by mutableStateOf<SharedPlaylists.Shared?>(null)
+        private set
+
     /** One line said after something finished that has no screen of its own. */
     var notice by mutableStateOf<String?>(null)
         private set
@@ -77,24 +95,46 @@ object Transfers {
         linkOpen = true
     }
 
+    fun share(playlist: OwnPlaylist) { sharing = playlist.id }
+
+    fun offer(shared: SharedPlaylists.Shared) { offered = shared }
+
     fun dismiss() {
         linkOpen = false
+        sharing = null
+        offered = null
         notice = null
     }
 
     /**
      * Whatever a pasted link turns out to be.
      *
-     * A Spotify list is read and imported. Returns false for anything else,
-     * so the dialog can say it didn't recognise it.
+     * A shared playlist is offered to keep; a Spotify list is read and
+     * imported. Returns false for anything else, so the paste can go on to
+     * mean whatever it meant before.
      */
     fun handle(text: String): Boolean {
+        SharedPlaylists.parse(text)?.let { offer(it); linkOpen = false; return true }
         if (Spotify.parse(text) != null) {
             linkOpen = false
             PlaylistImport.fetchThen("Spotify", { Spotify.read(text) }, Spotify::noteFor)
             return true
         }
         return false
+    }
+
+    /** A paste outside any text field: taken if it is one of the links above. */
+    fun pasted(): Boolean {
+        val text = runCatching {
+            Toolkit.getDefaultToolkit().systemClipboard.getData(DataFlavor.stringFlavor) as? String
+        }.getOrNull() ?: return false
+        return handle(text)
+    }
+
+    /** Keep a shared playlist: its songs are fetched by id and made a playlist here. */
+    fun keep(shared: SharedPlaylists.Shared) {
+        offered = null
+        PlaylistImport.start(shared.name, shared.ids.map { Wanted(title = "", id = it) })
     }
 
     /** Pick a file and import it. */
@@ -151,9 +191,145 @@ object Transfers {
 /** Every dialog above, drawn when it's wanted. */
 @Composable
 fun PlaylistTransferDialogs() {
+    Transfers.sharing?.let { id ->
+        Playlists.find(id)?.let { ShareDialog(it) } ?: Transfers.dismiss()
+    }
+    Transfers.offered?.let { OfferDialog(it) }
     if (Transfers.linkOpen) LinkDialog()
     Transfers.notice?.let { NoticeDialog(it) }
     ImportDialog()
+}
+
+/**
+ * A playlist as a link and as a code.
+ *
+ * The code is for the phone on the desk — pointed at the screen, it opens the
+ * same link without anybody typing seventeen hundred characters.
+ */
+@Composable
+private fun ShareDialog(playlist: OwnPlaylist) {
+    val link = remember(playlist) { SharedPlaylists.link(playlist.name, playlist.tracks) }
+    val code = remember(link.url) { QrCode.encode(link.url) }
+    var copied by remember(link.url) { mutableStateOf(false) }
+
+    Frame(onDismiss = Transfers::dismiss, width = 420) {
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("Share playlist", color = Blz.ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(playlist.name, color = Blz.muted, fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+
+        if (link.shared == 0) {
+            Text(
+                "Nothing in this playlist can travel as a link — songs on this computer and " +
+                    "programmes from feeds aren't anywhere the other end could find them.",
+                color = Blz.dim, fontSize = 12.5.sp, lineHeight = 18.sp,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                DialogPill("Close", filled = false, Modifier.weight(1f), Transfers::dismiss)
+            }
+            return@Frame
+        }
+
+        code?.let {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { QrImage(it) }
+        }
+
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(Blz.surfaceHigh)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+        ) {
+            Text(
+                link.url, color = Blz.muted, fontSize = 11.5.sp,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        Text(
+            buildString {
+                append("${link.shared} songs in the link.")
+                if (link.overLimit > 0) {
+                    append(" A link holds ${SharedPlaylists.MOST}, so the last ${link.overLimit} are left out.")
+                }
+                if (link.unshareable > 0) {
+                    append(" ${link.unshareable} left out because they are files on this computer or programmes from feeds.")
+                }
+                append(" Anyone with Blazify can open it and keep a copy.")
+            },
+            color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            DialogPill(if (copied) "Copied" else "Copy link", filled = true, Modifier.weight(1f)) {
+                runCatching {
+                    Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(link.url), null)
+                    copied = true
+                }
+            }
+            DialogPill("Done", filled = false, Modifier.weight(1f), Transfers::dismiss)
+        }
+    }
+}
+
+/**
+ * A QR code, drawn dark on white whatever the theme.
+ *
+ * Inverted codes are part of the standard but not every camera app reads
+ * them, and the white margin around it is part of the code, not decoration.
+ */
+@Composable
+private fun QrImage(code: QrCode) {
+    val quiet = 4
+    val modules = code.size + quiet * 2
+    Canvas(
+        Modifier
+            .size(300.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.White),
+    ) {
+        val cell = size.minDimension / modules
+        val origin = (size.minDimension - cell * modules) / 2 + cell * quiet
+        for (y in 0 until code.size) {
+            var x = 0
+            while (x < code.size) {
+                if (!code[x, y]) { x++; continue }
+                // One rectangle per run of dark rather than per module: the
+                // largest code is twenty thousand of them otherwise, and hairline
+                // seams appear between neighbours at fractional sizes.
+                val start = x
+                while (x < code.size && code[x, y]) x++
+                drawRect(
+                    Color.Black,
+                    topLeft = Offset(origin + start * cell, origin + y * cell),
+                    size = Size(cell * (x - start) + 0.5f, cell + 0.5f),
+                )
+            }
+        }
+    }
+}
+
+/** A shared playlist, offered. Nothing is kept until it's asked for. */
+@Composable
+private fun OfferDialog(shared: SharedPlaylists.Shared) {
+    Frame(onDismiss = Transfers::dismiss) {
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("A shared playlist", color = Blz.ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "${shared.name}  ·  ${shared.ids.size} songs",
+                color = Blz.muted, fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            "Keep it, and it is made a playlist on this computer, yours to change.",
+            color = Blz.dim, fontSize = 12.5.sp, lineHeight = 18.sp,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            DialogPill("Keep it", filled = true, Modifier.weight(1f)) { Transfers.keep(shared) }
+            DialogPill("Not now", filled = false, Modifier.weight(1f), Transfers::dismiss)
+        }
+    }
 }
 
 /** Paste a link: a Spotify playlist or album, or a playlist somebody shared. */
@@ -165,7 +341,7 @@ private fun LinkDialog() {
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text("Import from a link", color = Blz.ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
             Text(
-                "A Spotify playlist or album.",
+                "A Spotify playlist or album, or a playlist shared from Blazify.",
                 color = Blz.muted, fontSize = 12.5.sp,
             )
         }
@@ -202,7 +378,7 @@ private fun LinkDialog() {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             DialogPill("Import", filled = true, Modifier.weight(1f)) {
                 if (!Transfers.handle(Transfers.linkText)) {
-                    trouble = "That isn't a link to a Spotify playlist or album."
+                    trouble = "That isn't a link to a Spotify playlist or album, or a shared playlist."
                 }
             }
             DialogPill("Cancel", filled = false, Modifier.weight(1f), Transfers::dismiss)
@@ -395,6 +571,7 @@ internal fun DialogPill(
 fun PlaylistShareActions(playlist: OwnPlaylist) {
     var exporting by remember { mutableStateOf(false) }
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        PageAction(Icons.Rounded.Share, "Share") { Transfers.share(playlist) }
         Box {
             PageAction(Icons.Rounded.FileDownload, "Export") { exporting = true }
             androidx.compose.material3.DropdownMenu(
@@ -450,3 +627,46 @@ private fun MenuLine(label: String, onClick: () -> Unit) {
     }
 }
 
+/** Whether some text is a link to a playlist this app can take in. */
+fun isPlaylistLink(text: String): Boolean =
+    SharedPlaylists.parse(text) != null || Spotify.parse(text) != null
+
+/**
+ * A playlist link found in the search box, offered where the results would be.
+ *
+ * Said plainly what it is and what keeping it does, with the one button —
+ * the box was being used as a place to paste, and the answer to a paste is
+ * the thing pasted.
+ */
+@Composable
+fun PlaylistLinkFound(text: String) {
+    val shared = remember(text) { SharedPlaylists.parse(text) }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Blz.surface)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                if (shared != null) "A shared playlist" else "A Spotify playlist",
+                color = Blz.ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                if (shared != null) "${shared.name}  ·  ${shared.ids.size} songs"
+                else "Its songs are looked for here and made into a playlist on this computer.",
+                color = Blz.muted, fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        DialogPill(
+            if (shared != null) "Keep it" else "Import it",
+            filled = true,
+            Modifier.width(120.dp),
+        ) {
+            if (shared != null) Transfers.keep(shared) else Transfers.handle(text)
+        }
+    }
+}
