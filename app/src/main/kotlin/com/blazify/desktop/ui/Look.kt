@@ -63,7 +63,8 @@ enum class RomanizeMode(val label: String, val blurb: String) {
  *
  * The artwork is the only thing on that screen with any character of its own,
  * so the choice is really about what to do with it: leave it a square, ring it
- * with the progress, let it fill the window, or put it on something that turns.
+ * with the progress, let it fill the window, put it on something that turns, or
+ * set the song's own video playing behind it.
  * None of them changes what the controls do — a look that moved the play button
  * would be a different application, not a different skin.
  */
@@ -73,6 +74,7 @@ enum class PlayerTheme(val label: String, val blurb: String) {
     FullArt("Full art", "The cover fills the window, controls laid over it"),
     Record("Record", "A vinyl disc that turns while the music plays"),
     Cassette("Cassette", "Reels that wind from one side to the other"),
+    Video("Video", "The song's official video plays silently behind the controls"),
 }
 
 /** Where lyric lines sit across the panel. */

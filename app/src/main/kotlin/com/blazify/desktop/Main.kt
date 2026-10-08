@@ -1,6 +1,8 @@
 package com.blazify.desktop
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -86,6 +88,11 @@ private fun run() = application {
         size = DpSize(430.dp, 118.dp),
         position = WindowPosition.Aligned(Alignment.BottomEnd),
     )
+
+    // Told to whoever needs to know when nobody can see the window.
+    LaunchedEffect(state) {
+        snapshotFlow { state.isMinimized }.collect(WindowMode::noteMinimised)
+    }
 
     if (mini) {
         Window(

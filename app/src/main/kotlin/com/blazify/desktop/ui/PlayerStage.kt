@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -98,6 +101,19 @@ fun PlayerStage(
                 progress = progress,
                 modifier = Modifier.size(side),
             )
+
+            // The real thing needs the whole width of the player and a video
+            // stream; a preview gets the shape of it instead — the picture at
+            // the top, fading into the page where the controls begin.
+            PlayerTheme.Video -> Box(Modifier.size(side).clip(RoundedCornerShape(20.dp))) {
+                Artwork(artwork, size = side, corner = 0.dp)
+                Box(Modifier.fillMaxSize().background(videoFade(Blz.page)))
+                Icon(
+                    Icons.Rounded.Movie, null,
+                    Modifier.align(Alignment.TopEnd).padding(side * 0.05f).size(side * 0.12f),
+                    tint = Color.White.copy(alpha = 0.85f),
+                )
+            }
 
             PlayerTheme.Cassette -> CassetteTape(
                 isPlaying = playing,

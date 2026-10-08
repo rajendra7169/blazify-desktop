@@ -20,6 +20,18 @@ object WindowMode {
     var mini by mutableStateOf(false)
         private set
 
+    /**
+     * Whether the big window is down in the taskbar.
+     *
+     * Asked by anything that moves on its own — a video playing behind the
+     * player costs a decoder and a stream for as long as it runs, and nobody
+     * is watching a window they have put away.
+     */
+    var minimised by mutableStateOf(false)
+        private set
+
+    fun noteMinimised(value: Boolean) { minimised = value }
+
     fun toggleMini() { mini = !mini }
 
     fun full() { mini = false }
