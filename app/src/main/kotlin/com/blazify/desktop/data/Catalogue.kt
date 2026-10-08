@@ -614,6 +614,25 @@ object Catalogue {
     )
 
     /**
+     * Songs by their ids, in the order asked for.
+     *
+     * One request per fifty rather than one per song: a shared playlist is a
+     * list of ids and nothing else, and looking each up in turn would keep
+     * somebody waiting half a minute for a list they could already see the
+     * length of. Ids the catalogue no longer knows are simply missing from
+     * the answer.
+     */
+    suspend fun songs(ids: List<String>): Result<List<Track>> = withContext(Dispatchers.IO) {
+        ensureIdentity()
+        runCatching {
+            val found = ids.distinct().chunked(50).flatMap { chunk ->
+                YouTube.queue(videoIds = chunk).getOrThrow().map { it.asTrack() }
+            }.associateBy { it.id }
+            ids.mapNotNull { found[it] }
+        }
+    }
+
+    /**
      * Songs like a given song.
      *
      * Asking what would play next after a track answers twice over: it carries

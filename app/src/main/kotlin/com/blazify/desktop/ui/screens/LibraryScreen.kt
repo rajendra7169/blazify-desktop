@@ -50,6 +50,7 @@ import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Skeleton
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.EmptyState
+import com.blazify.desktop.ui.ImportActions
 import com.blazify.desktop.ui.hoverBackground
 import com.blazify.desktop.ui.hoverLift
 import com.blazify.desktop.ui.rememberHovered
@@ -140,6 +141,9 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
                 else ->
                     "Sign in to bring your own playlists across, or save anything you find to keep it here."
             },
+            // A playlist kept somewhere else is the quickest way to an empty
+            // library that isn't.
+            action = "Import a playlist" to { com.blazify.desktop.ui.Transfers.importFile() },
         )
         return
     }
@@ -173,6 +177,7 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
                     ).joinToString("  ·  ").ifEmpty { "Nothing here yet" },
                     color = Blz.muted, fontSize = 13.sp,
                 )
+                Box(Modifier.padding(top = 10.dp)) { ImportActions() }
             }
         }
 

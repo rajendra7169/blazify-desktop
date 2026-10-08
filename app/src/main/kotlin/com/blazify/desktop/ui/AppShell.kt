@@ -296,6 +296,8 @@ fun AppShell() {
         // Sharing a few lines as a picture, or timing a song's words by hand.
         LyricsToolDialogs()
         UpdateDialog()
+        // Playlists going in and out — a share, an import's progress, a pasted link.
+        PlaylistTransferDialogs()
         // The first launch only, over everything else that might want a word.
         WelcomeDialog()
 
@@ -352,6 +354,7 @@ private fun Content(destination: Destination) {
                     onRemove = { Playlists.removeAt(id, it) },
                     onMove = { from, to -> Playlists.move(id, from, to) },
                 ),
+                extras = { PlaylistShareActions(playlist) },
             )
             return
         }

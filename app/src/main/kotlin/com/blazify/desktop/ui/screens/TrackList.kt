@@ -110,6 +110,7 @@ fun TrackListScreen(
     onBack: (() -> Unit)? = null,
     kind: String = "Playlist",
     edit: Editing? = null,
+    extras: (@Composable () -> Unit)? = null,
 ) {
     if (tracks.isEmpty()) {
         Column(Modifier.fillMaxSize()) {
@@ -193,6 +194,9 @@ fun TrackListScreen(
                     ) {
                         Pill(Icons.Rounded.PlayArrow, "Play", filled = true) { onPlay(tracks, 0) }
                         Pill(Icons.Rounded.Shuffle, "Shuffle", filled = false) { onShuffle(tracks) }
+                        // Whatever else the list's owner can do with it, after
+                        // the two that play it.
+                        extras?.invoke()
                         action?.let { (label, onClick) -> TextAction(label, onClick) }
                     }
                 }
