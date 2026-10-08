@@ -89,6 +89,9 @@ object Panel {
 
     fun start() {
         if (!on) return
+        // Windows has no session bus to answer on; its keys are claimed
+        // directly instead. Nothing happens here on any other system.
+        MediaKeys.start()
         if (connection != null) return
         if (System.getenv("DBUS_SESSION_BUS_ADDRESS").isNullOrBlank()) {
             trouble = "no session bus on this desktop"
@@ -134,6 +137,7 @@ object Panel {
     }
 
     fun stop() {
+        MediaKeys.stop()
         runCatching { connection?.close() }
         connection = null
         answering = false

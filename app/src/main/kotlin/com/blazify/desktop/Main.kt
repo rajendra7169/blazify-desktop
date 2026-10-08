@@ -16,6 +16,7 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.rememberWindowState
 import com.blazify.desktop.data.Account
 import com.blazify.desktop.data.Library
+import com.blazify.desktop.data.MediaKeys
 import com.blazify.desktop.data.Offline
 import com.blazify.desktop.data.Panel
 import com.blazify.desktop.data.Paxsenix
@@ -107,6 +108,8 @@ private fun run() = application {
             // Written before the process goes, so the next launch opens on
             // exactly what this one closed on.
             PlayerState.remember()
+            // Hand the keyboard's media keys back to Windows before going.
+            MediaKeys.stop()
             exitApplication()
         },
         state = state,
