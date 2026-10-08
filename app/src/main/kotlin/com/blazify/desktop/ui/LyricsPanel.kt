@@ -35,7 +35,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloseFullscreen
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.VerticalAlignCenter
@@ -69,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.data.Lyrics
 import com.blazify.desktop.data.LyricsSource
+import com.blazify.desktop.data.LyricsTiming
 import com.blazify.desktop.data.Romanize
 import com.blazify.desktop.data.Translate
 import com.blazify.desktop.data.Track
@@ -151,6 +155,7 @@ fun LyricsPanel(
                     )
                 }
             }
+            track?.let { LyricsMenu(it, lyrics) }
             track?.let { SourceButton(it) }
             RoundIcon(Icons.Rounded.OpenInFull, "Full screen", onExpand)
             RoundIcon(Icons.Rounded.Close, "Close", onClose)
@@ -247,6 +252,7 @@ fun LyricsTheatre(
                         )
                     }
                 }
+                track?.let { LyricsMenu(it, lyrics) }
                 track?.let { SourceButton(it) }
                 RoundIcon(Icons.Rounded.CloseFullscreen, "Leave full screen", onClose)
             }
@@ -304,7 +310,10 @@ private fun Synced(
     val state = rememberLazyListState()
     // Read a little ahead of where the player says it is, so a line lights up
     // as it starts rather than once it's over.
-    val sung = position + Look.lyricsLead
+    // Plus however far this song's words have been nudged, so a sheet timed
+    // against another release of the track can be brought into step.
+    val nudge = LyricsTiming.of(trackId)
+    val sung = position + Look.lyricsLead + nudge
     val current = lyrics.lineAt(sung)
 
     // Whether the sheet is still following the song.
@@ -428,7 +437,7 @@ private fun Synced(
                     .then(
                         if (Look.lyricsTap) {
                             Modifier.hoverBackground(Blz.hover, hovered, source)
-                                .clickable { onSeekTo(line.at) }
+                                .clickable { onSeekTo((line.at - nudge).coerceAtLeast(0.0)) }
                         } else {
                             Modifier
                         },
@@ -644,6 +653,84 @@ private fun SourceButton(track: Track) {
             }
             if (chain.size < 2) {
                 MenuLine("Turn more on in Settings › Lyrics")
+            }
+        }
+    }
+}
+
+/**
+ * Everything to do with these words other than where they came from.
+ *
+ * The timing nudge lives here rather than in the settings because it is about
+ * this song: the sheet is a beat behind now, while it plays, and the fix has to
+ * be reachable without stopping to look for it.
+ */
+@Composable
+private fun LyricsMenu(track: Track, lyrics: Lyrics?) {
+    var open by remember { mutableStateOf(false) }
+
+    Box {
+        RoundIcon(Icons.Rounded.MoreVert, "More") { open = true }
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            modifier = Modifier.width(260.dp).background(Blz.bar),
+        ) {
+            if (lyrics?.synced == true) {
+                MenuLine("TIMING")
+                TimingRow(track.id)
+            }
+            if (lyrics == null || lyrics.empty) {
+                MenuLine("Nothing to do until there are words")
+            }
+        }
+    }
+}
+
+/**
+ * Sooner, later, and how far — on one row.
+ *
+ * Kept open after each press so the words can be walked into step a half
+ * second at a time while the song plays, which is how anyone actually finds
+ * the right amount.
+ */
+@Composable
+private fun TimingRow(id: String) {
+    val nudge = LyricsTiming.of(id)
+    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            RoundIcon(Icons.Rounded.Remove, "Words later") { LyricsTiming.nudge(id, -LyricsTiming.STEP) }
+            Text(
+                LyricsTiming.label(nudge),
+                color = if (nudge == 0.0) Blz.muted else Blaze.Amber,
+                fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
+            RoundIcon(Icons.Rounded.Add, "Words sooner") { LyricsTiming.nudge(id, LyricsTiming.STEP) }
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "+ if the words lag behind the singing",
+                color = Blz.dim, fontSize = 11.sp,
+                modifier = Modifier.weight(1f),
+            )
+            if (nudge != 0.0) {
+                Text(
+                    "Reset",
+                    color = Blaze.Amber, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { LyricsTiming.reset(id) }
+                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                )
             }
         }
     }
