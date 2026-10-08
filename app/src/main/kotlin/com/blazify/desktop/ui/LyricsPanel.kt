@@ -118,9 +118,10 @@ fun LyricsPanel(
     onExpand: () -> Unit,
 ) {
     val preference = track?.id?.let { LyricsSource.preferenceFor(it) }
+    val version = track?.id?.let { LyricsSource.versionOf(it) }
     var lyrics by remember(track?.id) { mutableStateOf<Lyrics?>(null) }
 
-    LaunchedEffect(track?.id, preference) {
+    LaunchedEffect(track?.id, preference, version) {
         lyrics = null
         lyrics = track?.let { LyricsSource.of(it) }
         // The whole sheet at once, once — see Translate.
@@ -193,9 +194,10 @@ fun LyricsTheatre(
     onClose: () -> Unit,
 ) {
     val preference = track?.id?.let { LyricsSource.preferenceFor(it) }
+    val version = track?.id?.let { LyricsSource.versionOf(it) }
     var lyrics by remember(track?.id) { mutableStateOf<Lyrics?>(null) }
 
-    LaunchedEffect(track?.id, preference) {
+    LaunchedEffect(track?.id, preference, version) {
         lyrics = null
         lyrics = track?.let { LyricsSource.of(it) }
         track?.let { song ->
@@ -679,6 +681,20 @@ private fun LyricsMenu(track: Track, lyrics: Lyrics?) {
             if (lyrics?.synced == true) {
                 MenuLine("TIMING")
                 TimingRow(track.id)
+            }
+            // Only for words with no timing at all. A sheet that already
+            // follows the song wants a nudge, not a second timing.
+            if (lyrics != null && !lyrics.synced && !lyrics.plain.isNullOrBlank()) {
+                MenuChoice("Sync the lyrics", "Tap along as it plays to time each line", false) {
+                    open = false
+                    LyricsTools.sync(track, lyrics)
+                }
+            }
+            if (LyricsSource.creditFor(track.id) == LyricsSource.SYNCED_BY_YOU) {
+                MenuChoice("Remove my timing", "Back to the words your sources have", false) {
+                    open = false
+                    LyricsSource.forgetOwn(track.id)
+                }
             }
             if (lyrics != null && !lyrics.empty) {
                 MenuChoice("Share as an image…", "A few lines on a card, to save or paste", false) {

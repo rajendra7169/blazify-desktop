@@ -164,6 +164,57 @@ object LyricsSource {
     fun forget(id: String) {
         cache.remove(id)
         credits.remove(id)
+        versions[id] = (versions[id] ?: 0) + 1
+    }
+
+    /**
+     * Bumped whenever a song's words change underneath an open sheet.
+     *
+     * The sheet looks its words up once per song; reading this alongside the
+     * song tells it to look again after you have saved a timing of your own,
+     * rather than going on showing the copy from before.
+     */
+    private val versions = mutableStateMapOf<String, Int>()
+
+    fun versionOf(id: String): Int = versions[id] ?: 0
+
+    // ── timings you made ─────────────────────────────────────────────────────
+
+    /** Credited on the sheet, so it's clear whose timing this is. */
+    const val SYNCED_BY_YOU = "Synced by you"
+
+    private val own by lazy { java.io.File(Store.folder, "synced-lyrics").apply { mkdirs() } }
+
+    /**
+     * Where one song's own timing lives.
+     *
+     * A song from the catalogue has an id that is already a safe file name; a
+     * song from a folder on this machine may not, so anything unusual is
+     * replaced and a hash keeps two such names from landing on one file.
+     */
+    private fun ownFor(id: String): java.io.File {
+        val safe = id.replace(Regex("[^A-Za-z0-9_-]"), "_")
+        val name = if (safe == id) id else "${safe.take(60)}-${Integer.toHexString(id.hashCode())}"
+        return java.io.File(own, "$name.lrc")
+    }
+
+    fun hasOwn(id: String): Boolean = ownFor(id).exists()
+
+    /**
+     * Keep a timing you made for a song whose words had none.
+     *
+     * Wins over every source from then on, since it is the one timing that
+     * was made against exactly the recording you play.
+     */
+    fun keepOwn(id: String, lrc: String) {
+        runCatching { ownFor(id).writeText(lrc) }
+        forget(id)
+    }
+
+    /** Back to whatever the sources say. */
+    fun forgetOwn(id: String) {
+        runCatching { ownFor(id).delete() }
+        forget(id)
     }
 
     /**
@@ -182,6 +233,20 @@ object LyricsSource {
 
     suspend fun of(track: Track): Lyrics = withContext(Dispatchers.IO) {
         cache[track.id]?.let { return@withContext it }
+
+        // Your own timing first: it was made against this very recording, and
+        // it only exists because every source had nothing better.
+        if (chosen[track.id] == null && hasOwn(track.id)) {
+            val saved = runCatching { ownFor(track.id).readText() }.getOrNull()
+            if (!saved.isNullOrBlank()) {
+                val words = read(saved)
+                if (!words.empty) {
+                    credits[track.id] = SYNCED_BY_YOU
+                    cache[track.id] = words
+                    return@withContext words
+                }
+            }
+        }
 
         // A kept song keeps its words too. Read before anything is asked over
         // the network, so a sheet for something on disk appears instantly and

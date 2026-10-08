@@ -41,4 +41,7 @@ fun LyricsToolDialogs() {
     LyricsTools.sharing?.let { (track, lyrics) ->
         ShareLyricsDialog(track, lyrics, onDismiss = { LyricsTools.sharing = null })
     }
+    LyricsTools.syncing?.let { (track, lyrics) ->
+        SyncLyricsDialog(track, lyrics, onDismiss = { LyricsTools.syncing = null })
+    }
 }
