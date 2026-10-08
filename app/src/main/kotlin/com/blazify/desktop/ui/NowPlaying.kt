@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -155,7 +157,12 @@ fun NowPlayingScreen(
     // Full art brings its own ground — the cover itself — so the column above
     // it gets no background at all. Painting the page colour over the backdrop
     // is exactly why the artwork wasn't showing.
-    val background: Modifier = if (Look.playerTheme == PlayerTheme.FullArt) {
+    //
+    // The video look paints its own ground too, underneath the picture: solid,
+    // so the controls below the picture never sit on anything that moves.
+    val video = Look.playerTheme == PlayerTheme.Video
+    val videoPage = if (Look.playerBackground == PlayerBackground.PureBlack) Color.Black else Blz.page
+    val background: Modifier = if (Look.playerTheme == PlayerTheme.FullArt || video) {
         Modifier
     } else when (Look.playerBackground) {
         PlayerBackground.FollowTheme -> Modifier.background(Blz.page)
@@ -190,6 +197,19 @@ fun NowPlayingScreen(
                 alpha = 1f - gone * 0.35f
             },
     ) {
+    if (video) {
+        // The song's video across the top seven tenths, the full width of the
+        // player, fading into the page from half way down. A light shade
+        // across the very top keeps the buttons there readable over a bright
+        // frame.
+        Box(Modifier.fillMaxSize().background(videoPage))
+        MusicVideoStage(track, videoPage, Modifier.fillMaxWidth().fillMaxHeight(0.7f))
+        Box(
+            Modifier.fillMaxWidth().height(96.dp).background(
+                Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.40f), Color.Transparent)),
+            ),
+        )
+    }
     if (Look.playerTheme == PlayerTheme.FullArt) {
         // The cover behind the lot. Scrimmed rather than blurred — a blur is a
         // pass over a large bitmap every frame, and what's wanted here is the
@@ -281,7 +301,7 @@ fun NowPlayingScreen(
             // Full art is the cover already, filling the window behind this —
             // a second copy of it in the middle would be the same picture
             // twice. Everything else gets its stage.
-            if (Look.playerTheme != PlayerTheme.FullArt) {
+            if (Look.playerTheme != PlayerTheme.FullArt && !video) {
                 PlayerStage(
                     theme = Look.playerTheme,
                     artwork = track?.thumbnail,
@@ -290,6 +310,12 @@ fun NowPlayingScreen(
                     progress = PlayerState.progress,
                     onSeek = PlayerState::seek,
                 )
+            } else if (video) {
+                // Room for the picture above: the name starts where the video
+                // has mostly given way to the page, and the transport sits on
+                // the solid ground below it.
+                val room = with(LocalDensity.current) { (tall * 0.62f).toDp() } - 92.dp
+                Box(Modifier.size(1.dp, room.coerceAtLeast(40.dp)))
             } else {
                 Box(Modifier.size(1.dp, 200.dp))
             }
