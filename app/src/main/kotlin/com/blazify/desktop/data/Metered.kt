@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
  * Whether the connection is counted by the byte.
  *
  * Fetching songs before they are wanted is free on a home connection and
- * costs real money on a phone's hotspot, so it is asked before anything is
+ * costs real money on a tethered or capped one, so it is asked before anything is
  * fetched ahead. The desktop knows: on Linux the network manager keeps a
  * "metered" flag, guessed from the connection or set by hand; on Windows the
  * connection has a cost the system reports.
