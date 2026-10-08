@@ -95,4 +95,28 @@ class PlaylistTransferTest {
         assertNull(Matching.best(Wanted("Completely Different", "Nobody"), found))
     }
 
+    @Test
+    fun `Spotify links are recognised, and the embedded player's list is read`() {
+        assertEquals(
+            Spotify.Ref("playlist", "37i9dQZF1DXcBWIGoYBM5M"),
+            Spotify.parse("https://open.spotify.com/intl-de/playlist/37i9dQZF1DXcBWIGoYBM5M?si=1234"),
+        )
+        assertEquals(Spotify.Ref("album", "4aawyAB9vmqN3uQ7FjRGTy"), Spotify.parse("spotify:album:4aawyAB9vmqN3uQ7FjRGTy"))
+        assertNull(Spotify.parse("https://open.spotify.com/track/11hcBLPtbMp4aQI6zGQLub"))
+
+        val page = """
+            <html><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"state":{"data":{"entity":{
+              "type":"playlist","name":"Today’s Top Hits","trackList":[
+                {"title":"Patient Zero","subtitle":"Taylor Swift","duration":225868},
+                {"title":"Second","subtitle":"Somebody, Someone Else","duration":180000}
+            ]}}}}}}</script></html>
+        """.trimIndent()
+        val (name, songs) = Spotify.fromEmbed(page).getOrThrow()
+        assertEquals("Today’s Top Hits", name)
+        assertEquals(Wanted("Patient Zero", "Taylor Swift", seconds = 225), songs[0])
+        assertEquals(2, songs.size)
+
+        val missing = """<script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"status":404}}}</script>"""
+        assertTrue(Spotify.fromEmbed(missing).isFailure)
+    }
 }

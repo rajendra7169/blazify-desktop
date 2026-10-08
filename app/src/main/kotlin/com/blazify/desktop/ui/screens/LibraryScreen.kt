@@ -143,7 +143,7 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
             },
             // A playlist kept somewhere else is the quickest way to an empty
             // library that isn't.
-            action = "Import a playlist" to { com.blazify.desktop.ui.Transfers.importFile() },
+            action = "Import a playlist" to { com.blazify.desktop.ui.Transfers.openLink() },
         )
         return
     }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,18 +27,25 @@ import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.blazify.desktop.Typing
 import com.blazify.desktop.data.OwnPlaylist
 import com.blazify.desktop.data.PlaylistFiles
 import com.blazify.desktop.data.PlaylistImport
 import com.blazify.desktop.data.Playlists
+import com.blazify.desktop.data.Spotify
+import com.blazify.desktop.data.Wanted
 import java.io.File
 
 /**
@@ -46,7 +54,7 @@ import java.io.File
  */
 
 /**
- * Playlists going in and out, as files.
+ * Playlists going in and out: files, and Spotify links.
  *
  * Asked for from wherever the button is — the library, a playlist's own page,
  * the search box, a paste — and drawn over the whole window by the shell, for
@@ -55,12 +63,38 @@ import java.io.File
  */
 object Transfers {
 
+    /** The paste-a-link dialog, and whatever was already in it. */
+    var linkOpen by mutableStateOf(false)
+        private set
+    var linkText by mutableStateOf("")
+
     /** One line said after something finished that has no screen of its own. */
     var notice by mutableStateOf<String?>(null)
         private set
 
+    fun openLink(prefill: String = "") {
+        linkText = prefill
+        linkOpen = true
+    }
+
     fun dismiss() {
+        linkOpen = false
         notice = null
+    }
+
+    /**
+     * Whatever a pasted link turns out to be.
+     *
+     * A Spotify list is read and imported. Returns false for anything else,
+     * so the dialog can say it didn't recognise it.
+     */
+    fun handle(text: String): Boolean {
+        if (Spotify.parse(text) != null) {
+            linkOpen = false
+            PlaylistImport.fetchThen("Spotify", { Spotify.read(text) }, Spotify::noteFor)
+            return true
+        }
+        return false
     }
 
     /** Pick a file and import it. */
@@ -117,8 +151,72 @@ object Transfers {
 /** Every dialog above, drawn when it's wanted. */
 @Composable
 fun PlaylistTransferDialogs() {
+    if (Transfers.linkOpen) LinkDialog()
     Transfers.notice?.let { NoticeDialog(it) }
     ImportDialog()
+}
+
+/** Paste a link: a Spotify playlist or album, or a playlist somebody shared. */
+@Composable
+private fun LinkDialog() {
+    var trouble by remember { mutableStateOf<String?>(null) }
+
+    Frame(onDismiss = Transfers::dismiss) {
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("Import from a link", color = Blz.ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "A Spotify playlist or album.",
+                color = Blz.muted, fontSize = 12.5.sp,
+            )
+        }
+
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(Blz.surfaceHigh)
+                .padding(horizontal = 12.dp, vertical = 11.dp),
+        ) {
+            if (Transfers.linkText.isEmpty()) {
+                Text("Paste a link", color = Blz.dim, fontSize = 13.sp)
+            }
+            BasicTextField(
+                value = Transfers.linkText,
+                onValueChange = { Transfers.linkText = it; trouble = null },
+                singleLine = true,
+                textStyle = TextStyle(color = Blz.ink, fontSize = 13.sp),
+                cursorBrush = SolidColor(Blaze.Amber),
+                modifier = Modifier.fillMaxWidth().onFocusChanged { Typing.active = it.isFocused },
+            )
+        }
+
+        trouble?.let { Text(it, color = Blaze.Amber, fontSize = 11.5.sp, lineHeight = 17.sp) }
+
+        Text(
+            "Spotify lets anyone not signed in see the first ${Spotify.EMBED_LIMIT} songs of a " +
+                "playlist, so a longer one comes across as its first ${Spotify.EMBED_LIMIT}. Each " +
+                "song is then looked for here by its title and artist.",
+            color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            DialogPill("Import", filled = true, Modifier.weight(1f)) {
+                if (!Transfers.handle(Transfers.linkText)) {
+                    trouble = "That isn't a link to a Spotify playlist or album."
+                }
+            }
+            DialogPill("Cancel", filled = false, Modifier.weight(1f), Transfers::dismiss)
+        }
+
+        Text(
+            "Or import an M3U or CSV file",
+            color = Blaze.Amber, fontSize = 12.sp, fontWeight = FontWeight.Medium,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { Transfers.dismiss(); Transfers.importFile() }
+                .padding(vertical = 4.dp),
+        )
+    }
 }
 
 /**
@@ -316,6 +414,7 @@ fun PlaylistShareActions(playlist: OwnPlaylist) {
 fun ImportActions() {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         PageAction(Icons.Rounded.FileUpload, "Import a file", Transfers::importFile)
+        PageAction(Icons.Rounded.Link, "Import from a link") { Transfers.openLink() }
     }
 }
 
