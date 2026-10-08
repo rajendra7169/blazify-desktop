@@ -487,9 +487,8 @@ fun SettingsScreen() {
                                 Updates::chooseCheckOnStart,
                             )
                             Text(
-                                "Off by default. A program that phones home every launch " +
-                                    "should have been asked first, and \"is there a new " +
-                                    "version\" is almost never urgent.",
+                                "One small look each time Blazify opens, so a fix reaches " +
+                                    "you without coming here. Nothing is downloaded until you say so.",
                                 color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
                             )
 

@@ -36,9 +36,10 @@ import java.net.URI
  * answer. Every file is tried at each of its addresses in turn, and a download
  * that drops is picked up where it stopped.
  *
- * Off by default. A program that phones home on every launch should have been
- * asked first, and the answer to "is there a new version" is almost never
- * urgent. Nothing is fetched until somebody presses the button.
+ * On by default: a look at one small file each time Blazify opens, which is
+ * the only way someone who never visits Settings ever hears of a fix. It can be
+ * turned off there, and that choice is kept. Nothing is downloaded until
+ * somebody presses the button.
  */
 object Updates {
 
@@ -65,7 +66,7 @@ object Updates {
     /** One file of a release, and every address it can be fetched from, in order. */
     data class Download(val name: String, val size: Long?, val urls: List<String>)
 
-    var checkOnStart by mutableStateOf(false)
+    var checkOnStart by mutableStateOf(true)
         private set
 
     var checking by mutableStateOf(false)
@@ -124,7 +125,9 @@ object Updates {
     val download: Download? get() = UpdateInstall.pick(files)
 
     init {
-        runCatching { checkOnStart = File(folder(), "check-on-start").readText().trim() == "true" }
+        runCatching {
+            File(folder(), "check-on-start").takeIf { it.exists() }?.let { checkOnStart = it.readText().trim() != "false" }
+        }
         if (checkOnStart) check()
     }
 
@@ -133,12 +136,9 @@ object Updates {
      * so a file found in its place is turned into the folder, keeping the setting.
      */
     private fun folder(): File {
-        if (store.isFile) {
-            val setting = runCatching { store.readText().trim() }.getOrDefault("false")
-            store.delete()
-            store.mkdirs()
-            runCatching { File(store, "check-on-start").writeText(setting) }
-        }
+        // A file of this name is the setting an older build kept, when checking was off unless
+        // asked for. That answer is let go, so checking starts on like everybody else's.
+        if (store.isFile) store.delete()
         store.mkdirs()
         return store
     }
