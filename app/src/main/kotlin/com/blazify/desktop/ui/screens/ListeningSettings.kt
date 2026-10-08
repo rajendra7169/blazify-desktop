@@ -99,6 +99,20 @@ fun ListeningSettingsSection(
 fun SkippingSettingsSection(
     section: @Composable (String, (() -> Unit)?, @Composable () -> Unit) -> Unit,
 ) {
+    section("Skip silence", null) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Toggle("Pass over long quiet stretches", Listening.skipSilence, Listening::chooseSkipSilence)
+            Text(
+                "A hush of a second or more before the first note or after the last, and " +
+                    "three seconds or more of nothing in the middle — the wait before a " +
+                    "hidden track. Measured on songs that are on this computer: downloaded, " +
+                    "kept as you listen, or your own files. A song still arriving over the " +
+                    "network plays as it is, since measuring it would mean fetching it twice.",
+                color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+            )
+        }
+    }
+
     section("Skip the talking in music videos", null) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(

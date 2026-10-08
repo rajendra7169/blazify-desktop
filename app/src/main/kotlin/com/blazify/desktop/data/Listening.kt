@@ -62,6 +62,14 @@ object Listening {
     var skipKinds by mutableStateOf(emptySet<SponsorBlock.Kind>())
         private set
 
+    /**
+     * Whether long quiet stretches are passed over: a hush before the first
+     * note, a minute of nothing before a hidden track, a fade that outlasts
+     * the song. Off to begin with — silence is sometimes the point.
+     */
+    var skipSilence by mutableStateOf(false)
+        private set
+
     init {
         runCatching {
             if (store.exists()) {
@@ -71,6 +79,7 @@ object Listening {
                 skipKinds = lines.getOrNull(2).orEmpty().split(',')
                     .mapNotNull { name -> SponsorBlock.Kind.entries.firstOrNull { it.name == name } }
                     .toSet()
+                skipSilence = lines.getOrNull(3) == "true"
             }
         }
         startedNatural = naturalPitch
@@ -81,6 +90,7 @@ object Listening {
 
     fun chooseSpeed(value: Float) { speed = value.coerceIn(0.5f, 2f); save() }
     fun chooseNaturalPitch(value: Boolean) { naturalPitch = value; save() }
+    fun chooseSkipSilence(value: Boolean) { skipSilence = value; save() }
     fun chooseSkip(kind: SponsorBlock.Kind, on: Boolean) {
         skipKinds = if (on) skipKinds + kind else skipKinds - kind
         save()
@@ -101,7 +111,7 @@ object Listening {
             store.writeText(
                 listOf(
                     speed.toString(), naturalPitch.toString(),
-                    skipKinds.joinToString(",") { it.name },
+                    skipKinds.joinToString(",") { it.name }, skipSilence.toString(),
                 ).joinToString("\n"),
             )
         }

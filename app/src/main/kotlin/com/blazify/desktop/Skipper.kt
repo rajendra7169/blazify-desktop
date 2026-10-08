@@ -1,6 +1,10 @@
 package com.blazify.desktop
 
 import com.blazify.desktop.audio.AudioEngine
+import com.blazify.desktop.audio.Silence
+import com.blazify.desktop.data.Cache
+import com.blazify.desktop.data.Downloads
+import com.blazify.desktop.data.Store
 import com.blazify.desktop.data.Listening
 import com.blazify.desktop.data.LocalMusic
 import com.blazify.desktop.data.SponsorBlock
@@ -13,6 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * Blazify Project (C) 2026
@@ -23,7 +28,8 @@ import kotlinx.coroutines.launch
  * Jumps over the parts of a song nobody chose to hear.
  *
  * Told about each song as it starts, it gathers the stretches worth passing —
- * the ones viewers marked in a music video — and watches the clock. When
+ * the ones viewers marked in a music video, and long quiet ones in a song on
+ * disk — and watches the clock. When
  * playback walks into one it moves to the far side; when the stretch runs to
  * the end of the song, the song is treated as finished, so a repeat or a count
  * still has its say.
@@ -34,7 +40,7 @@ import kotlinx.coroutines.launch
  */
 object Skipper {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * One stretch to pass, and what marked it.
@@ -81,7 +87,49 @@ object Skipper {
                 add(track.id, marked)
             }
         }
+        if (Listening.skipSilence) {
+            hushes(track)
+            // The next one too, while this plays, so its first second of
+            // quiet is known before it starts rather than found during it.
+            PlayerState.queue.getOrNull(PlayerState.index + 1)?.let { next ->
+                if (next.id != track.id) scope.launch { quietIn(next) }
+            }
+        }
     }
+
+    /** What was found in each song already measured, newest last. */
+    private val measured = object : LinkedHashMap<String, List<Stretch>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<Stretch>>) = size > 64
+    }
+
+    private fun hushes(track: Track) {
+        scope.launch {
+            val found = quietIn(track) ?: return@launch
+            add(track.id, found)
+        }
+    }
+
+    /**
+     * The quiet stretches in a song on disk, measured once and remembered.
+     *
+     * Null for a song that is only a stream: reading it would mean fetching it
+     * all a second time beside the copy that is playing.
+     */
+    private fun quietIn(track: Track): List<Stretch>? {
+        synchronized(measured) { measured[track.id] }?.let { return it }
+        val file = onDisk(track) ?: return null
+        val work = File(Store.folder, "silence-work/${track.id.hashCode().toUInt()}.wav")
+        val found = Silence.find(file, work).map { Stretch(it.from, it.to, "silence") }
+        synchronized(measured) { measured[track.id] = found }
+        return found
+    }
+
+    private fun onDisk(track: Track): File? = when {
+        LocalMusic.isLocal(track.id) -> File(LocalMusic.pathOf(track.id))
+        Downloads.has(track.id) -> Downloads.fileFor(track.id)
+        Cache.has(track.id) -> Cache.fileFor(track.id)
+        else -> null
+    }?.takeIf { it.isFile }
 
     /** More stretches for this song, from whoever found them. */
     fun add(id: String, more: List<Stretch>) {
