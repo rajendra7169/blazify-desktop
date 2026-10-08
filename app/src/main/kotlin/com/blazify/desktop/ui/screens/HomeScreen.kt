@@ -111,6 +111,7 @@ fun HomeScreen(
     // Only the music. Episodes have a page of their own and that is where
     // somebody goes back to one.
     val continuing = Resume.unfinishedMusic
+    val dials = rememberSpeedDial()
 
     Box(Modifier.fillMaxSize()) {
     LazyColumn(
@@ -158,6 +159,15 @@ fun HomeScreen(
         if (mood == null && continuing.isNotEmpty()) {
             item {
                 Box(Modifier.padding(horizontal = 26.dp)) { ContinueRail(continuing) }
+            }
+        }
+
+        // What gets played most, a click away, before anything suggested.
+        // Only on the unfiltered page: a mood is a question about something
+        // new, and the answer to it is not the same nine things.
+        if (mood == null && dials.isNotEmpty()) {
+            item {
+                Box(Modifier.padding(horizontal = 26.dp)) { SpeedDialGrid(dials) }
             }
         }
 
