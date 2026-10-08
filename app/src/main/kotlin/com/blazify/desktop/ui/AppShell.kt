@@ -294,6 +294,8 @@ fun AppShell() {
         LaunchedEffect(Unit) { StarPrompt.onOpened(PlayerState.playing) }
         StarPromptDialog()
         UpdateDialog()
+        // The first launch only, over everything else that might want a word.
+        WelcomeDialog()
 
         // Over everything, including the transport — a dialog that the bar
         // could be clicked through is not a dialog.

@@ -74,6 +74,7 @@ import com.blazify.desktop.data.Store
 import com.blazify.desktop.data.BugReport
 import com.blazify.desktop.data.UpdateInstall
 import com.blazify.desktop.data.Updates
+import com.blazify.desktop.data.Welcome
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Navigator
@@ -432,6 +433,7 @@ fun SettingsScreen() {
                         Section("About") {
                             Line("Blazify", "Version ${Updates.RUNNING}")
                             Line("A music player", "for Linux and Windows")
+                            Button("Show the welcome again", Welcome::showAgain)
                         }
                     }
 
