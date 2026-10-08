@@ -8,6 +8,7 @@ import com.blazify.innertube.models.PodcastItem
 import com.blazify.innertube.models.PlaylistItem
 import com.blazify.innertube.models.SongItem
 import com.blazify.innertube.models.WatchEndpoint
+import com.blazify.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_OMV
 import com.blazify.innertube.models.YouTubeClient
 import com.blazify.innertube.models.response.PlayerResponse
 import kotlinx.coroutines.Dispatchers
@@ -1198,6 +1199,95 @@ object Catalogue {
         val offer = offerIn(format) ?: return null
         val unscrambled = PlayerScript.unscramble(offer) ?: return null
         return if (asBrowser) PlayerScript.retune(unscrambled) else unscrambled
+    }
+
+    /**
+     * A music video that can stand behind the player, found by name.
+     *
+     * [inStep] says whether it is the same cut as the song — the same length to
+     * within a few seconds — and so can follow the song moment for moment. A
+     * longer cut has a spoken opening or a coda the record does not, and trying
+     * to hold one of those in step with the song would put every scene in the
+     * wrong place.
+     */
+    data class MusicVideo(val videoId: String, val lengthSeconds: Int?, val inStep: Boolean)
+
+    /**
+     * The official video for a song, if it has one.
+     *
+     * A song that is already a video is its own answer. Otherwise the videos
+     * under its name are asked for and only the official ones kept — a fan's
+     * lyric video or a live recording is a different thing wearing the same
+     * title — and the one nearest the song's length is taken, since that is
+     * the one most likely to be the record rather than an extended cut.
+     */
+    suspend fun musicVideo(track: Track): Result<MusicVideo?> = withContext(Dispatchers.IO) {
+        runCatching {
+            val found = YouTube.search("${track.title} ${track.artist}", YouTube.SearchFilter.FILTER_VIDEO)
+                .getOrThrow()
+                .items
+                .filterIsInstance<SongItem>()
+
+            // The song itself turned up among the videos: it is one, and there
+            // is no closer match to be had.
+            found.firstOrNull { it.id == track.id }?.let {
+                return@runCatching MusicVideo(it.id, it.duration ?: track.durationSeconds, inStep = true)
+            }
+
+            val official = found.filter { it.musicVideoType == MUSIC_VIDEO_TYPE_OMV }
+            if (official.isEmpty()) return@runCatching null
+
+            val length = track.durationSeconds
+            val nearest = if (length == null) official.first()
+            else official.minBy { kotlin.math.abs((it.duration ?: Int.MAX_VALUE / 2) - length) }
+            val inStep = length != null && nearest.duration != null &&
+                kotlin.math.abs(nearest.duration!! - length) <= 3
+            MusicVideo(nearest.id, nearest.duration, inStep)
+        }
+    }
+
+    /**
+     * Pictures only, no sound, small: what plays behind the player.
+     *
+     * Asked of the same sources in the same order as the audio, but without
+     * leaving notes or changing which one is remembered as working — the audio
+     * is what those notes are about, and a source that hands over pictures and
+     * not sound must not be promoted ahead of one that plays.
+     *
+     * Nothing taller than 480 lines: it is drawn faded behind the controls,
+     * where anything sharper is data spent on detail nobody can see. H.264 is
+     * preferred because every machine decodes it cheaply, often in hardware.
+     */
+    suspend fun picture(videoId: String): Result<Stream> = withContext(Dispatchers.IO) {
+        runCatching {
+            ensureIdentity()
+            for (source in Streams.chain()) {
+                val stamp = if (source.client.useSignatureTimestamp) {
+                    PlayerScript.ready()
+                    PlayerScript.timestamp
+                } else {
+                    null
+                }
+                val response = YouTube.player(videoId, client = source.client, signatureTimestamp = stamp)
+                    .getOrNull() ?: continue
+                if (response.playabilityStatus.status != "OK") continue
+
+                val video = response.streamingData
+                    ?.adaptiveFormats
+                    ?.filter { it.mimeType.startsWith("video") && (it.height ?: Int.MAX_VALUE) <= 480 }
+                    ?.filter { !it.url.isNullOrEmpty() || !offerIn(it).isNullOrEmpty() }
+                    .orEmpty()
+                if (video.isEmpty()) continue
+
+                val h264 = video.filter { "avc1" in it.mimeType }
+                val chosen = h264.ifEmpty { video }
+                    .sortedWith(compareByDescending<PlayerResponse.StreamingData.Format> { it.height ?: 0 }.thenBy { it.bitrate })
+                    .first()
+                val address = address(chosen, source) ?: continue
+                return@runCatching Stream(address, source.client.userAgent)
+            }
+            error("No video pictures for $videoId")
+        }
     }
 
     suspend fun stream(videoId: String): Result<Stream> = withContext(Dispatchers.IO) {

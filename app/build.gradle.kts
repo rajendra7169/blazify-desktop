@@ -439,6 +439,15 @@ tasks.register<JavaExec>("scriptProbe") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+// The Video look's whole path for one song: which video, its stream, its frames.
+//   ./gradlew :app:videoProbe --args="Kesariya|Arijit Singh|268"
+tasks.register<JavaExec>("videoProbe") {
+    group = "verification"
+    description = "Choose one song's music video, fetch its pictures and decode a few seconds"
+    mainClass.set("com.blazify.desktop.tools.video.VideoProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
 tasks.register<JavaExec>("sessionProbe") {
     group = "verification"
     description = "Show which cookies each browser gives, and whether the catalogue accepts them"
