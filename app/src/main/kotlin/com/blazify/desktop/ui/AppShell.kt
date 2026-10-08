@@ -293,6 +293,8 @@ fun AppShell() {
         // and never while anything is playing.
         LaunchedEffect(Unit) { StarPrompt.onOpened(PlayerState.playing) }
         StarPromptDialog()
+        // Sharing a few lines as a picture, or timing a song's words by hand.
+        LyricsToolDialogs()
         UpdateDialog()
         // The first launch only, over everything else that might want a word.
         WelcomeDialog()

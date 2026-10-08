@@ -680,7 +680,12 @@ private fun LyricsMenu(track: Track, lyrics: Lyrics?) {
                 MenuLine("TIMING")
                 TimingRow(track.id)
             }
-            if (lyrics == null || lyrics.empty) {
+            if (lyrics != null && !lyrics.empty) {
+                MenuChoice("Share as an image…", "A few lines on a card, to save or paste", false) {
+                    open = false
+                    LyricsTools.share(track, lyrics)
+                }
+            } else {
                 MenuLine("Nothing to do until there are words")
             }
         }
