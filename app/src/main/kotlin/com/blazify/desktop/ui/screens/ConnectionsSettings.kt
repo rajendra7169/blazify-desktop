@@ -31,6 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.Typing
+import com.blazify.desktop.data.Browse
+import com.blazify.desktop.data.ListenBrainz
 import com.blazify.desktop.data.Presence
 import com.blazify.desktop.data.Recognise
 import com.blazify.desktop.data.Scrobbler
@@ -59,6 +61,12 @@ fun ConnectionsSettingsSection(
     section("Last.fm", null) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (Scrobbler.signedIn) SignedIn() else SignIn()
+        }
+    }
+
+    section("ListenBrainz", null) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (ListenBrainz.connected) ListenBrainzConnected() else ListenBrainzConnect()
         }
     }
 
@@ -157,6 +165,85 @@ fun ConnectionsSettingsSection(
             }
         }
     }
+}
+
+/**
+ * Connected to ListenBrainz: who, what is sent, and what is still waiting.
+ *
+ * The waiting count is shown rather than hidden. Listens held back by a dead
+ * connection are a promise, and a promise you can't see is one you can't
+ * check was kept.
+ */
+@Composable
+private fun ListenBrainzConnected() {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(
+            Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Brush.linearGradient(listOf(Blaze.Amber, Blaze.Ember))),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                ListenBrainz.username?.take(1)?.uppercase().orEmpty(),
+                color = Blaze.OnAmber, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+            )
+        }
+        Column(Modifier.weight(1f)) {
+            Text(
+                ListenBrainz.username.orEmpty(), color = Blz.ink, fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                when (val waiting = ListenBrainz.waiting) {
+                    0 -> "Connected"
+                    1 -> "Connected  ·  1 listen waiting to be sent"
+                    else -> "Connected  ·  $waiting listens waiting to be sent"
+                },
+                color = Blaze.Amber, fontSize = 11.5.sp,
+            )
+        }
+        Pill("Disconnect", filled = false) { ListenBrainz.disconnect() }
+    }
+    Toggle("Record what I listen to", ListenBrainz.recording, ListenBrainz::chooseRecording)
+    Toggle("Show what's playing right now", ListenBrainz.announceNowPlaying, ListenBrainz::chooseAnnounce)
+    ListenBrainz.trouble?.let {
+        Text(it, color = Blaze.Amber, fontSize = 11.5.sp, lineHeight = 17.sp)
+    }
+    Text(
+        "A song counts once it has run past halfway or four minutes. " +
+            "Listens that can't be sent wait on this computer and go with the next one " +
+            "that can, with the times you actually heard them.",
+        color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+    )
+}
+
+@Composable
+private fun ListenBrainzConnect() {
+    var token by remember { mutableStateOf("") }
+
+    Text(
+        "An open, non-profit record of what you play. No key to register and no " +
+            "password — one token from your ListenBrainz settings page.",
+        color = Blz.dim, fontSize = 12.sp, lineHeight = 18.sp,
+    )
+    Entry("User token", "Paste it from listenbrainz.org/settings", token, secret = true) { token = it }
+
+    ListenBrainz.trouble?.let {
+        Text(it, color = Blaze.Amber, fontSize = 11.5.sp, lineHeight = 17.sp)
+    }
+
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Pill(if (ListenBrainz.busy) "Checking…" else "Connect", filled = true) {
+            if (!ListenBrainz.busy) ListenBrainz.connect(token)
+        }
+        Pill("Find my token", filled = false) { Browse.open(ListenBrainz.TOKEN_PAGE) }
+    }
+    Text(
+        "The token is checked with ListenBrainz before it is kept, and stays on this " +
+            "computer. Reset it on that page and this connection simply stops.",
+        color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+    )
 }
 
 @Composable

@@ -170,6 +170,9 @@ object Scrobbler {
      */
     fun began(track: Track) {
         finish()
+        // The other service hears about it from the same moment, so the two
+        // records can never disagree about when a song started.
+        ListenBrainz.began(track)
         startedAt = System.currentTimeMillis() / 1000
         reported = false
         listened = 0.0
@@ -197,6 +200,7 @@ object Scrobbler {
      * refuse it and because it wasn't a play.
      */
     fun heard(track: Track, seconds: Double) {
+        ListenBrainz.heard(track, seconds)
         if (!signedIn || !scrobbling || reported) return
         listened = seconds
         val length = track.durationSeconds?.toDouble() ?: return
