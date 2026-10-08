@@ -273,7 +273,11 @@ fun SettingsScreen() {
                     LyricsSettingsSection { title, reset, content -> Section(title, reset) { content() } }
                 }
 
-                SettingsPage.Content -> item {
+                SettingsPage.Content -> {
+                    item {
+                        BlockedArtistsSection { title, reset, content -> Section(title, reset) { content() } }
+                    }
+                    item {
                     Section("Where your music comes from") {
                         Line("Songs on this computer", "${LocalMusic.tracks.size}")
                         Line("Music folders watched", "${LocalMusic.folders.size}")
@@ -282,6 +286,7 @@ fun SettingsScreen() {
                             "Folders are added from On this computer, in the rail.",
                             color = Blz.dim, fontSize = 11.5.sp,
                         )
+                    }
                     }
                 }
 

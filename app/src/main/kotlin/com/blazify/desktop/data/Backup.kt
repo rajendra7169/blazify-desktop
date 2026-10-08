@@ -44,6 +44,7 @@ object Backup {
         "local.json",
         "folders.json",
         "downloads.json",
+        "blocked.json",
     )
 
     /** Things that identify the account rather than describe the listening. */

@@ -199,7 +199,16 @@ object Catalogue {
         YouTube.searchSuggestions(query).getOrNull()?.queries.orEmpty()
     }
 
-    suspend fun search(query: String, scope: Scope): Result<List<Card>> = withContext(Dispatchers.IO) {
+    /**
+     * A search, with anybody blocked taken out.
+     *
+     * Done here rather than on the screen so every place that searches on
+     * somebody's behalf gets the same answer.
+     */
+    suspend fun search(query: String, scope: Scope): Result<List<Card>> =
+        searchEverywhere(query, scope).map { cards -> cards.filterNot { Blocked.blocks(it) } }
+
+    private suspend fun searchEverywhere(query: String, scope: Scope): Result<List<Card>> = withContext(Dispatchers.IO) {
         ensureIdentity()
         // "All" asks with no filter at all, which is a different request rather
         // than a filter meaning everything.
@@ -658,6 +667,10 @@ object Catalogue {
                 .distinctBy { it.id }
                 .filterNot { it.id == videoId }
         }
+            // Radio, what plays on after a queue and every shelf built from
+            // this all start here, so one filter keeps a blocked artist out of
+            // all of them.
+            .map { songs -> songs.filterNot { Blocked.blocks(it) } }
     }
 
     /**

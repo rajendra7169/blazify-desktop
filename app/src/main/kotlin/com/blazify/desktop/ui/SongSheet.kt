@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
@@ -45,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.PlayerState
+import com.blazify.desktop.data.Blocked
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
@@ -182,6 +184,18 @@ fun SongSheet(
                     onDismiss()
                 }
             }
+        }
+
+        // Only for the catalogue's songs: a file on this computer was put
+        // there by you, and nothing chooses it for you.
+        val artist = Blocked.mainArtist(track)
+        if (!local && !track.talk && artist.isNotBlank()) {
+            if (track.artistId == null && track.albumId == null) Divider()
+            val blocked = Blocked.isBlocked(artist, track.artistId)
+            Item(
+                Icons.Rounded.Block,
+                if (blocked) "Play $artist again" else "Don't play $artist",
+            ) { Blocked.toggle(artist, track.artistId); onDismiss() }
         }
 
         if (!local) {

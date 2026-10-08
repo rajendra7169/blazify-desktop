@@ -4,6 +4,7 @@ import androidx.compose.foundation.ContextMenuArea
 import androidx.compose.foundation.ContextMenuItem
 import androidx.compose.runtime.Composable
 import com.blazify.desktop.PlayerState
+import com.blazify.desktop.data.Blocked
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.LocalMusic
@@ -38,6 +39,15 @@ fun SongMenu(track: Track, content: @Composable () -> Unit) {
                         if (Library.isLiked(track.id)) "Remove from liked songs" else "Like",
                     ) { Library.toggleLike(track) },
                 )
+                val artist = Blocked.mainArtist(track)
+                if (!LocalMusic.isLocal(track.id) && !track.talk && artist.isNotBlank()) {
+                    add(
+                        ContextMenuItem(
+                            if (Blocked.isBlocked(artist, track.artistId)) "Play $artist again"
+                            else "Don't play $artist",
+                        ) { Blocked.toggle(artist, track.artistId) },
+                    )
+                }
                 // A file already on the machine has nowhere to be downloaded to.
                 if (!LocalMusic.isLocal(track.id)) {
                     add(

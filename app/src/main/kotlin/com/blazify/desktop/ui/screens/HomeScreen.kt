@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.blazify.desktop.data.Blocked
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Net
 import com.blazify.desktop.ui.Artwork
@@ -81,8 +82,10 @@ fun HomeScreen(
     // in pairs.
     LaunchedEffect(Net.online) { HomeState.reactTo(Net.online) }
 
-    val picks = HomeState.picks
-    val shelves = HomeState.shelves
+    // Anybody blocked is left out here rather than when the page is built, so
+    // blocking somebody clears them off the page at once, not on the next load.
+    val picks = Blocked.shelves(HomeState.picks)
+    val shelves = Blocked.shelves(HomeState.shelves)
     val mood = HomeState.mood
 
     // Watching the layout itself rather than a true/false "near the end" flag.

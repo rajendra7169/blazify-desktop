@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.blazify.desktop.data.Blocked
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Library
 import com.blazify.desktop.data.Track
@@ -223,6 +225,16 @@ private fun Header(
                         },
                         filled = false,
                     ) { Library.toggleSaved(card) }
+                }
+                // Kept out of everything chosen for you. On their own page
+                // because that is where somebody is when they decide it.
+                if (card.kind == Catalogue.Kind.Artist) {
+                    val blocked = Blocked.isBlocked(card.title, card.id)
+                    Action(
+                        Icons.Rounded.Block,
+                        if (blocked) "Not played" else "Don't play",
+                        filled = false,
+                    ) { Blocked.toggle(card.title, card.id) }
                 }
             }
         }
