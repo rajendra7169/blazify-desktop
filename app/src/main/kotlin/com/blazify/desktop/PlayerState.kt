@@ -726,10 +726,28 @@ object PlayerState {
         }
     }
 
+    /**
+     * Treat the song as over, though the player has not reached its end.
+     *
+     * For a song whose last stretch is being passed over: the same as running
+     * out on its own, so a repeat, a count or a timer set for the end of the
+     * song each still get their say.
+     */
+    fun endEarly() {
+        if (SleepTimer.consumeTrackEnd()) {
+            if (AudioEngine.playing) AudioEngine.toggle()
+            return
+        }
+        advance()
+    }
+
     private fun start() {
         val track = current ?: return
         // Whatever moved the queue to another song took the count with it.
         if (timesFor != null && timesFor != track.id) stopTimes()
+        // Told first, so the asking for what to skip overlaps the asking for
+        // the audio rather than following it.
+        Skipper.began(track)
         reopenedFor = track.id
         reopenedAt = 0
         // Everyone in the room hears what the host started, and hears it from

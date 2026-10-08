@@ -11,11 +11,12 @@ import java.io.File
  */
 
 /**
- * How the music itself is heard: how fast, and whether its key follows.
+ * How the music itself is heard: how fast, whether its key follows, and which
+ * parts of it are passed over.
  *
  * Kept apart from [Playback], which is about what the player does between
- * songs. These change the song while it plays, and both start where the record
- * was made — at its own speed, in its own key.
+ * songs. These change the song while it plays, and all of them start where the
+ * record was made — at its own speed, in its own key, every second of it.
  */
 object Listening {
 
@@ -51,12 +52,25 @@ object Listening {
      */
     val startedNatural: Boolean
 
+    /**
+     * Which stretches marked by viewers are jumped over.
+     *
+     * None to begin with. Asking means telling a public database which video
+     * is playing — by a hash, but still asking — and that is somebody's own
+     * choice to make.
+     */
+    var skipKinds by mutableStateOf(emptySet<SponsorBlock.Kind>())
+        private set
+
     init {
         runCatching {
             if (store.exists()) {
                 val lines = store.readLines()
                 speed = lines.getOrNull(0)?.toFloatOrNull()?.coerceIn(0.5f, 2f) ?: 1f
                 naturalPitch = lines.getOrNull(1) != "false"
+                skipKinds = lines.getOrNull(2).orEmpty().split(',')
+                    .mapNotNull { name -> SponsorBlock.Kind.entries.firstOrNull { it.name == name } }
+                    .toSet()
             }
         }
         startedNatural = naturalPitch
@@ -67,6 +81,10 @@ object Listening {
 
     fun chooseSpeed(value: Float) { speed = value.coerceIn(0.5f, 2f); save() }
     fun chooseNaturalPitch(value: Boolean) { naturalPitch = value; save() }
+    fun chooseSkip(kind: SponsorBlock.Kind, on: Boolean) {
+        skipKinds = if (on) skipKinds + kind else skipKinds - kind
+        save()
+    }
 
     /** Whether the pitch rule differs from the one the player was built with. */
     val pitchWaitsForRestart: Boolean
@@ -80,7 +98,12 @@ object Listening {
 
     private fun save() {
         runCatching {
-            store.writeText(listOf(speed.toString(), naturalPitch.toString()).joinToString("\n"))
+            store.writeText(
+                listOf(
+                    speed.toString(), naturalPitch.toString(),
+                    skipKinds.joinToString(",") { it.name },
+                ).joinToString("\n"),
+            )
         }
     }
 }

@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blazify.desktop.PlayerState
 import com.blazify.desktop.data.Listening
+import com.blazify.desktop.data.SponsorBlock
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.hoverBackground
@@ -82,6 +83,35 @@ fun ListeningSettingsSection(
                 },
                 color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
             )
+        }
+    }
+
+    SkippingSettingsSection(section)
+}
+
+/**
+ * Which marked stretches of a video are jumped over.
+ *
+ * Its own section, because it is the one setting here that asks somebody
+ * else something — and saying what is asked, and how, is part of the setting.
+ */
+@Composable
+fun SkippingSettingsSection(
+    section: @Composable (String, (() -> Unit)?, @Composable () -> Unit) -> Unit,
+) {
+    section("Skip the talking in music videos", null) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                "A music video often opens with a minute of scene and closes with a plug for " +
+                    "the channel. Viewers mark those stretches in the public SponsorBlock " +
+                    "database, and the ones chosen here are jumped over as they come. Asked " +
+                    "by a scrambled piece of the song's id, so the database never learns " +
+                    "what is playing; when it can't be reached, the song simply plays whole.",
+                color = Blz.dim, fontSize = 12.sp, lineHeight = 18.sp,
+            )
+            SponsorBlock.Kind.entries.forEach { kind ->
+                Toggle(kind.label, kind in Listening.skipKinds) { Listening.chooseSkip(kind, it) }
+            }
         }
     }
 }
