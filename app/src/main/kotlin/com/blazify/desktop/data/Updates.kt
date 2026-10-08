@@ -51,7 +51,7 @@ object Updates {
     private const val MANIFEST = "https://rajendrapandey.info.np/blazify/desktop.json"
 
     /** What this build calls itself. Kept beside the packaging version. */
-    const val RUNNING = "1.2.1"
+    const val RUNNING = "1.3.0"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val client by lazy {
