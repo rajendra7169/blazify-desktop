@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Radio
+import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -115,6 +116,21 @@ fun SongSheet(
         }
         Item(Icons.Rounded.PlaylistPlay, "Play next") { PlayerState.playNext(track); onDismiss() }
         Item(Icons.Rounded.QueueMusic, "Add to queue") { PlayerState.addToQueue(track); onDismiss() }
+        // A song wanted more than once, then the rest of the queue. One row
+        // of counts rather than four items: it is one choice with a number in
+        // it, and the number is the only part that changes.
+        Row(
+            Modifier.fillMaxWidth().padding(start = 14.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(Icons.Rounded.RepeatOne, null, Modifier.size(18.dp), tint = Blz.muted)
+            Text("Play", color = Blz.ink, fontSize = 13.sp, modifier = Modifier.padding(start = 6.dp))
+            Box(Modifier.weight(1f))
+            PlayerState.timesChoices.forEach { times ->
+                TimesChip("$times×") { PlayerState.playTimes(track, times); onDismiss() }
+            }
+        }
         Item(Icons.Rounded.PlaylistAdd, "Add to playlist…") {
             Dialogs.addToPlaylist(track); onDismiss()
         }
@@ -244,6 +260,23 @@ private fun Item(
     ) {
         Icon(icon, null, Modifier.size(18.dp), tint = tint ?: Blz.muted)
         Text(label, color = tint ?: Blz.ink, fontSize = 13.sp)
+    }
+}
+
+/** One count in the "play it this many times" row. */
+@Composable
+private fun TimesChip(label: String, onClick: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Blz.surfaceHigh)
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = Blz.ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

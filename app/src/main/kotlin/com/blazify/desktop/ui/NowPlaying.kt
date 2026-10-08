@@ -367,12 +367,19 @@ fun NowPlayingScreen(
                     )
                 }
                 Round(Icons.Rounded.SkipNext, "Next", PlayerState::next, 40.dp)
-                Round(
-                    if (PlayerState.repeat == PlayerState.Repeat.One) Icons.Rounded.RepeatOne
-                    else Icons.Rounded.Repeat,
-                    "Repeat", PlayerState::cycleRepeat, 26.dp,
-                    tint = if (PlayerState.repeat != PlayerState.Repeat.Off) Blaze.Amber else null,
-                )
+                // Right-click for a count, shown on the corner while it runs.
+                val counting = PlayerState.timesLeft > 0
+                RepeatTimesArea {
+                    Box {
+                        Round(
+                            if (PlayerState.repeat == PlayerState.Repeat.One || counting) Icons.Rounded.RepeatOne
+                            else Icons.Rounded.Repeat,
+                            "Repeat", PlayerState::cycleRepeat, 26.dp,
+                            tint = if (PlayerState.repeat != PlayerState.Repeat.Off || counting) Blaze.Amber else null,
+                        )
+                        RepeatTimesBadge(17.dp)
+                    }
+                }
             }
 
             // Everything that isn't transport, under the transport, and

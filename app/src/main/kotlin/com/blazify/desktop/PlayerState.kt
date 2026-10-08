@@ -193,11 +193,53 @@ object PlayerState {
         private set
 
     fun cycleRepeat() {
+        // A count running is the thing the button is showing, so the first
+        // press puts that away rather than changing a mode nobody is looking
+        // at.
+        if (timesLeft > 0) { stopTimes(); return }
         repeat = when (repeat) {
             Repeat.Off -> Repeat.All
             Repeat.All -> Repeat.One
             Repeat.One -> Repeat.Off
         }
+    }
+
+    /**
+     * How many more times the current song plays before the queue carries on.
+     *
+     * Different from repeating one song: that is open-ended, and this is
+     * "three times, then the rest of the album". It belongs to one song, so it
+     * is held with that song's id — and it counts natural endings only.
+     * Pressing next or previous is somebody changing their mind, and the
+     * count goes with it.
+     */
+    var timesLeft by mutableStateOf(0)
+        private set
+    private var timesFor: String? = null
+
+    /** The counts worth offering. */
+    val timesChoices = listOf(2, 3, 5, 10)
+
+    /**
+     * Play this song [times] times in all, then carry on.
+     *
+     * The song that is playing counts as the first of them. A song that is not
+     * playing is started now — asking for a song three times means wanting to
+     * hear it, not wanting it filed somewhere in the queue.
+     */
+    fun playTimes(track: Track, times: Int) {
+        if (times < 2) { stopTimes(); return }
+        if (current?.id != track.id) {
+            playNext(track)
+            next()
+        }
+        timesFor = track.id
+        timesLeft = times - 1
+    }
+
+    fun stopTimes() {
+        timesLeft = 0
+        timesFor = null
     }
 
     var shuffling by mutableStateOf(false)
@@ -264,10 +306,19 @@ object PlayerState {
     }
 
     fun next() {
+        // A skip is a change of mind, and a count asked for a moment ago is
+        // part of the mind that changed.
+        stopTimes()
+        moveOn()
+    }
+
+    /** One step forward, for the queue's own use: a count is left alone. */
+    private fun moveOn() {
         if (index + 1 in queue.indices) { index += 1; start() }
     }
 
     fun previous() {
+        stopTimes()
         // Restart the track first, the way every player does, and only step back
         // when you're already near the beginning.
         if (AudioEngine.position > 3.0) AudioEngine.seek(0.0)
@@ -641,9 +692,17 @@ object PlayerState {
         // Asked before anything else: a timer set to end here means the queue
         // stops, whatever repeat would otherwise have done.
         if (SleepTimer.consumeTrackEnd()) return
+        // A count asked for comes before any mode: it is the more specific
+        // wish, and it ends on its own.
+        if (timesLeft > 0 && current?.id == timesFor) {
+            timesLeft -= 1
+            if (timesLeft == 0) timesFor = null
+            start()
+            return
+        }
         when {
             repeat == Repeat.One -> start()
-            index + 1 in queue.indices -> next()
+            index + 1 in queue.indices -> moveOn()
             repeat == Repeat.All && queue.isNotEmpty() -> { index = 0; start() }
 
             // Nothing left and nothing repeating. Rather than stop dead, keep
@@ -655,6 +714,8 @@ object PlayerState {
 
     private fun start() {
         val track = current ?: return
+        // Whatever moved the queue to another song took the count with it.
+        if (timesFor != null && timesFor != track.id) stopTimes()
         reopenedFor = track.id
         reopenedAt = 0
         // Everyone in the room hears what the host started, and hears it from

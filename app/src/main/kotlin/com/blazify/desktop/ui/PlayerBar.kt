@@ -306,17 +306,26 @@ private fun Transport(
             TransportButton(Icons.Rounded.SkipNext, "Next", 22.dp, onClick = onNext)
             // One icon for three states: repeating a single track gets its own
             // drawing, since "on" alone can't say which kind of on it is.
-            TransportButton(
-                if (repeat == 2) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                when (repeat) {
-                    1 -> "Repeating the queue"
-                    2 -> "Repeating this track"
-                    else -> "Repeat"
-                },
-                17.dp,
-                onClick = onCycleRepeat,
-                tint = if (repeat > 0) Blaze.Amber else null,
-            )
+            // A right click offers a count instead — "three times, then carry
+            // on" — and the count sits on the corner while it runs.
+            val counting = PlayerState.timesLeft > 0
+            RepeatTimesArea {
+                Box {
+                    TransportButton(
+                        if (repeat == 2 || counting) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                        when {
+                            counting -> "Playing this ${PlayerState.timesLeft} more times"
+                            repeat == 1 -> "Repeating the queue"
+                            repeat == 2 -> "Repeating this track"
+                            else -> "Repeat"
+                        },
+                        17.dp,
+                        onClick = onCycleRepeat,
+                        tint = if (repeat > 0 || counting) Blaze.Amber else null,
+                    )
+                    RepeatTimesBadge(13.dp)
+                }
+            }
         }
 
         Row(
