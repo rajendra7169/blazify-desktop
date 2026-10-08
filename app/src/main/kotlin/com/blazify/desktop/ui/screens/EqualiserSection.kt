@@ -33,7 +33,18 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
+import com.blazify.desktop.Typing
+import com.blazify.desktop.audio.AutoEq
+import com.blazify.desktop.audio.CustomCurve
 import com.blazify.desktop.audio.Equaliser
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.Blz
 import com.blazify.desktop.ui.hoverBackground
@@ -120,6 +131,133 @@ fun EqualiserSection(
 
             Chip("Flatten", false) { Equaliser.flatten() }
         }
+    }
+
+    if (Equaliser.bands.isNotEmpty()) {
+        section("Headphone correction", null) { HeadphoneCorrection() }
+    }
+}
+
+/**
+ * Picking a headphone model and putting its AutoEq correction on.
+ *
+ * Searched as you type, against a list fetched the first time it's needed.
+ * A picked curve is kept under the model's name beside the presets, so it is
+ * one press next time and needs no connection.
+ */
+@Composable
+private fun HeadphoneCorrection() {
+    var query by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<AutoEq.Model>>(emptyList()) }
+    var searched by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(query) {
+        if (query.trim().length < 2) {
+            results = emptyList()
+            searched = false
+            return@LaunchedEffect
+        }
+        delay(300)
+        results = AutoEq.search(query)
+        searched = true
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "Corrects your headphones towards a neutral sound, using AutoEq's public " +
+                "measurements of thousands of models.",
+            color = Blz.dim, fontSize = 12.sp, lineHeight = 18.sp,
+        )
+        Text(
+            "An approximation: AutoEq's detailed curve is read at the centre of each of " +
+                "these ten bands, so the shape is right but the fine detail is not.",
+            color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+        )
+
+        if (Equaliser.custom.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Equaliser.custom.take(5).forEach { curve ->
+                    Chip(curve.name.removePrefix(AUTOEQ_PREFIX), curve.name == Equaliser.preset) {
+                        Equaliser.choosePreset(curve.name)
+                    }
+                }
+                Equaliser.preset?.takeIf { name -> Equaliser.custom.any { it.name == name } }?.let { name ->
+                    Chip("Remove", false) { Equaliser.forgetCustom(name) }
+                }
+            }
+        }
+
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Blz.surfaceHigh)
+                .padding(horizontal = 13.dp, vertical = 11.dp),
+        ) {
+            if (query.isEmpty()) Text("Search for your headphones, e.g. HD 600", color = Blz.dim, fontSize = 12.5.sp)
+            BasicTextField(
+                value = query,
+                onValueChange = { query = it },
+                singleLine = true,
+                textStyle = TextStyle(color = Blz.ink, fontSize = 12.5.sp),
+                cursorBrush = SolidColor(Blaze.Amber),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { Typing.active = it.isFocused },
+            )
+        }
+
+        when {
+            AutoEq.busy -> Text("Fetching from AutoEq…", color = Blz.muted, fontSize = 12.sp)
+            AutoEq.trouble != null -> Text(AutoEq.trouble!!, color = Blaze.Amber, fontSize = 12.sp)
+            searched && results.isEmpty() -> Text("No model by that name", color = Blz.muted, fontSize = 12.sp)
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            results.take(8).forEach { model ->
+                ModelRow(model) {
+                    scope.launch {
+                        AutoEq.correction(model, Equaliser.bands).onSuccess { (gains, preamp) ->
+                            Equaliser.keepCustom(CustomCurve(AUTOEQ_PREFIX + model.name, gains, preamp))
+                            query = ""
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Kept curves are named after the model, marked so they never collide with a library preset. */
+private const val AUTOEQ_PREFIX = "AutoEq: "
+
+@Composable
+private fun ModelRow(model: AutoEq.Model, onPick: () -> Unit) {
+    val (source, hovered) = rememberHovered()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .hoverBackground(Blz.hover, hovered, source)
+            .clickable(onClick = onPick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            model.name, color = Blz.ink, fontSize = 13.sp,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            "measured by ${model.source}", color = Blz.dim, fontSize = 11.5.sp,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 12.dp),
+        )
     }
 }
 

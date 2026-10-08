@@ -3,7 +3,13 @@ package com.blazify.desktop.audio
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.blazify.desktop.data.Store
+import kotlinx.serialization.Serializable
 import java.util.prefs.Preferences
+
+/** A curve somebody kept under a name of their own, such as a headphone correction. */
+@Serializable
+data class CustomCurve(val name: String, val gains: List<Float>, val preamp: Float)
 
 /**
  * Blazify Project (C) 2026
@@ -46,6 +52,12 @@ object Equaliser {
     var preamp by mutableStateOf(store.getFloat("preamp", 0f))
         private set
 
+    private const val CUSTOM_FILE = "eq-custom.json"
+
+    /** Curves kept here rather than shipped by the library, newest first. */
+    var custom by mutableStateOf(Store.read<CustomCurve>(CUSTOM_FILE))
+        private set
+
     /** How far a band can be pushed either way. */
     const val RANGE = 20f
 
@@ -73,6 +85,7 @@ object Equaliser {
     }
 
     fun choosePreset(name: String) {
+        custom.firstOrNull { it.name == name }?.let { chooseCustom(it); return }
         preset = name
         runCatching { store.put("preset", name) }
         runCatching {
@@ -98,6 +111,38 @@ object Equaliser {
         runCatching { store.remove("preset") }
         saveGains()
         if (on) apply()
+    }
+
+    /**
+     * Keep a curve under a name and switch to it.
+     *
+     * Saved before it is applied, so a curve fetched once is there next time
+     * without fetching it again. A curve with the same name replaces the old.
+     */
+    fun keepCustom(curve: CustomCurve) {
+        custom = listOf(curve) + custom.filterNot { it.name == curve.name }
+        Store.write(CUSTOM_FILE, custom)
+        chooseCustom(curve)
+    }
+
+    fun forgetCustom(name: String) {
+        custom = custom.filterNot { it.name == name }
+        Store.write(CUSTOM_FILE, custom)
+        if (preset == name) {
+            preset = null
+            runCatching { store.remove("preset") }
+        }
+    }
+
+    private fun chooseCustom(curve: CustomCurve) {
+        preset = curve.name
+        runCatching { store.put("preset", curve.name) }
+        val count = if (bands.isNotEmpty()) bands.size else curve.gains.size
+        gains = List(count) { curve.gains.getOrElse(it) { 0f } }
+        preamp = curve.preamp.coerceIn(-RANGE, RANGE)
+        runCatching { store.putFloat("preamp", preamp) }
+        saveGains()
+        if (!on) setEnabled(true) else apply()
     }
 
     fun changePreamp(value: Float) {
