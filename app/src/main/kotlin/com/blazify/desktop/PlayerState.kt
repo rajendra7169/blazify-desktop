@@ -8,6 +8,7 @@ import com.blazify.desktop.data.Cache
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
+import com.blazify.desktop.data.Listening
 import com.blazify.desktop.data.LyricsSource
 import com.blazify.desktop.data.Playback
 import com.blazify.desktop.data.LastSession
@@ -471,14 +472,27 @@ object PlayerState {
     }
 
     /**
-     * Put the chosen speed back, for talk, on every new piece of audio.
+     * Put the chosen speed back on every new piece of audio.
      *
      * The engine forgets it each time — it is a property of what is playing
-     * rather than of the player — so it is set again here. A song always goes
-     * back to one: a sped-up song is a different song, in a different key.
+     * rather than of the player — so it is set again here. Talk and songs each
+     * have their own number; a song's is one unless somebody chose otherwise.
      */
     private fun applySpeed(track: Track) {
-        AudioEngine.setRate(if (track.talk) speed else 1f)
+        AudioEngine.setRate(if (track.talk) speed else Listening.speed)
+    }
+
+    /**
+     * How fast songs play, chosen apart from talk.
+     *
+     * The two are separate numbers because they are separate wishes: an
+     * episode at one and a half and a playlist at its own pace is the
+     * ordinary case, and one number for both would get one of them wrong.
+     * The key is kept unless asked otherwise — see [Listening.naturalPitch].
+     */
+    fun chooseMusicSpeed(value: Float) {
+        Listening.chooseSpeed(value)
+        if (current?.talk == false) AudioEngine.setRate(Listening.speed)
     }
 
     /**

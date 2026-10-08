@@ -1,6 +1,7 @@
 package com.blazify.desktop.ui
 
 import com.blazify.desktop.PlayerState
+import com.blazify.desktop.data.Listening
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -179,10 +180,12 @@ fun PlayerBar(
             horizontalArrangement = Arrangement.spacedBy(if (narrow) 10.dp else 16.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Only while talk is playing. A speed control beside a song is an
-            // offer to change its key, which is not something anybody wants
-            // and not what this does.
-            if (PlayerState.current?.talk == true) SpeedButton()
+            // Always while talk is playing. For a song, only once its speed
+            // has been changed in the settings — then it is the reminder that
+            // this is not the pace the record was made at, and the quickest
+            // way back to it.
+            val talk = PlayerState.current?.talk == true
+            if (talk || (PlayerState.current != null && Listening.speed != 1f)) SpeedButton(talk)
 
             TransportButton(
                 Icons.Rounded.Bedtime, "Sleep timer", 17.dp,
@@ -476,17 +479,18 @@ private fun Meter(fraction: Float, modifier: Modifier = Modifier, fill: Color = 
 
 
 /**
- * How fast talk plays, as the number it is.
+ * How fast it plays, as the number it is — talk always, a song once changed.
  *
  * The number rather than an icon, because the number is the whole state: an
  * icon of a gauge tells you there is a speed and not which one, and which one
  * is the only thing anybody checks.
  */
 @Composable
-private fun SpeedButton() {
+private fun SpeedButton(talk: Boolean) {
     val (source, hovered) = rememberHovered()
     var open by remember { mutableStateOf(false) }
-    val speed = PlayerState.speed
+    val speed = if (talk) PlayerState.speed else Listening.speed
+    val choices = if (talk) PlayerState.speeds else Listening.speeds
 
     Box {
         Box(
@@ -512,7 +516,7 @@ private fun SpeedButton() {
             onDismissRequest = { open = false },
             modifier = Modifier.background(Blz.surface),
         ) {
-            PlayerState.speeds.forEach { option ->
+            choices.forEach { option ->
                 DropdownMenuItem(
                     text = {
                         Text(
@@ -522,7 +526,7 @@ private fun SpeedButton() {
                         )
                     },
                     onClick = {
-                        PlayerState.chooseSpeed(option)
+                        if (talk) PlayerState.chooseSpeed(option) else PlayerState.chooseMusicSpeed(option)
                         open = false
                     },
                 )

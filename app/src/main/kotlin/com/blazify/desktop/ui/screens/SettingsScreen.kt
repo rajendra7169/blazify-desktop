@@ -205,6 +205,7 @@ fun SettingsScreen() {
                             Section(title, reset) { content() }
                         }
                     }
+                    item { ListeningSettingsSection { title, reset, content -> Section(title, reset) { content() } } }
                     item { EqualiserSection { title, reset, content -> Section(title, reset) { content() } } }
 
                     item {

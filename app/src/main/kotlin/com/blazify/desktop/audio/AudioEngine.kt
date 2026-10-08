@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
 import com.blazify.desktop.data.Levelling
+import com.blazify.desktop.data.Listening
 import uk.co.caprica.vlcj.player.component.AudioPlayerComponent
 
 /**
@@ -125,7 +126,7 @@ object AudioEngine {
                 }
 
                 val since = (System.nanoTime() - anchoredAt) / 1_000_000_000.0
-                val guess = anchor + since
+                val guess = anchor + since * rate
                 position = if (duration > 0) guess.coerceAtMost(duration) else guess
             }
         }
@@ -166,6 +167,12 @@ object AudioEngine {
             options += "--audio-filter=normvol"
             options += "--norm-buff-size=20"
             options += "--norm-max-level=${Levelling.target}"
+        }
+        if (!Listening.startedNatural) {
+            // The record player's rule: faster is higher. The library keeps a
+            // song's key through a change of speed unless told not to, and it
+            // can only be told when it starts.
+            options += "--no-audio-time-stretch"
         }
         return options.toTypedArray()
     }
@@ -308,6 +315,7 @@ object AudioEngine {
         buffering = false
         anchorAt(0.0)
         duration = 0.0
+        rate = 1.0
         // Told who to claim to be. The catalogue ties a stream link to the kind
         // of device that asked for it and turns away anyone else — so fetching
         // it as the library's own default is a refusal, and a refusal here
@@ -372,7 +380,17 @@ object AudioEngine {
      */
     fun setRate(rate: Float) {
         runCatching { player.controls().setRate(rate.coerceIn(0.5f, 3f)) }
+        this.rate = rate.coerceIn(0.5f, 3f).toDouble()
     }
+
+    /**
+     * How fast the clock should run between the player's reports.
+     *
+     * At double speed a second of the wall clock is two seconds of the song,
+     * and a clock that did not know would fall behind between reports and
+     * jump forward at each one.
+     */
+    private var rate = 1.0
 
     fun stop() {
         runCatching { player.controls().stop() }
