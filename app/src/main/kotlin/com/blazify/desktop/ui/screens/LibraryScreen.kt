@@ -99,7 +99,11 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
     // at two ways, and a page that lists them twice is a page that looks broken.
     val allShows = (shows + saved.filter { Catalogue.isShow(it.id) })
         .distinctBy { it.id }
-    val records = saved.filterNot { Catalogue.isShow(it.id) }
+    // People apart from records, for the same reason as shows: an artist
+    // among albums is a round face in a grid of squares, and finding the ones
+    // you follow should not mean reading every tile.
+    val artists = Library.followed
+    val records = saved.filterNot { Catalogue.isShow(it.id) || it.kind == Catalogue.Kind.Artist }
 
     // A session that has lapsed is not the same as never having had one, and
     // telling someone to sign in when they already did is how an expired
@@ -173,6 +177,7 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
                         own.size.takeIf { it > 0 }?.let { "$it made here" },
                         mine.size.takeIf { it > 0 }?.let { "$it yours" },
                         allShows.size.takeIf { it > 0 }?.let { "$it shows" },
+                        artists.size.takeIf { it > 0 }?.let { "$it artists followed" },
                         records.size.takeIf { it > 0 }?.let { "$it saved" },
                     ).joinToString("  ·  ").ifEmpty { "Nothing here yet" },
                     color = Blz.muted, fontSize = 13.sp,
@@ -205,6 +210,11 @@ fun LibraryScreen(onOpen: (Catalogue.Card) -> Unit, onOpenPlaylist: (String) -> 
             itemsIndexed(allShows, key = { at, it -> "show-$at-${it.id}" }) { _, card ->
                 SavedTile(card, onOpen)
             }
+        }
+
+        if (artists.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { Heading("Followed artists") }
+            itemsIndexed(artists, key = { at, it -> "artist-$at-${it.id}" }) { _, card -> SavedTile(card, onOpen) }
         }
 
         if (records.isNotEmpty()) {

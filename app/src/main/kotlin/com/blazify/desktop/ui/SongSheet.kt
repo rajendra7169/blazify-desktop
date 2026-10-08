@@ -19,6 +19,8 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.HowToReg
+import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.MoreVert
@@ -175,6 +177,13 @@ fun SongSheet(
                     )
                     onDismiss()
                 }
+                val name = Blocked.mainArtist(track)
+                val following = Library.isFollowing(id)
+                Item(
+                    if (following) Icons.Rounded.HowToReg else Icons.Rounded.PersonAdd,
+                    if (following) "Following $name" else "Follow $name",
+                    tint = if (following) Blaze.Amber else null,
+                ) { Library.toggleFollow(id, name); onDismiss() }
             }
             track.albumId?.let { id ->
                 Item(Icons.Rounded.Album, "Go to album") {

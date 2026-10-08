@@ -24,6 +24,8 @@ import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.HowToReg
+import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
@@ -89,7 +91,12 @@ fun CollectionScreen(
     suspend fun fetch() {
         problem = null
         Catalogue.collection(card).fold(
-            onSuccess = { page = it },
+            onSuccess = {
+                page = it
+                // A followed artist kept from a song's menu has no picture
+                // until somebody opens their page; this is that moment.
+                Library.refreshSaved(it.card)
+            },
             onFailure = { problem = "Couldn't open ${card.title}" },
         )
     }
@@ -213,13 +220,20 @@ private fun Header(
                     val saved = Library.isSaved(card.id)
                     // A show is followed, not saved: what you want from it is
                     // the next episode, and "Saved" describes keeping a copy of
-                    // the last one.
+                    // the last one. A person is followed too — you keep up
+                    // with somebody, you don't file them.
                     val show = Catalogue.isShow(card.id)
+                    val artist = card.kind == Catalogue.Kind.Artist
                     Action(
-                        if (saved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
                         when {
-                            show && saved -> "Following"
-                            show -> "Follow"
+                            artist && saved -> Icons.Rounded.HowToReg
+                            artist -> Icons.Rounded.PersonAdd
+                            saved -> Icons.Rounded.Bookmark
+                            else -> Icons.Rounded.BookmarkBorder
+                        },
+                        when {
+                            (show || artist) && saved -> "Following"
+                            show || artist -> "Follow"
                             saved -> "Saved"
                             else -> "Save"
                         },

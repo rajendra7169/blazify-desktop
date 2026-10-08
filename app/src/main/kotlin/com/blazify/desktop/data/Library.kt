@@ -135,6 +135,41 @@ object Library {
         else listOf(card) + saved
         Store.write(SAVED, saved)
     }
+
+    /**
+     * The artists you follow.
+     *
+     * Kept among the saved cards rather than in a file of their own: following
+     * somebody is keeping their page, the same act as keeping an album, and a
+     * backup or a restore that already carries one carries the other.
+     */
+    val followed: List<Catalogue.Card>
+        get() = saved.filter { it.kind == Catalogue.Kind.Artist }
+
+    fun isFollowing(artistId: String) = saved.any { it.id == artistId && it.kind == Catalogue.Kind.Artist }
+
+    /**
+     * Follow or unfollow somebody by name and id, from wherever they were met.
+     *
+     * A song's menu only knows a name; the picture is filled in the next time
+     * their page is opened, by [refreshSaved].
+     */
+    fun toggleFollow(artistId: String, name: String, picture: String? = null) {
+        toggleSaved(Catalogue.Card(artistId, name, "Artist", picture, Catalogue.Kind.Artist))
+    }
+
+    /**
+     * Bring a kept card up to date with its page — a picture that was missing,
+     * a name the catalogue has since spelled differently. Its place in the
+     * list stays where it was.
+     */
+    fun refreshSaved(card: Catalogue.Card) {
+        val old = saved.firstOrNull { it.id == card.id } ?: return
+        val fresh = old.copy(title = card.title, thumbnail = card.thumbnail ?: old.thumbnail)
+        if (fresh == old) return
+        saved = saved.map { if (it.id == card.id) fresh else it }
+        Store.write(SAVED, saved)
+    }
     /**
      * Read the files in now, before anything draws.
      *
