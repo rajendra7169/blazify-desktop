@@ -8,6 +8,7 @@ import com.blazify.desktop.data.Cache
 import com.blazify.desktop.data.Catalogue
 import com.blazify.desktop.data.Downloads
 import com.blazify.desktop.data.Library
+import com.blazify.desktop.data.Net
 import com.blazify.desktop.data.Listening
 import com.blazify.desktop.data.LyricsSource
 import com.blazify.desktop.data.Playback
@@ -423,6 +424,21 @@ object PlayerState {
         // first track without this.
         AudioEngine.onFinished = { advance() }
 
+        // A link found while the connection was still there, handed to the
+        // player after it went: the player gives up, and nothing else would
+        // notice. Seen here, and treated like any song that can't be fetched.
+        scope.launch {
+            var handled: String? = null
+            while (true) {
+                delay(500)
+                val track = current ?: continue
+                if (AudioEngine.error == null) { handled = null; continue }
+                if (handled == track.id || playableOffline(track)) continue
+                handled = track.id
+                if (!Net.checkNow() && current?.id == track.id) continueOffline()
+            }
+        }
+
         // Where you had got to, noted as you go. Not only while playing: a
         // pause is exactly when somebody is about to walk away, and the
         // position at that moment is the one worth having.
@@ -659,6 +675,10 @@ object PlayerState {
                 onSuccess = { AudioEngine.play(it.url, resumeFrom, it.userAgent) },
                 onFailure = { why ->
                     val refused = why is Catalogue.BotCheck
+                    if (!refused && current?.id == track.id && !Net.checkNow() && continueOffline()) {
+                        reopening = false
+                        return@launch
+                    }
                     failure = if (refused) refusalMessage() else "Lost the connection to ${track.title}"
                     if (!refused && Playback.skipBroken && index + 1 in queue.indices) next()
                 },
@@ -748,6 +768,7 @@ object PlayerState {
         // Told first, so the asking for what to skip overlaps the asking for
         // the audio rather than following it.
         Skipper.began(track)
+        Ahead.began()
         reopenedFor = track.id
         reopenedAt = 0
         // Everyone in the room hears what the host started, and hears it from
@@ -801,6 +822,7 @@ object PlayerState {
             else -> null
         }
         if (onDisk != null) {
+            offlineHops = 0
             AudioEngine.play(onDisk)
             applySpeed(track)
             fadeUp()
@@ -817,6 +839,13 @@ object PlayerState {
             Library.played(track)
             return
         }
+
+        // Known to be offline, and this one is only out there. Asking the
+        // catalogue would only fail after a wait, so go straight to the next
+        // song that is here.
+        // Only when there is somewhere to go: the flag can be a few seconds
+        // behind a connection that just came back, and then asking is right.
+        if (!Net.online && continueOffline(stopIfNone = false)) return
 
         // Found already, while the last song was playing. A link is only good
         // once, so it is taken rather than copied — a second play of the same
@@ -835,6 +864,7 @@ object PlayerState {
         scope.launch {
             Catalogue.stream(track.id).fold(
                 onSuccess = {
+                    offlineHops = 0
                     AudioEngine.play(it.url, it.userAgent)
                     applySpeed(track)
                     fadeUp()
@@ -851,6 +881,11 @@ object PlayerState {
                     // queue, which is what "it just goes next, next, next"
                     // looks like from the outside.
                     val refused = why is Catalogue.BotCheck
+                    // No connection at all is not a broken song. Carry on
+                    // with what is on this computer instead of stopping.
+                    if (!refused && current?.id == track.id && !Net.checkNow() && continueOffline()) {
+                        return@fold
+                    }
                     failure = if (refused) refusalMessage() else "Couldn't play ${track.title}"
                     // Sitting on a song that will not play, waiting to be
                     // rescued, is the worst of the options — so move on unless
@@ -859,6 +894,49 @@ object PlayerState {
                 },
             )
         }
+    }
+
+    /**
+     * How many songs in a row have been passed over for want of a connection.
+     *
+     * The guard against going round forever: each pass moves forward to a
+     * song that is on this computer, and anything that actually plays puts it
+     * back to nought. Once it has covered the whole queue without finding one,
+     * it stops and says so.
+     */
+    private var offlineHops = 0
+
+    /** Whether a song can play with no connection at all. */
+    private fun playableOffline(track: Track): Boolean =
+        LocalMusic.isLocal(track.id) || Downloads.has(track.id) || Cache.has(track.id)
+
+    /**
+     * Move to the next song in the queue that is here, rather than stop.
+     *
+     * Forward only, and round to the top only when the queue repeats — the
+     * same rule the end of a song follows. False when there is nothing to move
+     * to, so the ordinary failure can be shown instead. When the connection
+     * comes back nothing needs undoing: the next song streams as usual.
+     */
+    private fun continueOffline(stopIfNone: Boolean = true): Boolean {
+        if (queue.isEmpty() || offlineHops >= queue.size) return false
+        val order = buildList {
+            addAll(index + 1 until queue.size)
+            if (repeat == Repeat.All) addAll(0 until index)
+        }
+        val found = order.firstOrNull { playableOffline(queue[it]) }
+        if (found == null) {
+            if (!stopIfNone) return false
+            failure = "No connection, and nothing further in the queue is on this computer"
+            AudioEngine.stop()
+            return true
+        }
+        offlineHops += found.let { if (it > index) it - index else queue.size - index + it }
+        index = found
+        start()
+        // Said after starting, which clears the last message, so this one stays.
+        failure = "No connection — playing what's on this computer"
+        return true
     }
 
     /**

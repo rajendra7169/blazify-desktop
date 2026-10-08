@@ -9,6 +9,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.net.InetSocketAddress
 import java.net.Socket
 
@@ -60,6 +61,17 @@ object Net {
             if (reachable != online) online = reachable
             known = true
         }
+    }
+
+    /**
+     * Ask now and wait for the answer — for deciding what to do about a song
+     * that just failed, where a guess thirty seconds old is not good enough.
+     */
+    suspend fun checkNow(): Boolean = withContext(Dispatchers.IO) {
+        val reachable = reachable()
+        if (reachable != online) online = reachable
+        known = true
+        reachable
     }
 
     private fun reachable(): Boolean = runCatching {

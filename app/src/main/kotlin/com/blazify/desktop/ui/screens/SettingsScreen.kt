@@ -311,6 +311,19 @@ fun SettingsScreen() {
                             SettingSwitch("Keep songs as I play them", Cache.on) {
                                 Cache.choose(it)
                             }
+                            if (Cache.on) {
+                                SettingSwitch("Keep the next three songs ready", Cache.aheadOn) {
+                                    Cache.chooseAhead(it)
+                                }
+                                Text(
+                                    "Fetched in the background on a connection that isn't " +
+                                        "counted by the byte, and only while the song that is " +
+                                        "playing has all it needs. If the connection drops, " +
+                                        "the queue carries on with whatever is on this " +
+                                        "computer instead of stopping.",
+                                    color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
+                                )
+                            }
                             // Broken out the way the downloads are, and for
                             // the same reason: somebody clearing space needs to
                             // know which of the two is actually the problem.

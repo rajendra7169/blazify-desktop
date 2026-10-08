@@ -62,6 +62,16 @@ object Cache {
     var limitMegabytes by mutableStateOf(2048)
         private set
 
+    /**
+     * Whether the next few songs are kept before they are reached.
+     *
+     * Only on a connection that isn't counted by the byte, and only while the
+     * song that is playing has all it needs — so the queue can carry on
+     * through a dropped connection without anything playing worse for it.
+     */
+    var aheadOn by mutableStateOf(true)
+        private set
+
     private val settings: File get() = File(Store.folder, "cache-settings")
 
     init {
@@ -70,6 +80,7 @@ object Cache {
                 val lines = settings.readLines()
                 on = lines.getOrNull(0) != "false"
                 limitMegabytes = lines.getOrNull(1)?.toIntOrNull() ?: 2048
+                aheadOn = lines.getOrNull(2) != "false"
             }
         }
         // Only what is actually still on disk. A file somebody deleted by hand
@@ -117,13 +128,39 @@ object Cache {
         }
         if (running.contains(track.id)) return
 
-        scope.launch {
-            running = running + track.id
-            val target = fileFor(track.id)
-            val partial = File(folder, "${track.id}.part")
+        scope.launch { fetch(track) }
+    }
 
+    /**
+     * Keep a song that hasn't been played yet, because it is coming up.
+     *
+     * The quiet version of [heard]: one piece at a time, and before each one
+     * [hold] decides whether the connection can be spared — the song that is
+     * actually playing always comes first. Suspends until the song is kept or
+     * has failed, so whoever asked can take them one after another.
+     */
+    suspend fun ahead(track: Track, hold: suspend () -> Unit): Boolean {
+        if (!on || track.talk) return false
+        if (Downloads.has(track.id) || LocalMusic.isLocal(track.id) || has(track.id)) return true
+        if (running.contains(track.id)) return false
+        return fetch(track, parallel = 1, hold = hold)
+    }
+
+    private suspend fun fetch(track: Track, parallel: Int = 3, hold: (suspend () -> Unit)? = null): Boolean {
+        // Claimed in one step, so the song being heard and the song being
+        // kept ahead can't both start fetching the same file.
+        synchronized(this) {
+            if (running.contains(track.id)) return false
+            running = running + track.id
+        }
+        val target = fileFor(track.id)
+        val partial = File(folder, "${track.id}.part")
+        var kept = false
+        try {
             val where = track.stream?.let { Result.success(it) } ?: Catalogue.streamUrl(track.id)
-            where.mapCatching { url -> StreamFetcher.download(url, partial) { }.getOrThrow() }
+            where.mapCatching { url ->
+                StreamFetcher.download(url, partial, parallel = parallel, hold = hold).getOrThrow()
+            }
                 .onSuccess {
                     partial.renameTo(target)
                     items = listOf(Cached(track, Instant.now().toEpochMilli(), target.length())) +
@@ -134,10 +171,22 @@ object Cache {
                     // thing that was being kept.
                     Offline.keep(track)
                     makeRoom()
+                    kept = true
                 }
                 .onFailure { runCatching { partial.delete() } }
+        } finally {
+            if (!kept) runCatching { partial.delete() }
             running = running - track.id
         }
+        return kept
+    }
+
+    /** Whether a song is being fetched right now. */
+    fun isFetching(id: String) = running.contains(id)
+
+    fun chooseAhead(value: Boolean) {
+        aheadOn = value
+        saveSettings()
     }
 
     /** Songs being fetched right now, so nothing is fetched twice. */
@@ -202,6 +251,6 @@ object Cache {
     private fun save() = Store.write(INDEX, items)
 
     private fun saveSettings() {
-        runCatching { settings.writeText("$on\n$limitMegabytes") }
+        runCatching { settings.writeText("$on\n$limitMegabytes\n$aheadOn") }
     }
 }

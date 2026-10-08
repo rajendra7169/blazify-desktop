@@ -49,7 +49,21 @@ object StreamFetcher {
         fun onProgress(fraction: Float)
     }
 
-    suspend fun download(url: String, into: File, progress: Progress? = null): Result<File> =
+    /**
+     * Fetch [url] into [into].
+     *
+     * [parallel] and [hold] are for fetching in the background, behind
+     * something more important: one piece at a time instead of several, and
+     * before each piece [hold] is given the chance to wait — for as long as
+     * it likes — until the connection can be spared again.
+     */
+    suspend fun download(
+        url: String,
+        into: File,
+        parallel: Int = PARALLEL,
+        hold: (suspend () -> Unit)? = null,
+        progress: Progress? = null,
+    ): Result<File> =
         withContext(Dispatchers.IO) {
             runCatching {
                 val total = contentLength(url)
@@ -67,7 +81,8 @@ object StreamFetcher {
                 }
 
                 var done = 0
-                ranges.chunked(PARALLEL).forEach { batch ->
+                ranges.chunked(parallel.coerceIn(1, PARALLEL)).forEach { batch ->
+                    hold?.invoke()
                     coroutineScope {
                         batch.map { (from, to) ->
                             async { fetchRange(url, from, to, into) }
