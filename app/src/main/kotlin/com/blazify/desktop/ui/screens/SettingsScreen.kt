@@ -516,8 +516,8 @@ fun SettingsScreen() {
                                         "Installing closes Blazify, swaps this AppImage for the new " +
                                             "one, and opens it."
                                     UpdateInstall.Kind.WindowsSetup ->
-                                        "Installing closes Blazify and opens the setup for the new " +
-                                            "version; it keeps your library and settings."
+                                        "Installing closes Blazify, runs the setup for the new " +
+                                            "version and opens it again; your library and settings stay."
                                     UpdateInstall.Kind.Unknown ->
                                         "This copy wasn't installed from a package, so new versions " +
                                             "come from the release page."

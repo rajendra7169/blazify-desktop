@@ -61,7 +61,7 @@ object UpdateInstall {
                 when (kind) {
                     Kind.Deb -> afterClosing(file, debSteps(file))
                     Kind.AppImage -> afterClosing(file, appImageSteps(file))
-                    Kind.WindowsSetup -> ProcessBuilder(file.absolutePath).directory(file.parentFile).start()
+                    Kind.WindowsSetup -> windowsSetup(file)
                     Kind.Unknown -> return "This copy has to be updated by hand: the file is in ${file.parent}."
                 }
             }
@@ -115,4 +115,25 @@ object UpdateInstall {
     }
 
     private fun quote(text: String) = "'" + text.replace("'", "'\\''") + "'"
+
+    /**
+     * On Windows: once Blazify has closed, the setup runs, and when it has finished Blazify is
+     * opened again. A hidden PowerShell does the waiting, so it outlives this process; its steps
+     * are given on the command line rather than in a script file, which a locked-down machine
+     * may refuse to run.
+     */
+    private fun windowsSetup(file: File) {
+        val pid = ProcessHandle.current().pid()
+        val app = launcher?.takeIf { it.endsWith(".exe", ignoreCase = true) }
+        fun ps(text: String) = "'" + text.replace("'", "''") + "'"
+        val steps = buildString {
+            append("while (Get-Process -Id $pid -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 300 }; ")
+            append("Start-Process -FilePath ${ps(file.absolutePath)} -Wait; ")
+            if (app != null) append("if (Test-Path ${ps(app)}) { Start-Process -FilePath ${ps(app)} }")
+        }
+        ProcessBuilder(
+            "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
+            "-Command", steps,
+        ).directory(file.parentFile).start()
+    }
 }

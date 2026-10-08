@@ -84,8 +84,9 @@ fun UpdateDialog() {
                             UpdateInstall.Kind.AppImage ->
                                 "Blazify will close, swap in the new version and open again."
                             UpdateInstall.Kind.WindowsSetup ->
-                                "Blazify will close and the setup for the new version will open. " +
-                                    "Your library and settings stay as they are."
+                                "Blazify will close and the setup for the new version will open; " +
+                                    "when it has finished, Blazify opens again. Your library and " +
+                                    "settings stay as they are."
                             UpdateInstall.Kind.Unknown -> "The new version has been downloaded."
                         },
                         color = Blz.dim,
