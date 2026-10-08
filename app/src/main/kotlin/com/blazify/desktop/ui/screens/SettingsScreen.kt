@@ -72,6 +72,7 @@ import com.blazify.desktop.data.Notify
 import com.blazify.desktop.data.Panel
 import com.blazify.desktop.data.Store
 import com.blazify.desktop.data.BugReport
+import com.blazify.desktop.data.UpdateInstall
 import com.blazify.desktop.data.Updates
 import com.blazify.desktop.ui.Artwork
 import com.blazify.desktop.ui.Blaze
@@ -475,6 +476,17 @@ fun SettingsScreen() {
                                 Button(if (Updates.checking) "Checking…" else "Check now") {
                                     Updates.check()
                                 }
+                                if (Updates.newer && Updates.download != null) {
+                                    val progress = Updates.progress
+                                    when {
+                                        progress != null ->
+                                            Button("Downloading… ${(progress * 100).toInt()}%") {}
+                                        Updates.ready != null ->
+                                            Button("Install and restart", Updates::install)
+                                        else ->
+                                            Button("Download and install ${Updates.latest}", Updates::fetch)
+                                    }
+                                }
                                 if (Updates.newer) {
                                     Button("Open the release page", Updates::openReleases)
                                 }
@@ -496,9 +508,20 @@ fun SettingsScreen() {
                             }
 
                             Text(
-                                "This only looks. Nothing is downloaded or replaced — on " +
-                                    "Linux that would be arguing with whatever package " +
-                                    "manager installed it.",
+                                when (UpdateInstall.kind) {
+                                    UpdateInstall.Kind.Deb ->
+                                        "Installing closes Blazify, asks for your password in the " +
+                                            "system's own window, and opens the new version."
+                                    UpdateInstall.Kind.AppImage ->
+                                        "Installing closes Blazify, swaps this AppImage for the new " +
+                                            "one, and opens it."
+                                    UpdateInstall.Kind.WindowsSetup ->
+                                        "Installing closes Blazify and opens the setup for the new " +
+                                            "version; it keeps your library and settings."
+                                    UpdateInstall.Kind.Unknown ->
+                                        "This copy wasn't installed from a package, so new versions " +
+                                            "come from the release page."
+                                },
                                 color = Blz.dim, fontSize = 11.5.sp, lineHeight = 17.sp,
                             )
                         }

@@ -18,6 +18,9 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URI
 
 /**
  * Blazify Project (C) 2026
@@ -25,22 +28,26 @@ import java.io.File
  */
 
 /**
- * Whether there is a newer one.
+ * Whether there is a newer one, and — asked to — fetching it and putting it in.
  *
- * It asks and then tells you; it does not fetch, unpack or replace anything. An
- * application that rewrites itself on a machine somebody else administers is a
- * different kind of program, and on Linux it would be fighting the package
- * manager that put it there.
+ * The version is asked for from Blazify's own site first and from the release
+ * page second, and the files come from a mirror first and the release page
+ * second: one host going quiet, or turning a project away, leaves the other to
+ * answer. Every file is tried at each of its addresses in turn, and a download
+ * that drops is picked up where it stopped.
  *
  * Off by default. A program that phones home on every launch should have been
  * asked first, and the answer to "is there a new version" is almost never
- * urgent.
+ * urgent. Nothing is fetched until somebody presses the button.
  */
 object Updates {
 
     /** Where releases are published. */
     private const val OWNER = "rajendra7169"
     private const val REPO = "blazify-desktop"
+
+    /** Blazify's own description of the newest version, kept beside its website. */
+    private const val MANIFEST = "https://rajendrapandey.info.np/blazify/desktop.json"
 
     /** What this build calls itself. Kept beside the packaging version. */
     const val RUNNING = "1.2.1"
@@ -54,6 +61,9 @@ object Updates {
     }
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val store = File(Store.folder, "updates")
+
+    /** One file of a release, and every address it can be fetched from, in order. */
+    data class Download(val name: String, val size: Long?, val urls: List<String>)
 
     var checkOnStart by mutableStateOf(false)
         private set
@@ -71,16 +81,45 @@ object Updates {
     var outcome by mutableStateOf<String?>(null)
         private set
 
+    /** The files of the newest release. */
+    private var files: List<Download> = emptyList()
+
+    /** How far a download has got, from 0 to 1, while there is one. */
+    var progress by mutableStateOf<Float?>(null)
+        private set
+
+    /** The installer, fetched and whole, ready to be put in. */
+    var ready by mutableStateOf<File?>(null)
+        private set
+
     val newer: Boolean get() = latest?.let { isNewer(it, RUNNING) } == true
 
+    /** The file of the newest release this copy of Blazify can install, if there is one. */
+    val download: Download? get() = UpdateInstall.pick(files)
+
     init {
-        runCatching { checkOnStart = store.readText().trim() == "true" }
+        runCatching { checkOnStart = File(folder(), "check-on-start").readText().trim() == "true" }
         if (checkOnStart) check()
+    }
+
+    /**
+     * The folder for updates. An older build kept the one setting here in a file of this name,
+     * so a file found in its place is turned into the folder, keeping the setting.
+     */
+    private fun folder(): File {
+        if (store.isFile) {
+            val setting = runCatching { store.readText().trim() }.getOrDefault("false")
+            store.delete()
+            store.mkdirs()
+            runCatching { File(store, "check-on-start").writeText(setting) }
+        }
+        store.mkdirs()
+        return store
     }
 
     fun chooseCheckOnStart(value: Boolean) {
         checkOnStart = value
-        runCatching { store.writeText(value.toString()) }
+        runCatching { File(folder(), "check-on-start").writeText(value.toString()) }
     }
 
     fun check() {
@@ -88,44 +127,164 @@ object Updates {
         checking = true
         outcome = null
         scope.launch {
-            val body = runCatching {
-                client.get("https://api.github.com/repos/$OWNER/$REPO/releases/latest") {
-                    header("Accept", "application/vnd.github+json")
-                    header("User-Agent", "Blazify")
-                }.bodyAsText()
-            }.getOrNull()
-
+            val found = fromManifest() ?: fromReleasePage()
             checking = false
-            if (body == null) {
+            if (found == null) {
                 outcome = "Couldn't reach the release page."
                 return@launch
             }
-
-            val root = runCatching { json.parseToJsonElement(body) }.getOrNull()
-            val release = when (root) {
-                is JsonObject -> root
-                // A repository with no releases answers with a message rather
-                // than a release, and a list endpoint would answer with an
-                // empty array. Both mean the same thing here.
-                is JsonArray -> root.firstOrNull() as? JsonObject
-                else -> null
-            }
-
-            val tag = release?.get("tag_name")?.plain()
-            if (tag == null) {
+            if (!found) {
                 outcome = "No releases published yet."
                 return@launch
             }
-
-            latest = tag.removePrefix("v")
-            notes = release["body"]?.plain()?.trim()?.takeIf { it.isNotBlank() }
-            link = release["html_url"]?.plain()
             outcome = if (newer) {
                 "Version $latest is out — you're on $RUNNING."
             } else {
                 "You're on the newest version."
             }
         }
+    }
+
+    /** True when the site answered with a release, false when with none, null when not at all. */
+    private suspend fun fromManifest(): Boolean? {
+        val body = runCatching {
+            // BLAZIFY_UPDATE_MANIFEST points a test build at an update file of its own.
+            client.get(System.getenv("BLAZIFY_UPDATE_MANIFEST") ?: MANIFEST) { header("User-Agent", "Blazify") }
+                .takeIf { it.status.value == 200 }?.bodyAsText()
+        }.getOrNull() ?: return null
+        val root = runCatching { json.parseToJsonElement(body) as? JsonObject }.getOrNull() ?: return null
+        val version = root["version"]?.plain() ?: return false
+        latest = version.removePrefix("v")
+        notes = root["notes"]?.plain()?.trim()?.takeIf { it.isNotBlank() }
+        link = root["page"]?.plain()
+        files = (root["files"] as? JsonArray).orEmpty().mapNotNull { element ->
+            val file = element as? JsonObject ?: return@mapNotNull null
+            val name = file["name"]?.plain() ?: return@mapNotNull null
+            val urls = (file["urls"] as? JsonArray).orEmpty().mapNotNull { it.plain() }
+            if (urls.isEmpty()) return@mapNotNull null
+            Download(name, file["size"]?.plain()?.toLongOrNull(), urls)
+        }
+        return true
+    }
+
+    /** The same, asked of the release page itself. */
+    private suspend fun fromReleasePage(): Boolean? {
+        val body = runCatching {
+            client.get("https://api.github.com/repos/$OWNER/$REPO/releases/latest") {
+                header("Accept", "application/vnd.github+json")
+                header("User-Agent", "Blazify")
+            }.bodyAsText()
+        }.getOrNull() ?: return null
+
+        val root = runCatching { json.parseToJsonElement(body) }.getOrNull()
+        val release = when (root) {
+            is JsonObject -> root
+            // A repository with no releases answers with a message rather
+            // than a release, and a list endpoint would answer with an
+            // empty array. Both mean the same thing here.
+            is JsonArray -> root.firstOrNull() as? JsonObject
+            else -> null
+        }
+
+        val tag = release?.get("tag_name")?.plain() ?: return false
+        latest = tag.removePrefix("v")
+        notes = release["body"]?.plain()?.trim()?.takeIf { it.isNotBlank() }
+        link = release["html_url"]?.plain()
+        files = (release["assets"] as? JsonArray).orEmpty().mapNotNull { element ->
+            val asset = element as? JsonObject ?: return@mapNotNull null
+            val name = asset["name"]?.plain() ?: return@mapNotNull null
+            val url = asset["browser_download_url"]?.plain() ?: return@mapNotNull null
+            Download(name, asset["size"]?.plain()?.toLongOrNull(), listOf(url))
+        }
+        return true
+    }
+
+    /**
+     * Fetches the installer for this machine, with its progress shown as it goes.
+     *
+     * Each address is given a few tries and then the next is tried, and a try
+     * that drops carries on from the bytes already saved rather than starting
+     * again. A file whose size the release gave has to arrive at that size.
+     */
+    fun fetch() {
+        val want = download ?: return
+        if (progress != null) return
+        progress = 0f
+        ready = null
+        outcome = "Downloading Blazify $latest…"
+        scope.launch {
+            val done = runCatching { fetchFile(want) }
+                .onFailure { outcome = "The download stopped: ${it.message ?: "no reason given"}. Try again." }
+                .getOrNull()
+            progress = null
+            if (done != null) {
+                ready = done
+                outcome = "Blazify $latest is downloaded and ready to install."
+            }
+        }
+    }
+
+    private fun fetchFile(want: Download): File {
+        val folder = File(folder(), latest ?: "new").apply { mkdirs() }
+        val target = File(folder, want.name)
+        if (want.size != null && target.length() == want.size) return target
+        val part = File(folder, want.name + ".part")
+        var last: Exception? = null
+        for (url in want.urls) {
+            repeat(TRIES_PER_ADDRESS) {
+                try {
+                    fetchInto(url, part, want.size)
+                    if (want.size == null || part.length() == want.size) {
+                        target.delete()
+                        if (!part.renameTo(target)) error("Couldn't put the download in place")
+                        return target
+                    }
+                } catch (e: Exception) {
+                    last = e
+                }
+            }
+        }
+        throw last ?: IllegalStateException("No address answered")
+    }
+
+    private fun fetchInto(url: String, part: File, size: Long?) {
+        val have = part.length()
+        val connection = (URI(url).toURL().openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15_000
+            readTimeout = 30_000
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", "Blazify")
+            if (have > 0) setRequestProperty("Range", "bytes=$have-")
+        }
+        try {
+            val code = connection.responseCode
+            val resuming = code == 206
+            if (code != 200 && !resuming) error("the server answered $code")
+            // A server that ignores the range sends the whole file again: start the file over.
+            val append = resuming && have > 0
+            val total = size ?: connection.getHeaderField("Content-Length")?.toLongOrNull()?.let { if (append) it + have else it }
+            connection.inputStream.use { input ->
+                FileOutputStream(part, append).use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var got = if (append) have else 0L
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        output.write(buffer, 0, read)
+                        got += read
+                        if (total != null && total > 0) progress = (got.toFloat() / total).coerceIn(0f, 1f)
+                    }
+                }
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /** Closes Blazify and puts the downloaded version in; it opens again when that is done. */
+    fun install() {
+        val file = ready ?: return
+        outcome = UpdateInstall.start(file) ?: return
     }
 
     /**
@@ -151,6 +310,8 @@ object Updates {
     fun openReleases() {
         Browse.open(link ?: "https://github.com/$OWNER/$REPO/releases")
     }
+
+    private const val TRIES_PER_ADDRESS = 3
 
     private fun kotlinx.serialization.json.JsonElement.plain(): String? =
         (this as? kotlinx.serialization.json.JsonPrimitive)?.content?.takeIf { it.isNotBlank() }
