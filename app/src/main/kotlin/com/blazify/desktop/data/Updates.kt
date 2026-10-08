@@ -92,6 +92,32 @@ object Updates {
     var ready by mutableStateOf<File?>(null)
         private set
 
+    /** Bytes of the download so far, and in all, for the popup to show. */
+    var received by mutableStateOf(0L)
+        private set
+    var total by mutableStateOf<Long?>(null)
+        private set
+
+    /** Why the last download stopped, while the popup shows it. */
+    var failure by mutableStateOf<String?>(null)
+        private set
+
+    /** Whether the update popup is up. */
+    var showing by mutableStateOf(false)
+        private set
+
+    @Volatile private var cancelled = false
+
+    fun hide() {
+        showing = false
+    }
+
+    /** Stops a download part way; what has arrived is kept for the next try. */
+    fun cancel() {
+        cancelled = true
+        showing = false
+    }
+
     val newer: Boolean get() = latest?.let { isNewer(it, RUNNING) } == true
 
     /** The file of the newest release this copy of Blazify can install, if there is one. */
@@ -207,14 +233,20 @@ object Updates {
      * again. A file whose size the release gave has to arrive at that size.
      */
     fun fetch() {
+        showing = true
         val want = download ?: return
-        if (progress != null) return
+        if (progress != null || ready != null) return
         progress = 0f
-        ready = null
+        failure = null
+        cancelled = false
+        total = want.size
         outcome = "Downloading Blazify $latest…"
         scope.launch {
             val done = runCatching { fetchFile(want) }
-                .onFailure { outcome = "The download stopped: ${it.message ?: "no reason given"}. Try again." }
+                .onFailure {
+                    failure = if (cancelled) null else (it.message ?: "no reason given")
+                    outcome = if (cancelled) null else "The download stopped. Try again."
+                }
                 .getOrNull()
             progress = null
             if (done != null) {
@@ -232,6 +264,7 @@ object Updates {
         var last: Exception? = null
         for (url in want.urls) {
             repeat(TRIES_PER_ADDRESS) {
+                if (cancelled) error("cancelled")
                 try {
                     fetchInto(url, part, want.size)
                     if (want.size == null || part.length() == want.size) {
@@ -263,15 +296,18 @@ object Updates {
             // A server that ignores the range sends the whole file again: start the file over.
             val append = resuming && have > 0
             val total = size ?: connection.getHeaderField("Content-Length")?.toLongOrNull()?.let { if (append) it + have else it }
+            this.total = total
             connection.inputStream.use { input ->
                 FileOutputStream(part, append).use { output ->
                     val buffer = ByteArray(64 * 1024)
                     var got = if (append) have else 0L
                     while (true) {
+                        if (cancelled) error("cancelled")
                         val read = input.read(buffer)
                         if (read < 0) break
                         output.write(buffer, 0, read)
                         got += read
+                        received = got
                         if (total != null && total > 0) progress = (got.toFloat() / total).coerceIn(0f, 1f)
                     }
                 }

@@ -480,7 +480,7 @@ fun SettingsScreen() {
                                     val progress = Updates.progress
                                     when {
                                         progress != null ->
-                                            Button("Downloading… ${(progress * 100).toInt()}%") {}
+                                            Button("Downloading… ${(progress * 100).toInt()}%", Updates::fetch)
                                         Updates.ready != null ->
                                             Button("Install and restart", Updates::install)
                                         else ->

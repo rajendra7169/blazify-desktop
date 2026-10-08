@@ -293,6 +293,7 @@ fun AppShell() {
         // and never while anything is playing.
         LaunchedEffect(Unit) { StarPrompt.onOpened(PlayerState.playing) }
         StarPromptDialog()
+        UpdateDialog()
 
         // Over everything, including the transport — a dialog that the bar
         // could be clicked through is not a dialog.
