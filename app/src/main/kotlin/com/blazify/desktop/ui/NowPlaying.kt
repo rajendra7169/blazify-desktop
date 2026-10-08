@@ -293,14 +293,20 @@ fun NowPlayingScreen(
         // Scrollable, so a short window loses nothing. A centred column that
         // doesn't fit doesn't shrink — it puts its lower half past the bottom
         // edge, which looks exactly like the controls having vanished.
+        //
+        // Except under a video: there the controls stand still at the foot of
+        // the screen and the picture plays above them. Pushed down by a spacer
+        // inside the scrolling column, the name, the bar and the buttons slid
+        // about with every turn of the wheel over a picture that stayed put.
+        val scroll = rememberScrollState()
         Column(
             Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .then(if (video) Modifier.padding(bottom = 8.dp) else Modifier.verticalScroll(scroll))
                 .padding(horizontal = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = if (video) Arrangement.Bottom else Arrangement.Center,
         ) {
             // Full art is the cover already, filling the window behind this —
             // a second copy of it in the middle would be the same picture
@@ -315,11 +321,7 @@ fun NowPlayingScreen(
                     onSeek = PlayerState::seek,
                 )
             } else if (video) {
-                // Room for the picture above: the name starts where the video
-                // has mostly given way to the page, and the transport sits on
-                // the solid ground below it.
-                val room = with(LocalDensity.current) { (tall * 0.62f).toDp() } - 92.dp
-                Box(Modifier.size(1.dp, room.coerceAtLeast(40.dp)))
+                // Nothing: the picture is behind, and the controls start from the foot.
             } else {
                 Box(Modifier.size(1.dp, 200.dp))
             }
