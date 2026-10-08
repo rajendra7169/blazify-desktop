@@ -29,7 +29,7 @@ object SharedPlaylists {
      *
      * A hundred and fifty is about seventeen hundred characters: long for a
      * link, but every chat and mail program passes it whole, and it still
-     * makes a QR code a phone camera reads from a screen.
+     * makes a QR code a camera reads from a screen.
      */
     const val MOST = 150
 

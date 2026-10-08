@@ -203,7 +203,7 @@ fun PlaylistTransferDialogs() {
 /**
  * A playlist as a link and as a code.
  *
- * The code is for the phone on the desk — pointed at the screen, it opens the
+ * The code is for a camera pointed at the screen: it opens the
  * same link without anybody typing seventeen hundred characters.
  */
 @Composable
