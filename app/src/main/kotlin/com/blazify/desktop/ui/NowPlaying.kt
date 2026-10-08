@@ -33,6 +33,10 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Lyrics
+import com.blazify.desktop.ui.screens.SettingsPage
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
@@ -344,6 +348,50 @@ fun NowPlayingScreen(
                         "Like", PlayerState::toggleLike, 22.dp,
                         tint = if (PlayerState.currentLiked) Blaze.Amber else null,
                     )
+                    // Everything else there is to do with this song, and with the
+                    // player while it plays: the song's own menu, with the player's
+                    // controls after it, so nothing is two screens away.
+                    var moreOpen by remember { mutableStateOf(false) }
+                    Box {
+                        Round(Icons.Rounded.MoreVert, "More", { moreOpen = true }, 22.dp)
+                        SongSheet(
+                            track, moreOpen, { moreOpen = false },
+                            more = listOf(
+                                SheetAction(Icons.Rounded.Bedtime, "Sleep timer…", on = timerOn) {
+                                    moreOpen = false
+                                    onOpenTimer()
+                                },
+                                // Steps through the speeds without closing, so the
+                                // one wanted can be reached in a few clicks.
+                                SheetAction(
+                                    Icons.Rounded.Speed,
+                                    "Speed: ${speedLabel(com.blazify.desktop.data.Listening.speed)}",
+                                    on = com.blazify.desktop.data.Listening.speed != 1f,
+                                ) {
+                                    val all = com.blazify.desktop.data.Listening.speeds
+                                    val at = all.indexOfFirst { it >= com.blazify.desktop.data.Listening.speed - 0.001f }.coerceAtLeast(0)
+                                    com.blazify.desktop.data.Listening.chooseSpeed(all[(at + 1) % all.size])
+                                },
+                                SheetAction(Icons.Rounded.GraphicEq, "Equaliser…") {
+                                    moreOpen = false
+                                    onClose()
+                                    Navigator.openSettings(SettingsPage.PlayerAudio)
+                                },
+                                SheetAction(Icons.Rounded.Palette, "Player look…") {
+                                    moreOpen = false
+                                    themeOpen = true
+                                },
+                                SheetAction(Icons.Rounded.QueueMusic, "Queue", on = queueOpen) {
+                                    moreOpen = false
+                                    onToggleQueue()
+                                },
+                                SheetAction(Icons.Rounded.Lyrics, "Lyrics", on = lyricsOpen) {
+                                    moreOpen = false
+                                    onToggleLyrics()
+                                },
+                            ),
+                        )
+                    }
                 }
             }
 
@@ -532,3 +580,7 @@ private fun Round(
         Icon(icon, label, Modifier.size(size), tint = shade)
     }
 }
+
+/** A speed as the menu says it: "1×", "1.25×", "0.5×". */
+private fun speedLabel(speed: Float): String =
+    (if (speed % 1f == 0f) speed.toInt().toString() else speed.toString().trimEnd('0')) + "×"

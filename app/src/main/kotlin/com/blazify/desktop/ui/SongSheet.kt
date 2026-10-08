@@ -76,12 +76,21 @@ import java.awt.datatransfer.StringSelection
  * is no album to go to for a local file, and offering it teaches people the
  * menu is decorative.
  */
+/** One more thing a menu can offer beyond the song's own: what the screen it is opened from can do. */
+class SheetAction(
+    val icon: ImageVector,
+    val label: String,
+    val on: Boolean = false,
+    val onClick: () -> Unit,
+)
+
 @Composable
 fun SongSheet(
     track: Track,
     expanded: Boolean,
     onDismiss: () -> Unit,
     onRemove: (() -> Unit)? = null,
+    more: List<SheetAction> = emptyList(),
 ) {
     val liked = Library.isLiked(track.id)
     val kept = Downloads.has(track.id)
@@ -222,6 +231,13 @@ fun SongSheet(
             }
         }
 
+        // What the screen it was opened from can do, after the song's own, set apart.
+        if (more.isNotEmpty()) {
+            Divider()
+            more.forEach { action ->
+                Item(action.icon, action.label, tint = if (action.on) Blaze.Amber else null, onClick = action.onClick)
+            }
+        }
         onRemove?.let {
             Divider()
             Item(Icons.Rounded.Delete, "Remove from this list") { it(); onDismiss() }
