@@ -139,6 +139,15 @@ dependencies {
     // Artwork, fetched and cached on both sides of the window.
     implementation(libs.coil.compose)
     implementation(libs.coil.network)
+
+    // Checks for the arithmetic that has to be right without a window open:
+    // the year's totals and the equaliser's curve. Kotlin's own test library,
+    // used only by the tests and never shipped.
+    testImplementation(kotlin("test"))
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 compose.desktop {

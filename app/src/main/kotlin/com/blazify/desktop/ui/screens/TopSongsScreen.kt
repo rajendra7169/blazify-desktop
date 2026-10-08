@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.TrendingUp
@@ -82,6 +84,9 @@ fun TopSongsScreen(
     onShuffle: (List<Track>) -> Unit,
 ) {
     var whose by remember { mutableStateOf(Whose.Everyone) }
+    // The year's summary opens over this page, so going back lands on the
+    // same tab and window it was opened from.
+    var wrapped by remember { mutableStateOf(false) }
     var charts by remember { mutableStateOf<List<Track>>(emptyList()) }
     var chartTrouble by remember { mutableStateOf<String?>(null) }
 
@@ -100,6 +105,11 @@ fun TopSongsScreen(
     val known = remember(Library.history, Library.liked) { Library.known() }
     val top = remember(span, Plays.all, known) { Plays.top(span, known) }
     val artists = remember(span, Plays.all, known) { Plays.topArtists(span, known) }
+
+    if (wrapped) {
+        WrappedScreen(onBack = { wrapped = false }, onPlay = onPlay)
+        return
+    }
 
     Column(Modifier.fillMaxSize()) {
         Column(
@@ -143,6 +153,10 @@ fun TopSongsScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Whose.entries.forEach { option ->
                     Chip(option.label, option == whose) { whose = option }
+                }
+                Spacer(Modifier.width(4.dp))
+                Action(Icons.Rounded.AutoAwesome, "Your year in music", filled = false) {
+                    wrapped = true
                 }
             }
 
