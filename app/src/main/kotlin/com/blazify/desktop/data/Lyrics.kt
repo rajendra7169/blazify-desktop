@@ -16,8 +16,29 @@ import kotlinx.coroutines.withContext
  * Licensed under GPL-3.0
  */
 
-/** One line of a song, and the moment it is sung. */
-data class LyricLine(val at: Double, val text: String)
+/**
+ * One word of a line, and the stretch of time it is sung over.
+ *
+ * [text] keeps the space after it, if there was one, so the words of a line
+ * joined back together are exactly the line — a syllable that runs straight
+ * into the next one has no space, and gluing on a space of our own would
+ * split words in half.
+ */
+data class LyricWord(val at: Double, val end: Double, val text: String)
+
+/**
+ * One line of a song, and the moment it is sung.
+ *
+ * [words] is empty for a source that only times whole lines, which is most of
+ * them. When it is filled, the words joined together are exactly [text].
+ */
+data class LyricLine(
+    val at: Double,
+    val text: String,
+    val words: List<LyricWord> = emptyList(),
+) {
+    val timedWords: Boolean get() = words.isNotEmpty()
+}
 
 /**
  * The words to a song.
@@ -48,6 +69,43 @@ data class Lyrics(
         }
         return found
     }
+
+    /**
+     * The words as a timed transcript, the way they arrived.
+     *
+     * Word timings are written as `<mm:ss.cc>` marks inside each line, which is
+     * the form every karaoke-aware player reads and every other one skips, so
+     * nothing is lost by keeping them and nothing breaks for a reader that
+     * doesn't know them.
+     */
+    fun toLrc(): String = if (synced) {
+        lines.joinToString("\n") { line ->
+            if (line.words.isEmpty()) {
+                lrcStamp(line.at) + line.text
+            } else {
+                lrcStamp(line.at) + line.words.joinToString("") { lrcStamp(it.at, word = true) + it.text } +
+                    lrcStamp(line.words.last().end, word = true)
+            }
+        }
+    } else {
+        plain.orEmpty()
+    }
+}
+
+/**
+ * A moment as an LRC stamp: `[mm:ss.cc]`, or `<mm:ss.cc>` for a word.
+ *
+ * Formatted without the machine's locale. A language whose digits aren't the
+ * Latin ones would otherwise write stamps no reader — this one included — can
+ * read back.
+ */
+fun lrcStamp(seconds: Double, word: Boolean = false): String {
+    val hundredths = Math.round(seconds.coerceAtLeast(0.0) * 100)
+    val text = String.format(
+        java.util.Locale.ROOT, "%02d:%02d.%02d",
+        hundredths / 6000, (hundredths / 100) % 60, hundredths % 100,
+    )
+    return if (word) "<$text>" else "[$text]"
 }
 
 /**
@@ -204,18 +262,79 @@ object LyricsSource {
      * Read a timed transcript.
      *
      * Every line is stamped `[mm:ss.cc]`. Empty lines are kept: a pause between
-     * verses is part of following along.
+     * verses is part of following along. A line may also carry `<mm:ss.cc>`
+     * marks before its words, which time each word; those are kept too, and a
+     * line without them behaves exactly as one always has.
      */
     private fun parse(text: String): List<LyricLine> {
         val stamp = Regex("\\[(\\d+):(\\d+)(?:[.:](\\d+))?]")
-        return text.lineSequence().mapNotNull { line ->
+        val lines = text.lineSequence().mapNotNull { line ->
             val match = stamp.find(line) ?: return@mapNotNull null
-            val (minutes, seconds, fraction) = match.destructured
-            val hundredths = fraction.padEnd(2, '0').take(2).toIntOrNull() ?: 0
+            val at = clock(match.groupValues[1], match.groupValues[2], match.groupValues[3])
+            val rest = line.substring(match.range.last + 1)
+            val words = words(rest)
             LyricLine(
-                at = minutes.toInt() * 60 + seconds.toInt() + hundredths / 100.0,
-                text = line.substring(match.range.last + 1).trim(),
+                at = at,
+                text = if (words.isEmpty()) rest.replace(wordMark, "").trim() else words.joinToString("") { it.text },
+                words = words,
             )
         }.sortedBy { it.at }.toList()
+
+        // A word with no mark after it ends where the next line begins, or a
+        // couple of seconds on for the last line of the song.
+        return lines.mapIndexed { index, line ->
+            if (line.words.isEmpty()) return@mapIndexed line
+            val after = lines.getOrNull(index + 1)?.at ?: (line.words.last().at + 2.0)
+            line.copy(
+                words = line.words.map { word ->
+                    if (word.end.isNaN()) word.copy(end = maxOf(after, word.at)) else word
+                },
+            )
+        }
+    }
+
+    private val wordMark = Regex("<(\\d+):(\\d+)(?:[.:](\\d+))?>")
+
+    /**
+     * The words of one line, if it says when each is sung.
+     *
+     * Each mark starts a word and ends the one before it; a mark with nothing
+     * after it is only there to end the last word. An end not yet known is
+     * left as NaN for [parse] to fill in from the next line.
+     */
+    private fun words(rest: String): List<LyricWord> {
+        val marks = wordMark.findAll(rest).toList()
+        if (marks.isEmpty()) return emptyList()
+        val raw = marks.mapIndexed { index, mark ->
+            val at = clock(mark.groupValues[1], mark.groupValues[2], mark.groupValues[3])
+            val next = marks.getOrNull(index + 1)
+            val text = rest.substring(mark.range.last + 1, next?.range?.first ?: rest.length)
+            val end = next?.let { clock(it.groupValues[1], it.groupValues[2], it.groupValues[3]) } ?: Double.NaN
+            LyricWord(at, end, text)
+        }
+        // A piece that is only a space belongs to the word before it — it is
+        // the gap between two words, not a word — and an empty one carries a
+        // time but no letters, so there is nothing to light up.
+        val merged = mutableListOf<LyricWord>()
+        for (word in raw) {
+            if (word.text.isBlank()) {
+                if (word.text.isNotEmpty() && merged.isNotEmpty()) {
+                    merged[merged.lastIndex] = merged.last().let { it.copy(text = it.text + word.text) }
+                }
+                continue
+            }
+            merged += word
+        }
+        if (merged.isEmpty()) return emptyList()
+        // Trimmed at the edges only, so the joined words are the line as it
+        // reads.
+        merged[0] = merged[0].let { it.copy(text = it.text.trimStart()) }
+        merged[merged.lastIndex] = merged.last().let { it.copy(text = it.text.trimEnd()) }
+        return merged
+    }
+
+    private fun clock(minutes: String, seconds: String, fraction: String): Double {
+        val hundredths = fraction.padEnd(2, '0').take(2).toIntOrNull() ?: 0
+        return minutes.toInt() * 60 + seconds.toInt() + hundredths / 100.0
     }
 }

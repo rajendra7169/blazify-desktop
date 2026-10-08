@@ -169,7 +169,8 @@ object LyricsPlus : LyricsProvider {
 
         // Rendered back into LRC rather than kept in its own shape, so every
         // source downstream of here looks the same and the parser stays one
-        // parser.
+        // parser. Word timings, when the line has them, go in as the
+        // `<mm:ss.cc>` marks the parser already understands.
         return lines.mapNotNull { entry ->
             val line = entry as? JsonObject ?: return@mapNotNull null
             val text = line["text"]?.text() ?: return@mapNotNull null
@@ -177,12 +178,33 @@ object LyricsPlus : LyricsProvider {
                 ?: line["startTime"]?.jsonPrimitive?.longOrNull
                 ?: return@mapNotNull null
             // Milliseconds on the wire.
-            val seconds = start / 1000.0
-            "[%02d:%02d.%02d]%s".format(
-                (seconds / 60).toInt(), (seconds % 60).toInt(),
-                ((seconds % 1) * 100).toInt(), text,
-            )
+            lrcStamp(start / 1000.0) + (syllables(line) ?: text)
         }.joinToString("\n").ifBlank { null }
+    }
+
+    /**
+     * One line's words with their own timings, or null when it has none.
+     *
+     * Backing vocals are left out: they overlap the lead, and lighting two
+     * voices in one line at once reads as the highlight jumping about rather
+     * than following anybody.
+     */
+    private fun syllables(line: JsonObject): String? {
+        val parts = (line["syllabus"] as? JsonArray)?.mapNotNull { it as? JsonObject }
+            ?.filterNot { it["isBackground"]?.jsonPrimitive?.content == "true" }
+            ?.takeIf { it.isNotEmpty() } ?: return null
+        var end = 0L
+        val words = StringBuilder()
+        for (part in parts) {
+            val at = part["time"]?.jsonPrimitive?.longOrNull ?: return null
+            val length = part["duration"]?.jsonPrimitive?.longOrNull ?: 0L
+            end = maxOf(end, at + length)
+            // Not text(): a syllable that is only a space is still a gap
+            // between two words.
+            val piece = part["text"]?.jsonPrimitive?.contentOrNull ?: ""
+            words.append(lrcStamp(at / 1000.0, word = true)).append(piece)
+        }
+        return words.append(lrcStamp(end / 1000.0, word = true)).toString()
     }
 }
 

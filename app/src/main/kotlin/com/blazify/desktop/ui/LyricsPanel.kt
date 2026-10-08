@@ -52,6 +52,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.style.ResolvedTextDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -298,7 +304,8 @@ private fun Synced(
     val state = rememberLazyListState()
     // Read a little ahead of where the player says it is, so a line lights up
     // as it starts rather than once it's over.
-    val current = lyrics.lineAt(position + Look.lyricsLead)
+    val sung = position + Look.lyricsLead
+    val current = lyrics.lineAt(sung)
 
     // Whether the sheet is still following the song.
     //
@@ -433,15 +440,27 @@ private fun Synced(
                     LyricsAlign.Right -> Alignment.End
                 },
             ) {
-                Text(
-                    if (stacked || second == null) original else second,
-                    color = ink,
-                    fontSize = (base * grown).sp,
-                    fontWeight = if (active && style != LyricsStyle.Plain) FontWeight.Bold else FontWeight.Medium,
-                    lineHeight = (base * Look.lyricsLineHeight).sp,
-                    textAlign = align,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                val shown = if (stacked || second == null) original else second
+                val weight = if (active && style != LyricsStyle.Plain) FontWeight.Bold else FontWeight.Medium
+                if (active && line.timedWords && shown == line.text) {
+                    Karaoke(
+                        line, sung, ink,
+                        fontSize = (base * grown).sp,
+                        weight = weight,
+                        lineHeight = (base * Look.lyricsLineHeight).sp,
+                        align = align,
+                    )
+                } else {
+                    Text(
+                        shown,
+                        color = ink,
+                        fontSize = (base * grown).sp,
+                        fontWeight = weight,
+                        lineHeight = (base * Look.lyricsLineHeight).sp,
+                        textAlign = align,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 if (stacked && second != null) {
                     // Smaller and dimmer than the line it belongs to, so a
                     // glance still lands on the words being sung and the
@@ -470,6 +489,91 @@ private fun Synced(
         ) {
             ResyncPill { following = true }
         }
+    }
+}
+
+/**
+ * The line being sung, filled in word by word as it is sung.
+ *
+ * Drawn twice on top of itself: once faint, as the whole line, and once in
+ * full colour cut down to the part already sung. The cut follows the letters
+ * the layout actually placed, so a line that wraps fills along the first row
+ * and then the second, and a word part-way through is part-way lit — the
+ * movement inside a word is what makes this read as singing rather than as a
+ * cursor stepping along.
+ */
+@Composable
+private fun Karaoke(
+    line: com.blazify.desktop.data.LyricLine,
+    sung: Double,
+    ink: Color,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    weight: FontWeight,
+    lineHeight: androidx.compose.ui.unit.TextUnit,
+    align: TextAlign,
+) {
+    var layout by remember(line) { mutableStateOf<TextLayoutResult?>(null) }
+    // How far along the line the singing has got, in characters. Fractional:
+    // the part after the point is how much of the next letter is lit.
+    val reached = remember(line, sung) {
+        var offset = 0
+        var filled = 0.0
+        for (word in line.words) {
+            val length = word.text.length
+            val span = word.end - word.at
+            val done = when {
+                sung >= word.end -> 1.0
+                sung <= word.at -> 0.0
+                span <= 0 -> 1.0
+                else -> (sung - word.at) / span
+            }
+            if (done <= 0.0) break
+            filled = offset + length * done
+            offset += length
+            if (done < 1.0) break
+        }
+        filled
+    }
+
+    Box(Modifier.fillMaxWidth()) {
+        Text(
+            line.text,
+            color = ink.copy(alpha = ink.alpha * 0.42f),
+            fontSize = fontSize,
+            fontWeight = weight,
+            lineHeight = lineHeight,
+            textAlign = align,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            line.text,
+            color = ink,
+            fontSize = fontSize,
+            fontWeight = weight,
+            lineHeight = lineHeight,
+            textAlign = align,
+            onTextLayout = { layout = it },
+            modifier = Modifier.fillMaxWidth().drawWithContent {
+                val placed = layout ?: return@drawWithContent
+                if (reached <= 0.0) return@drawWithContent
+                val whole = reached.toInt().coerceAtMost(line.text.length)
+                val part = (reached - whole).toFloat()
+                val lit = Path()
+                for (at in 0 until minOf(line.text.length, whole + 1)) {
+                    val box = placed.getBoundingBox(at)
+                    val share = if (at < whole) 1f else part
+                    if (share <= 0f) continue
+                    // Right to left scripts fill from the right of each letter.
+                    val rtl = placed.getBidiRunDirection(at) == ResolvedTextDirection.Rtl
+                    val width = box.width * share
+                    lit.addRect(
+                        if (rtl) Rect(box.right - width, box.top, box.right, box.bottom)
+                        else Rect(box.left, box.top, box.left + width, box.bottom),
+                    )
+                }
+                clipPath(lit) { this@drawWithContent.drawContent() }
+            },
+        )
     }
 }
 

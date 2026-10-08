@@ -230,26 +230,59 @@ object Paxsenix : LyricsProvider {
     /**
      * Apple's timed text, as stamped lines.
      *
-     * Only the line timings are kept. The syllable timings inside each line are
-     * what make Apple's own player highlight word by word, and this app follows
-     * a line at a time — reading them and then discarding them would be work
-     * for a difference nobody could see.
+     * The syllable timings inside each line are kept as `<mm:ss.cc>` marks, so
+     * the sung line can light up word by word the way Apple's own player does.
+     * Backing vocals sit in a span of their own and are left out — they overlap
+     * the lead, and a highlight split between two voices follows neither.
      */
     private fun fromTTML(ttml: String): String? {
         val lines = Regex("""<p\b[^>]*\bbegin="([^"]+)"[^>]*>(.*?)</p>""", RegexOption.DOT_MATCHES_ALL)
             .findAll(ttml)
             .mapNotNull { match ->
                 val at = clockOf(match.groupValues[1]) ?: return@mapNotNull null
-                val text = match.groupValues[2]
-                    .replace(Regex("<[^>]+>"), "")
-                    .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-                    .replace("&quot;", "\"").replace("&#39;", "'")
-                    .replace(Regex("\\s+"), " ")
-                    .trim()
-                stamp(at, text)
+                val body = match.groupValues[2]
+                val lead = body.replace(
+                    Regex("""<span\b[^>]*x-bg[^>]*>(?:[^<]|<span\b[^>]*>[^<]*</span>)*</span>""", RegexOption.DOT_MATCHES_ALL),
+                    "",
+                )
+                val text = flat(lead).ifBlank { flat(body) }
+                stamp(at, timedWords(lead) ?: text)
             }
             .toList()
         return lines.joinToString("\n").ifBlank { null }
+    }
+
+    /** Markup gone, entities read, whitespace collapsed. */
+    private fun flat(markup: String): String = unescape(markup.replace(Regex("<[^>]+>"), ""))
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
+    private fun unescape(text: String) = text
+        .replace("&lt;", "<").replace("&gt;", ">")
+        .replace("&quot;", "\"").replace("&#39;", "'").replace("&apos;", "'")
+        .replace("&amp;", "&")
+
+    /**
+     * A line's syllables, each behind the moment it starts.
+     *
+     * Whatever lies between two spans is kept as a space or nothing, which is
+     * how Apple says whether two syllables are one word or two.
+     */
+    private fun timedWords(markup: String): String? {
+        val spans = Regex("""<span\b[^>]*\bbegin="([^"]+)"[^>]*\bend="([^"]+)"[^>]*>([^<]*)</span>""")
+            .findAll(markup).toList()
+        if (spans.isEmpty()) return null
+        val out = StringBuilder()
+        var end = 0.0
+        spans.forEachIndexed { index, span ->
+            val start = clockOf(span.groupValues[1]) ?: return null
+            end = clockOf(span.groupValues[2]) ?: start
+            out.append(lrcStamp(start, word = true)).append(unescape(span.groupValues[3]))
+            val between = spans.getOrNull(index + 1)
+                ?.let { markup.substring(span.range.last + 1, it.range.first) }
+            if (between != null && between.replace(Regex("<[^>]+>"), "").any { it.isWhitespace() }) out.append(' ')
+        }
+        return out.append(lrcStamp(end, word = true)).toString()
     }
 
     /** `mm:ss.mmm`, `hh:mm:ss.mmm` or plain seconds, all as seconds. */
@@ -268,9 +301,7 @@ object Paxsenix : LyricsProvider {
         }
     }
 
-    private fun stamp(seconds: Double, text: String) = "[%02d:%02d.%02d]%s".format(
-        (seconds / 60).toInt(), (seconds % 60).toInt(), ((seconds % 1) * 100).toInt(), text,
-    )
+    private fun stamp(seconds: Double, text: String) = lrcStamp(seconds) + text
 
     /** Everything catalogues hang off a title that Apple's index doesn't carry. */
     private fun String.plainTitle(): String {

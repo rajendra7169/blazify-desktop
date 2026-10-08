@@ -139,18 +139,8 @@ object Offline {
     private suspend fun fetchWords(track: Track) {
         val found = runCatching { LyricsSource.of(track) }.getOrNull() ?: return
         if (found.empty) return
-        val text = when {
-            found.synced -> found.lines.joinToString("\n") { line ->
-                val seconds = line.at
-                "[%02d:%02d.%02d]%s".format(
-                    (seconds / 60).toInt(),
-                    (seconds % 60).toInt(),
-                    ((seconds % 1) * 100).toInt(),
-                    line.text,
-                )
-            }
-            else -> found.plain.orEmpty()
-        }
+        // Word timings and all, so a kept song lights up the same offline.
+        val text = found.toLrc()
         if (text.isNotBlank()) runCatching { wordsFor(track.id).writeText(text) }
     }
 }
