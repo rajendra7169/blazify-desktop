@@ -57,7 +57,7 @@ fun main(args: Array<String>): Unit = runBlocking {
     }
     println("  fetch: HTTP ${runCatching { open.responseCode }.getOrElse { -1 }}, as ${stream.userAgent.take(40)}")
 
-    val factory = MediaPlayerFactory("--no-audio", "--quiet")
+    val factory = MediaPlayerFactory("--no-audio", "--quiet", "--avcodec-hw=none")
     val player = factory.mediaPlayers().newEmbeddedMediaPlayer()
     var width = 0
     var height = 0
