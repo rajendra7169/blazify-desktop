@@ -18,6 +18,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 
 /**
@@ -1067,6 +1068,15 @@ object Catalogue {
         IllegalStateException("YouTube wanted proof this isn't a robot before handing over $videoId")
 
     /**
+     * No answer in time from any source. The connection, not the song: the
+     * next song would wait just as long, so this is said rather than skipped.
+     */
+    class TooSlow : IllegalStateException("No source answered in time")
+
+    /** Longest one source is waited for before the next is asked. */
+    private const val SOURCE_LIMIT_MS = 15_000L
+
+    /**
      * Whether a refusal was that check rather than something about the song.
      *
      * Its wording differs by client — "Sign in to confirm you're not a bot"
@@ -1109,7 +1119,11 @@ object Catalogue {
                 null
             }
 
-            val response = YouTube.player(videoId, client = source.client, signatureTimestamp = stamp).getOrNull()
+            // Held to a few seconds each. On a weak connection one source could
+            // otherwise keep the song waiting a minute before the next was tried.
+            val response = withTimeoutOrNull(SOURCE_LIMIT_MS) {
+                YouTube.player(videoId, client = source.client, signatureTimestamp = stamp).getOrNull()
+            }
             if (response == null) {
                 Streams.note(source, "no answer")
                 continue

@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Blazify Project (C) 2026
@@ -51,7 +52,30 @@ object PlayerState {
 
     val current: Track? get() = queue.getOrNull(index)
     val playing: Boolean get() = AudioEngine.playing
-    val loading: Boolean get() = AudioEngine.loading
+    val loading: Boolean get() = AudioEngine.loading || finding
+
+    /**
+     * Asking the catalogue where a song's audio is.
+     *
+     * Nothing has reached the player yet, so the player has nothing to report,
+     * but the song is on its way and is shown loading. Left out, a slow answer
+     * looked like a song that would never start: 0:00 at both ends and not a
+     * word to say anything was happening.
+     */
+    var finding by mutableStateOf(false)
+        private set
+
+    /** Which ask is the current one. An answer to an older one is dropped. */
+    private var asking = 0
+
+    /**
+     * Longest a song is waited for before saying so.
+     *
+     * Several sources are asked in turn and each is already held to a few
+     * seconds, so this is only reached on a connection that is barely there —
+     * where waiting longer would only be waiting.
+     */
+    private const val FINDING_LIMIT_MS = 45_000L
 
     /**
      * Where the bar should sit while a seek settles.
@@ -79,7 +103,7 @@ object PlayerState {
      * the first note, and a transport that looks frozen with no explanation is
      * the difference between "it is loading" and "it is broken".
      */
-    val buffering: Boolean get() = AudioEngine.buffering || AudioEngine.loading
+    val buffering: Boolean get() = AudioEngine.buffering || loading
 
     /** Step forward or back by a few seconds, the way the arrow keys do. */
     fun nudge(seconds: Double) {
@@ -300,6 +324,8 @@ object PlayerState {
 
     fun toggle() {
         if (current == null) return
+        // Already on its way: a second press would only start the asking over.
+        if (finding) return
         // Nothing loaded yet — the first press should start it, not toggle silence.
         if (AudioEngine.duration == 0.0 && !AudioEngine.loading) start() else AudioEngine.toggle()
         // Told after the fact rather than before, so what the room hears is
@@ -763,6 +789,9 @@ object PlayerState {
 
     private fun start() {
         val track = current ?: return
+        // Whatever was being found for the last song is no longer wanted.
+        val ticket = ++asking
+        finding = false
         // Whatever moved the queue to another song took the count with it.
         if (timesFor != null && timesFor != track.id) stopTimes()
         // Told first, so the asking for what to skip overlaps the asking for
@@ -861,8 +890,15 @@ object PlayerState {
             return
         }
 
+        finding = true
         scope.launch {
-            Catalogue.stream(track.id).fold(
+            val found = withTimeoutOrNull(FINDING_LIMIT_MS) { Catalogue.stream(track.id) }
+                ?: Result.failure(Catalogue.TooSlow())
+            // Moved on while this was being asked: playing it now would take
+            // over from the song that was chosen since.
+            if (ticket != asking) return@launch
+            finding = false
+            found.fold(
                 onSuccess = {
                     offlineHops = 0
                     AudioEngine.play(it.url, it.userAgent)
@@ -886,11 +922,16 @@ object PlayerState {
                     if (!refused && current?.id == track.id && !Net.checkNow() && continueOffline()) {
                         return@fold
                     }
-                    failure = if (refused) refusalMessage() else "Couldn't play ${track.title}"
+                    failure = when {
+                        refused -> refusalMessage()
+                        why is Catalogue.TooSlow ->
+                            "${track.title} took too long to arrive — the connection may be weak. Press play to try again"
+                        else -> "Couldn't play ${track.title}"
+                    }
                     // Sitting on a song that will not play, waiting to be
                     // rescued, is the worst of the options — so move on unless
                     // that was asked for.
-                    if (!refused && Playback.skipBroken && index + 1 in queue.indices) next()
+                    if (!refused && why !is Catalogue.TooSlow && Playback.skipBroken && index + 1 in queue.indices) next()
                 },
             )
         }
