@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Puts a release's installers on the mirror and writes the update file the app reads.
+"""Puts a release's installers on GitLab and writes the update file the app reads.
 
 Blazify asks rajendrapandey.info.np/blazify/desktop.json whether there is a newer
 version, and fetches the installer from the first address listed for it that
-answers: the GitLab package registry, then the GitHub release. This script
-uploads the files in release/ to GitLab and writes that update file into the
-website's folder, committed but not pushed. Run it once the release is ready:
+answers. Releases live on GitLab only: this script uploads the files in release/
+to its package registry, gives the version a release page there, and writes that
+update file into the website's folder, committed but not pushed. Run it once the
+release is ready:
 
-    scripts/publish_update.py 1.2.1
+    scripts/publish_update.py 1.4.0
 
 The files are taken from release/ by their published names (Blazify.deb,
 Blazify.AppImage, Blazify-linux.tar.gz, Blazify-setup.exe); a missing one is
@@ -30,9 +31,7 @@ FILES = ["Blazify.deb", "Blazify.AppImage", "Blazify-linux.tar.gz", "Blazify-set
 GITLAB_PROJECT = os.environ.get("GITLAB_PROJECT", "hackerraja7169/blazify")
 GITLAB = "https://gitlab.com/api/v4/projects/" + urllib.parse.quote(GITLAB_PROJECT, safe="")
 PACKAGE = "blazify-desktop"
-GITHUB_DOWNLOADS = "https://github.com/rajendra7169/blazify-desktop/releases/download"
-GITHUB_PAGE = "https://github.com/rajendra7169/blazify-desktop/releases/tag"
-SITE = Path("~/Documents/GitHub/portfolio-site").expanduser()
+SITE = Path("~/Documents/GitHub/rajendra-pandey-portfolio").expanduser()
 
 
 def gitlab_token():
@@ -62,6 +61,34 @@ def to_gitlab(version, path):
     return url
 
 
+def release_page(version, listed, notes):
+    """A release page on GitLab for this version with its files linked; made once."""
+    tag = f"desktop-v{version}"
+    page = f"https://gitlab.com/{GITLAB_PROJECT}/-/releases/{tag}"
+    headers = {"PRIVATE-TOKEN": gitlab_token(), "Content-Type": "application/json"}
+    try:
+        with urllib.request.urlopen(urllib.request.Request(f"{GITLAB}/releases/{tag}", headers=headers), timeout=60):
+            print(f"  GitLab release {tag}: already there")
+            return page
+    except urllib.error.HTTPError:
+        pass
+    body = {
+        "name": f"Blazify for desktop {version}",
+        "tag_name": tag,
+        "ref": "main",
+        "description": notes,
+        "assets": {"links": [
+            {"name": item["name"], "url": item["urls"][0], "link_type": "package"} for item in listed
+        ]},
+    }
+    request = urllib.request.Request(f"{GITLAB}/releases", data=json.dumps(body).encode(),
+                                     method="POST", headers=headers)
+    with urllib.request.urlopen(request, timeout=120):
+        pass
+    print(f"  GitLab release {tag}: made")
+    return page
+
+
 def main(version):
     version = version.removeprefix("v")
     listed = []
@@ -73,19 +100,20 @@ def main(version):
         listed.append({
             "name": name,
             "size": path.stat().st_size,
-            "urls": [to_gitlab(version, path), f"{GITHUB_DOWNLOADS}/v{version}/{name}"],
+            "urls": [to_gitlab(version, path)],
         })
     if not listed:
         sys.exit("Nothing in release/ to publish")
 
-    notes = RELEASE / "notes.md"
+    notes_file = RELEASE / "notes.md"
+    notes = notes_file.read_text() if notes_file.exists() else ""
     update = {
         "_about": "Blazify for desktop reads this to learn of a new version, and fetches "
                   "each file from the first of its urls that answers.",
         "version": version,
         "date": datetime.date.today().isoformat(),
-        "page": f"{GITHUB_PAGE}/v{version}",
-        "notes": notes.read_text() if notes.exists() else "",
+        "page": release_page(version, listed, notes),
+        "notes": notes,
         "files": listed,
     }
     out = SITE / "public/blazify/desktop.json"
@@ -96,7 +124,7 @@ def main(version):
     if subprocess.run(git + ["diff", "--cached", "--quiet"]).returncode:
         subprocess.run(git + ["commit", "-q", "-m", f"Blazify for desktop {version} update file"], check=True)
         print("Update file committed. Publish it with:\n"
-              f"  git -C {SITE} push https://github.com/rajendra7169/portfolio.git site-main:main")
+              f"  git -C {SITE} push origin main")
     else:
         print("Update file already up to date")
 
