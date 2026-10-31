@@ -138,14 +138,8 @@ object AudioEngine {
      */
     private val component: AudioPlayerComponent by lazy {
         useBundledLibrary()
-        // Built from a factory of our own only when there is something to tell
-        // it. The component's own default arguments are sensible and there is
-        // no reason to restate them.
-        val options = startup()
-        val made =
-            if (options.isEmpty()) AudioPlayerComponent()
-            else AudioPlayerComponent(uk.co.caprica.vlcj.factory.MediaPlayerFactory(*options))
-        made.also { it.mediaPlayer().events().addMediaPlayerEventListener(Listener) }
+        AudioPlayerComponent(uk.co.caprica.vlcj.factory.MediaPlayerFactory(*startup()))
+            .also { it.mediaPlayer().events().addMediaPlayerEventListener(Listener) }
     }
 
     /**
@@ -157,7 +151,12 @@ object AudioEngine {
      * it.
      */
     private fun startup(): Array<String> {
-        val options = mutableListOf<String>()
+        val options = mutableListOf("--quiet")
+        // The library calls itself a video player unless told otherwise, and a
+        // Linux desktop remembers volume and mute by that kind of stream. Left
+        // alone, this would share them with every other program built on it,
+        // and muting one would silence the songs here on every later launch.
+        options += "--role=music"
         if (Levelling.on) {
             // Evens out a quiet recording following a loud one, which is the
             // difference between an album that was mastered in 1975 and one
@@ -206,6 +205,9 @@ object AudioEngine {
         }
     }
 
+    private const val INHERITED_MUTE_NS = 5_000_000_000L
+    @Volatile private var startedAt = 0L
+
     private val player: MediaPlayer get() = component.mediaPlayer()
 
     private object Listener : MediaPlayerEventAdapter() {
@@ -218,6 +220,24 @@ object AudioEngine {
             // was declared broken the instant it began.
             lastHeardFrom = System.nanoTime()
             stalled = false
+            startedAt = System.nanoTime()
+            unmute(mediaPlayer)
+        }
+
+        /**
+         * Blazify's own mute is the volume at nothing, so a mute on the player
+         * itself, right as a song starts, can only be one the system carried
+         * over from earlier. Nothing in the app would show it or be able to
+         * lift it. Later than that it is somebody using their desktop's mixer,
+         * and it is left alone.
+         */
+        override fun muted(mediaPlayer: MediaPlayer, muted: Boolean) {
+            if (muted && System.nanoTime() - startedAt < INHERITED_MUTE_NS) unmute(mediaPlayer)
+        }
+
+        // Not from inside the callback, which would deadlock the player.
+        private fun unmute(mediaPlayer: MediaPlayer) {
+            mediaPlayer.submit { runCatching { mediaPlayer.audio().setMute(false) } }
         }
 
         override fun paused(mediaPlayer: MediaPlayer) { playing = false }

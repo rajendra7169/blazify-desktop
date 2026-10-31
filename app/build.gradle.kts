@@ -227,15 +227,25 @@ compose.desktop {
  * answer. The library is redistributable and licensed compatibly, so it travels
  * with the application instead.
  *
- * Only the parts that decode and play audio are kept. The full download carries
- * video decoders, subtitle renderers and interface skins that a music player
- * will never open, and they are most of its size.
+ * Only the parts that decode and play audio, and that hand a song's video over
+ * as plain pictures, are kept. The full download carries video encoders, subtitle
+ * renderers and interface skins that a music player will never open, and they
+ * are most of its size.
  */
 val fetchWindowsAudio by tasks.registering {
     val version = "3.0.21"
     val into = layout.projectDirectory.dir("resources/windows/vlc").asFile
     val cache = layout.buildDirectory.file("vlc-$version-win64.zip").get().asFile
 
+    // Everything a music player reaches for, and nothing it doesn't.
+    val wanted = setOf(
+        "access", "audio_filter", "audio_output", "codec", "demux", "misc", "packetizer",
+        "stream_filter", "video_chroma", "video_output",
+    )
+
+    // Without this Gradle calls the folder up to date from any earlier build,
+    // and a machine that already has one never picks up a change to the list.
+    inputs.property("wanted", wanted.sorted())
     outputs.dir(into)
 
     doLast {
@@ -244,7 +254,9 @@ val fetchWindowsAudio by tasks.registering {
         // being treated as empty.
         into.mkdirs()
 
-        if (File(into, "libvlc.dll").exists()) {
+        // The video output is the newest thing kept, so an older folder without
+        // it is filled in over the top rather than taken as complete.
+        if (File(into, "plugins/video_output/libvmem_plugin.dll").exists()) {
             println("the Windows audio library is already here")
             return@doLast
         }
@@ -258,9 +270,6 @@ val fetchWindowsAudio by tasks.registering {
                 }
         }
 
-        // Everything a music player reaches for, and nothing it doesn't.
-        val wanted = setOf("access", "audio_filter", "audio_output", "codec", "demux", "misc", "stream_filter")
-
         // Video encoders, subtitle renderers, screen capture and remote-desktop
         // protocols all ship in those same folders and are most of their size.
         // A music player will never open one.
@@ -270,7 +279,7 @@ val fetchWindowsAudio by tasks.registering {
             "png", "jpeg", "svg", "bpg", "sdl_image", "zvbi",
             "vnc", "rdp", "screen", "dshow", "decklink", "v4l", "dc1394", "dv1394",
             "srt", "rist", "satip", "shm", "vcd", "dvdnav", "dvdread", "bluray",
-            "mkv", "avi", "asf", "ogg", "ts_", "libts", "mjpeg", "rawvid", "y4m",
+            "avi", "asf", "ogg", "ts_", "libts", "mjpeg", "rawvid", "y4m",
         )
 
         ZipFile(cache).use { zip ->
@@ -282,7 +291,10 @@ val fetchWindowsAudio by tasks.registering {
                     path.startsWith("plugins/") -> {
                         val group = path.removePrefix("plugins/").substringBefore('/')
                         val file = path.substringAfterLast('/')
-                        if (group in wanted && unwanted.none { it in file }) path else null
+                        // Of all the ways to draw video, only the one that hands
+                        // frames to the window: the rest are large and never run.
+                        val drawn = group != "video_output" || file == "libvmem_plugin.dll"
+                        if (group in wanted && drawn && unwanted.none { it in file }) path else null
                     }
                     else -> null
                 } ?: return@forEach

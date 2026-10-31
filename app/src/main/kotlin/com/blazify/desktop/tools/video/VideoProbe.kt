@@ -26,28 +26,32 @@ import java.nio.ByteBuffer
  * few of them, the way the player measures them before showing anything.
  *
  *   ./gradlew :app:videoProbe --args="Kesariya|Arijit Singh|268"
+ *   ./gradlew :app:videoProbe --args="title|artist|seconds|its own id"
  */
 fun main(args: Array<String>): Unit = runBlocking {
-    val (title, artist, seconds) = (args.joinToString(" ").ifBlank { "Kesariya|Arijit Singh|268" })
-        .split("|").let { Triple(it[0], it.getOrElse(1) { "" }, it.getOrNull(2)?.toIntOrNull()) }
-    val track = Track(id = "probe", title = title, artist = artist, thumbnail = null, durationSeconds = seconds)
+    val parts = args.joinToString(" ").ifBlank { "Kesariya|Arijit Singh|268" }.split("|")
+    val title = parts[0]
+    val artist = parts.getOrElse(1) { "" }
+    val seconds = parts.getOrNull(2)?.toIntOrNull()
+    val id = parts.getOrElse(3) { "probe" }
+    val track = Track(id = id, title = title, artist = artist, thumbnail = "https://i.ytimg.com/vi/$id/hqdefault.jpg", durationSeconds = seconds)
 
     println("choosing a video for $title — $artist (${seconds ?: "?"}s):")
-    val chosen = Catalogue.musicVideo(track).getOrElse {
-        println("  search failed: ${it.message}")
-        return@runBlocking
+    val videos = Catalogue.musicVideos(track)
+    videos.forEach {
+        println("  ${it.videoId}, ${it.lengthSeconds}s, ${if (it.inStep) "same cut: kept in step" else "its own cut: plays on its own"}")
     }
+    val chosen = videos.firstOrNull()
     if (chosen == null) {
-        println("  no official video — the cover stays")
+        println("  nothing to show — the cover stays")
         return@runBlocking
     }
-    println("  ${chosen.videoId}, ${chosen.lengthSeconds}s, ${if (chosen.inStep) "same cut: kept in step" else "its own cut: plays on its own"}")
 
     val stream = Catalogue.picture(chosen.videoId).getOrElse {
         println("  no picture stream: ${it.message}")
         Headless.stop()
         return@runBlocking
-    }
+    }.stream
     println("  picture: ${stream.url.take(96)}…")
     val open = (java.net.URI(stream.url).toURL().openConnection() as java.net.HttpURLConnection).apply {
         setRequestProperty("User-Agent", stream.userAgent)

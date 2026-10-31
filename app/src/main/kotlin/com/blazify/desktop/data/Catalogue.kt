@@ -1226,39 +1226,55 @@ object Catalogue {
      */
     data class MusicVideo(val videoId: String, val lengthSeconds: Int?, val inStep: Boolean)
 
+    private val YOUTUBE_ID = Regex("[A-Za-z0-9_-]{11}")
+
+    /** How many videos found by name are worth trying before giving up on them. */
+    private const val MOST_VIDEOS = 4
+
     /**
-     * The official video for a song, if it has one.
+     * The videos that could stand behind a song, best first.
      *
-     * A song that is already a video is its own answer. Otherwise the videos
-     * under its name are asked for and only the official ones kept — a fan's
-     * lyric video or a live recording is a different thing wearing the same
-     * title — and the one nearest the song's length is taken, since that is
-     * the one most likely to be the record rather than an extended cut.
+     * The song itself if it turned up among the videos, then the official
+     * videos, then anything else under its name, each group with the length
+     * nearest the song's first. A fan's lyric video is a different thing
+     * wearing the same title, but it is still a moving picture of this song,
+     * which beats a still cover. Last comes the song's own address, which on a
+     * record is at worst its artwork.
+     *
+     * Something that is already a video goes first of all, whatever the search
+     * says: anything else under its name is a stranger. It gives itself away by
+     * its picture, which only a video has at that address.
+     *
+     * A failed search leaves only that last one. Something spoken is not looked
+     * for by name at all, since the same title usually belongs to something else.
      */
-    suspend fun musicVideo(track: Track): Result<MusicVideo?> = withContext(Dispatchers.IO) {
-        runCatching {
-            val found = YouTube.search("${track.title} ${track.artist}", YouTube.SearchFilter.FILTER_VIDEO)
-                .getOrThrow()
-                .items
-                .filterIsInstance<SongItem>()
+    suspend fun musicVideos(track: Track): List<MusicVideo> = withContext(Dispatchers.IO) {
+        val own = track.id.takeIf { YOUTUBE_ID.matches(it) }
+            ?.let { MusicVideo(it, track.durationSeconds, inStep = true) }
+        if (track.talk) return@withContext listOfNotNull(own)
 
-            // The song itself turned up among the videos: it is one, and there
-            // is no closer match to be had.
-            found.firstOrNull { it.id == track.id }?.let {
-                return@runCatching MusicVideo(it.id, it.duration ?: track.durationSeconds, inStep = true)
-            }
+        val length = track.durationSeconds
+        val found = YouTube.search("${track.title} ${track.artist}", YouTube.SearchFilter.FILTER_VIDEO)
+            .getOrNull()
+            ?.items
+            ?.filterIsInstance<SongItem>()
+            .orEmpty()
+        val nearestFirst = if (length == null) found
+        else found.sortedBy { kotlin.math.abs((it.duration ?: (Int.MAX_VALUE / 2)) - length) }
+        val best = found.filter { it.id == track.id } +
+            nearestFirst.filter { it.musicVideoType == MUSIC_VIDEO_TYPE_OMV } +
+            nearestFirst.filter { it.musicVideoType != MUSIC_VIDEO_TYPE_OMV }
 
-            val official = found.filter { it.musicVideoType == MUSIC_VIDEO_TYPE_OMV }
-            if (official.isEmpty()) return@runCatching null
-
-            val length = track.durationSeconds
-            val nearest = if (length == null) official.first()
-            else official.minBy { kotlin.math.abs((it.duration ?: Int.MAX_VALUE / 2) - length) }
-            val inStep = length != null && nearest.duration != null &&
-                kotlin.math.abs(nearest.duration!! - length) <= 3
-            MusicVideo(nearest.id, nearest.duration, inStep)
+        val videos = best.take(MOST_VIDEOS).map {
+            val sameCut = length != null && it.duration != null && kotlin.math.abs(it.duration!! - length) <= 3
+            MusicVideo(it.id, it.duration ?: length, inStep = it.id == track.id || sameCut)
         }
+        val isVideo = track.thumbnail?.contains("/vi/${track.id}/") == true
+        (if (isVideo) listOfNotNull(own) + videos else videos + listOfNotNull(own)).distinctBy { it.videoId }
     }
+
+    /** A stream of pictures, and where in the sources to carry on asking if it turns out not to play. */
+    data class Picture(val stream: Stream, val next: Int)
 
     /**
      * Pictures only, no sound, small: what plays behind the player.
@@ -1268,14 +1284,18 @@ object Catalogue {
      * is what those notes are about, and a source that hands over pictures and
      * not sound must not be promoted ahead of one that plays.
      *
-     * Nothing taller than 480 lines: it is drawn faded behind the controls,
-     * where anything sharper is data spent on detail nobody can see. H.264 is
-     * preferred because every machine decodes it cheaply, often in hardware.
+     * Nothing taller than 480 lines while there is a choice: it is drawn faded
+     * behind the controls, where anything sharper is data spent on detail
+     * nobody can see. A video with nothing that small gets its smallest.
+     * H.264 is preferred because every machine decodes it cheaply. The combined
+     * files count as well as the pictures-only ones, since some sources offer
+     * only those; the player is told to ignore their sound.
      */
-    suspend fun picture(videoId: String): Result<Stream> = withContext(Dispatchers.IO) {
+    suspend fun picture(videoId: String, from: Int = 0): Result<Picture> = withContext(Dispatchers.IO) {
         runCatching {
             ensureIdentity()
-            for (source in Streams.chain()) {
+            for ((index, source) in Streams.chain().withIndex()) {
+                if (index < from) continue
                 val stamp = if (source.client.useSignatureTimestamp) {
                     PlayerScript.ready()
                     PlayerScript.timestamp
@@ -1286,19 +1306,22 @@ object Catalogue {
                     .getOrNull() ?: continue
                 if (response.playabilityStatus.status != "OK") continue
 
-                val video = response.streamingData
-                    ?.adaptiveFormats
-                    ?.filter { it.mimeType.startsWith("video") && (it.height ?: Int.MAX_VALUE) <= 480 }
-                    ?.filter { !it.url.isNullOrEmpty() || !offerIn(it).isNullOrEmpty() }
+                val offered = response.streamingData?.let { it.adaptiveFormats + it.formats.orEmpty() }
                     .orEmpty()
-                if (video.isEmpty()) continue
+                    .filter { it.mimeType.startsWith("video") }
+                    .filter { !it.url.isNullOrEmpty() || !offerIn(it).isNullOrEmpty() }
+                if (offered.isEmpty()) continue
 
-                val h264 = video.filter { "avc1" in it.mimeType }
-                val chosen = h264.ifEmpty { video }
-                    .sortedWith(compareByDescending<PlayerResponse.StreamingData.Format> { it.height ?: 0 }.thenBy { it.bitrate })
-                    .first()
+                val small = offered.filter { (it.height ?: Int.MAX_VALUE) <= 480 }
+                val chosen = if (small.isEmpty()) {
+                    offered.minBy { it.height ?: Int.MAX_VALUE }
+                } else {
+                    small.filter { "avc1" in it.mimeType }.ifEmpty { small }
+                        .sortedWith(compareByDescending<PlayerResponse.StreamingData.Format> { it.height ?: 0 }.thenBy { it.bitrate })
+                        .first()
+                }
                 val address = address(chosen, source) ?: continue
-                return@runCatching Stream(address, source.client.userAgent)
+                return@runCatching Picture(Stream(address, source.client.userAgent), index + 1)
             }
             error("No video pictures for $videoId")
         }

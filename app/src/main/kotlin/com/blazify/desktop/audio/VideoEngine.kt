@@ -21,6 +21,7 @@ import org.jetbrains.skia.Image
 import org.jetbrains.skia.ImageInfo
 import uk.co.caprica.vlcj.factory.MediaPlayerFactory
 import uk.co.caprica.vlcj.player.base.MediaPlayer
+import uk.co.caprica.vlcj.player.base.State
 import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
 import uk.co.caprica.vlcj.player.embedded.videosurface.callback.BufferFormat
 import uk.co.caprica.vlcj.player.embedded.videosurface.callback.BufferFormatCallbackAdapter
@@ -51,6 +52,10 @@ import kotlin.math.abs
  * the controls drawn over the picture would both be impossible.
  */
 object VideoEngine {
+
+    private const val NO_PICTURE_NS = 15_000_000_000L
+    private const val RETRY_AFTER_MS = 30_000L
+    private const val MOST_REFUSED = 4
 
     /** Goes up by one for every frame, so whatever draws the picture redraws. */
     var frames by mutableStateOf(0L)
@@ -121,6 +126,9 @@ object VideoEngine {
     private var looked = 0
     private var firstFrameAt = 0L
 
+    /** When a frame last arrived, for noticing a stream that has given nothing or stopped. */
+    @Volatile private var lastFrameAt = 0L
+
     /**
      * The newest frame as a picture, or nothing yet.
      *
@@ -166,6 +174,7 @@ object VideoEngine {
             displayHeight: Int,
         ) {
             if (!taking) return
+            lastFrameAt = System.nanoTime()
             val source = nativeBuffers.firstOrNull() ?: return
             synchronized(lock) {
                 if (pixels.isEmpty()) return
@@ -222,8 +231,11 @@ object VideoEngine {
         if (!AudioEngine.available()) return null
         return runCatching {
             val made = MediaPlayerFactory(
-                // No sound at all, from the machinery up. The stream has none
-                // either, but this is the one place being sure twice is cheap.
+                // No sound at all, from the machinery up. This is the only
+                // silencing it gets: the player's own mute is not a private
+                // switch. Windows keeps volume per program rather than per
+                // player, and Linux keeps it per kind of stream, so muting this
+                // one can silence the song as well.
                 "--no-audio",
                 "--quiet",
                 "--no-video-title-show",
@@ -235,7 +247,6 @@ object VideoEngine {
             )
             val p = made.mediaPlayers().newEmbeddedMediaPlayer()
             p.videoSurface().set(made.videoSurfaces().newVideoSurface(Format, Frames, true))
-            p.audio().setMute(true)
             factory = made
             player = p
             p
@@ -247,7 +258,8 @@ object VideoEngine {
      *
      * Nothing happens on a metered connection — the data saver is the setting
      * that says so — or with no connection at all: the cover stays, and a
-     * picture is not worth a byte somebody is counting.
+     * picture is not worth a byte somebody is counting. Every other song gets
+     * as long a search as it takes; see [run].
      */
     fun show(track: Track) {
         scope.launch { showNow(track) }
@@ -257,7 +269,6 @@ object VideoEngine {
         if (track.id == wantedFor) return
         stopVideo()
         wantedFor = track.id
-        if (track.talk) return
         if (!Net.online || Streams.quality == Streams.Quality.Saver) return
         job = scope.launch { run(track) }
     }
@@ -287,6 +298,11 @@ object VideoEngine {
     private fun stopVideo() {
         job?.cancel()
         job = null
+        clearPicture()
+    }
+
+    /** Stop the stream and forget its pictures, leaving the search for another one running. */
+    private fun clearPicture() {
         taking = false
         runCatching { player?.controls()?.stop() }
         synchronized(lock) {
@@ -304,11 +320,41 @@ object VideoEngine {
         showingFor = null
     }
 
+    /**
+     * Keep going until a picture is on screen.
+     *
+     * Each video is tried from two sources, and each video on the list after
+     * that, because a stream can be handed over and still be refused when it is
+     * fetched. One look round again after a wait covers a connection that came
+     * back. The limit is on streams that gave no picture: past a few of those
+     * the trouble is here rather than with the video, and asking on for every
+     * song only gets this address noticed by YouTube.
+     */
     private suspend fun run(track: Track) {
-        val chosen = Catalogue.musicVideo(track).getOrNull() ?: return
-        val stream = Catalogue.picture(chosen.videoId).getOrNull() ?: return
-        if (!currentCoroutineContext().isActive || wantedFor != track.id) return
-        val p = player() ?: return
+        var refused = 0
+        repeat(2) { round ->
+            if (round > 0) delay(RETRY_AFTER_MS)
+            for (chosen in Catalogue.musicVideos(track)) {
+                var from = 0
+                for (attempt in 1..2) {
+                    if (!currentCoroutineContext().isActive || wantedFor != track.id) return
+                    val picture = Catalogue.picture(chosen.videoId, from).getOrNull() ?: break
+                    from = picture.next
+                    if (play(track, chosen, picture.stream)) return
+                    if (++refused >= MOST_REFUSED) {
+                        clearPicture()
+                        return
+                    }
+                }
+            }
+        }
+        clearPicture()
+    }
+
+    /** Play one stream for as long as it is wanted. False if it gave no picture, or stopped giving one. */
+    private suspend fun play(track: Track, chosen: Catalogue.MusicVideo, stream: Catalogue.Stream): Boolean {
+        clearPicture()
+        val p = player() ?: return true
 
         val songLength = AudioEngine.duration.takeIf { it > 0 } ?: track.durationSeconds?.toDouble()
         val options = buildList {
@@ -329,19 +375,33 @@ object VideoEngine {
 
         showingFor = track.id
         taking = true
-        if (!runCatching { p.media().play(stream.url, *options) }.getOrDefault(false)) return
+        lastFrameAt = System.nanoTime()
+        if (!runCatching { p.media().play(stream.url, *options) }.getOrDefault(false)) return false
         if (held || !AudioEngine.playing) runCatching { p.controls().setPause(true) }
 
         var rate = 1f
         while (currentCoroutineContext().isActive && wantedFor == track.id) {
             delay(250)
             val shouldPlay = AudioEngine.playing && !held
+            when (runCatching { p.status().state() }.getOrNull()) {
+                State.ERROR -> return false
+                State.ENDED -> return true
+                else -> {}
+            }
             val running = runCatching { p.status().isPlaying }.getOrDefault(false)
             if (shouldPlay != running) runCatching { p.controls().setPause(!shouldPlay) }
-            if (!shouldPlay || !chosen.inStep) continue
 
-            rate = steer(p, rate)
+            // No frames are owed while it is told to wait, or while the song
+            // itself is waiting on the network.
+            if (!shouldPlay || AudioEngine.buffering || AudioEngine.loading) {
+                lastFrameAt = System.nanoTime()
+                continue
+            }
+            if (System.nanoTime() - lastFrameAt > NO_PICTURE_NS) return false
+
+            if (chosen.inStep) rate = steer(p, rate)
         }
+        return true
     }
 
     /**
