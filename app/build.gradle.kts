@@ -176,7 +176,13 @@ compose.desktop {
             //
             // Found by making that failure speak rather than by guessing:
             // NoClassDefFoundError, com.sun.security.auth.module.UnixSystem.
-            modules("jdk.security.auth", "jdk.crypto.ec", "java.instrument")
+            // jdk.unsupported is how the video library hands each frame over.
+            // Without it the song still plays and every picture silently fails,
+            // and nothing run from source shows it, because the full JDK has it.
+            modules(
+                "java.instrument", "java.management", "java.prefs", "java.sql",
+                "jdk.crypto.ec", "jdk.security.auth", "jdk.unsupported",
+            )
 
             // Files copied in beside the application. The Windows folder holds
             // the audio library, so a Windows install needs nothing else.
@@ -457,6 +463,15 @@ tasks.register<JavaExec>("videoProbe") {
     group = "verification"
     description = "Choose one song's music video, fetch its pictures and decode a few seconds"
     mainClass.set("com.blazify.desktop.tools.video.VideoProbeKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
+// The real engine beside a song really playing: are pictures arriving and shown.
+//   ./gradlew :app:stageProbe --args="kesariya"
+tasks.register<JavaExec>("stageProbe") {
+    group = "verification"
+    description = "Run the Video look's engine beside a playing song and report its frames"
+    mainClass.set("com.blazify.desktop.tools.video.StageProbeKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 

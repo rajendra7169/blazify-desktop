@@ -78,6 +78,10 @@ object VideoEngine {
     var showingFor by mutableStateOf<String?>(null)
         private set
 
+    /** Which video is up, for the tools that report on this. */
+    @Volatile var playingVideo: String? = null
+        private set
+
     /**
      * One thread of its own for every instruction to the player.
      *
@@ -244,6 +248,13 @@ object VideoEngine {
                 // pixels for the window, and the player then shows nothing at
                 // all. At 480 lines the processor does not notice the work.
                 "--avcodec-hw=none",
+                // Decoded into memory of its own. Straight into the pictures
+                // waiting to be shown, the decoder runs out of them while the
+                // clock is still at the start or after a jump, loses a frame
+                // others are built on, and shows grey blocks until the next
+                // whole picture comes along.
+                "--no-avcodec-dr",
+                "--no-avcodec-corrupted",
             )
             val p = made.mediaPlayers().newEmbeddedMediaPlayer()
             p.videoSurface().set(made.videoSurfaces().newVideoSurface(Format, Frames, true))
@@ -373,6 +384,7 @@ object VideoEngine {
             }
         }.toTypedArray()
 
+        playingVideo = chosen.videoId
         showingFor = track.id
         taking = true
         lastFrameAt = System.nanoTime()
