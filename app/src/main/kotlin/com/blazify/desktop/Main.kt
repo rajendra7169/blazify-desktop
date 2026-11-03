@@ -22,6 +22,7 @@ import com.blazify.desktop.data.MediaKeys
 import com.blazify.desktop.data.Offline
 import com.blazify.desktop.data.Panel
 import com.blazify.desktop.data.Paxsenix
+import com.blazify.desktop.ui.TitleBar
 import com.blazify.desktop.ui.AppShell
 import com.blazify.desktop.ui.Blaze
 import com.blazify.desktop.ui.BlazifyTheme
@@ -104,7 +105,9 @@ private fun run() = application {
             alwaysOnTop = true,
             onKeyEvent = { Shortcuts.handle(it, typing = false) },
         ) {
-            BlazifyTheme(dark = ThemeState.isDark()) {
+            val dark = ThemeState.isDark()
+            LaunchedEffect(dark) { TitleBar.follow(window, dark) }
+            BlazifyTheme(dark = dark) {
                 MiniPlayer(onExpand = WindowMode::full)
             }
         }
@@ -131,6 +134,8 @@ private fun run() = application {
     ) {
         window.minimumSize = java.awt.Dimension(940, 600)
 
-        BlazifyTheme(dark = ThemeState.isDark()) { AppShell() }
+        val dark = ThemeState.isDark()
+        LaunchedEffect(dark) { TitleBar.follow(window, dark) }
+        BlazifyTheme(dark = dark) { AppShell() }
     }
 }
