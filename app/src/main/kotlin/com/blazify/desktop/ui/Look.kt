@@ -393,6 +393,7 @@ object Look {
         chooseAccent(Accent.Blaze)
         chooseDynamicColour(true)
         chooseTintedWindow(true)
+        choosePureBlack(false)
     }
 
     fun resetSlider() = chooseSliderStyle(SliderStyle.Capsule)
@@ -406,7 +407,6 @@ object Look {
 
     fun resetOpening() {
         chooseStartTab(Destination.Home)
-        choosePureBlack(false)
         chooseShowGreeting(true)
     }
 

@@ -78,8 +78,10 @@ private val NightColors = BlazeColors(
     hover = Color(0xFF1C1C20),
     line = Color(0xFF26262B),
     ink = Color(0xFFF5F3F0),
-    muted = Color(0xFF8A8580),
-    dim = Color(0xFF57534E),
+    // Both kept at 4.5:1 or better against every ground they sit on, so the
+    // quietest line on a card still reads on a dim screen.
+    muted = Color(0xFFABA6A0),
+    dim = Color(0xFF8C8782),
     skeleton = Color(0xFF1A1A1E),
     skeletonSheen = Color(0xFF2A2A31),
 )
@@ -95,8 +97,8 @@ private val DayColors = BlazeColors(
     hover = Color(0xFFEDE8E1),
     line = Color(0xFFE3DCD2),
     ink = Color(0xFF1A1714),
-    muted = Color(0xFF6E655C),
-    dim = Color(0xFF9A928A),
+    muted = Color(0xFF595149),
+    dim = Color(0xFF736B63),
     skeleton = Color(0xFFEDE8E1),
     skeletonSheen = Color(0xFFF7F4EF),
 )
@@ -203,8 +205,8 @@ private fun tinted(base: BlazeColors, accent: Accent): BlazeColors {
             // the text belongs to the window instead of sitting on top of it —
             // and still reads at full strength against the ground.
             ink = shade(0.04f, 0.97f),
-            muted = shade(0.12f, 0.70f),
-            dim = shade(0.16f, 0.48f),
+            muted = shade(0.12f, 0.78f),
+            dim = shade(0.16f, 0.64f),
             skeleton = shade(0.32f, 0.18f),
             skeletonSheen = shade(0.28f, 0.25f),
         )
@@ -220,8 +222,8 @@ private fun tinted(base: BlazeColors, accent: Accent): BlazeColors {
             hover = shade(0.14f, 0.915f),
             line = shade(0.17f, 0.87f),
             ink = shade(0.45f, 0.13f),
-            muted = shade(0.25f, 0.45f),
-            dim = shade(0.18f, 0.63f),
+            muted = shade(0.25f, 0.33f),
+            dim = shade(0.18f, 0.44f),
             skeleton = shade(0.11f, 0.93f),
             skeletonSheen = shade(0.06f, 0.98f),
         )

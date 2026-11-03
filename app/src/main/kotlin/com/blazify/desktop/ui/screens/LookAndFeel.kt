@@ -105,6 +105,7 @@ fun LookAndFeelSection(
             }
             Switch("Take the colour from the artwork", Look.dynamicColour, Look::chooseDynamicColour)
             Switch("Colour the whole window, not just the accent", Look.tintedWindow, Look::chooseTintedWindow)
+            Switch("Pure black in dark mode, best on OLED screens", Look.pureBlack, Look::choosePureBlack)
             Text(
                 if (Look.dynamicColour) "Following the cover of whatever is playing"
                 else "${Look.picked.label} — used for whatever is playing, and nothing else",
@@ -178,7 +179,6 @@ fun LookAndFeelSection(
             ) { picked ->
                 Destination.entries.firstOrNull { it.label == picked }?.let(Look::chooseStartTab)
             }
-            Switch("Pure black", Look.pureBlack, Look::choosePureBlack)
             Switch("Greeting on the home screen", Look.showGreeting, Look::chooseShowGreeting)
         }
     }
