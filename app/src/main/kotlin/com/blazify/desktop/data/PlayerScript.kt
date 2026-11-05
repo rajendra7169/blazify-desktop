@@ -55,13 +55,13 @@ object PlayerScript {
      *
      * The first is our own copy, kept in step by a scheduled job so playing a
      * song doesn't depend on somebody else's repository staying where it is. The
-     * second is the same file through a network that serves it where the first
-     * is blocked. The third is the table itself, asked when our copy can't be
+     * second is an older copy, no longer updated but still knowing every player
+     * up to then, through a network that serves it where the first is blocked. The third is the table itself, asked when our copy can't be
      * read or doesn't know this player yet — the hours before the job catches
      * up, or if the job ever stops.
      */
     private val TABLES = listOf(
-        "https://raw.githubusercontent.com/rajendra7169/blazify/player-configs/player_configs.json",
+        "https://gitlab.com/hackerraja7169/blazify/-/raw/player-configs/player_configs.json",
         "https://cdn.jsdelivr.net/gh/rajendra7169/blazify@player-configs/player_configs.json",
         "https://raw.githubusercontent.com/MetrolistGroup/faraday/master/registry/player_configs.json",
     )
