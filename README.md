@@ -31,7 +31,7 @@ you want the source.
 | **Android**<br><sub>phones and tablets</sub> | [rajendra7169/blazify](https://github.com/rajendra7169/blazify) |
 | **Windows**<br><sub>installer</sub> | [rajendra7169/blazify-desktop](https://github.com/rajendra7169/blazify-desktop) **← you are here** |
 | **Linux**<br><sub>deb, AppImage or tar.gz</sub> | [rajendra7169/blazify-desktop](https://github.com/rajendra7169/blazify-desktop) **← you are here** |
-| **iPhone**<br><sub>sideloaded</sub> | [rajendra7169/blazify-ios](https://github.com/rajendra7169/blazify-ios) |
+| **iPhone**<br><sub>sideloaded</sub> | [rajendra7169/blazify-ios](https://github.com/rajendra7169/blazify-ios) · ▶ [how to install (video)](https://youtu.be/H0TF7mbJVbM) |
 
 Screenshots, install guides and everything else: **[blazify website](https://rajendra7169.github.io/blazify/)**
 
