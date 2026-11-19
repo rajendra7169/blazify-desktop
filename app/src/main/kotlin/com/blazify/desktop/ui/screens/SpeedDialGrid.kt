@@ -92,7 +92,9 @@ private fun Tile(dial: SpeedDial.Dial) {
                 round = false,
                 title = dial.track.title,
                 detail = dial.track.artist,
-            ) { PlayerState.play(listOf(dial.track), 0) }
+            // The song, then songs like it: on its own the queue ended with it and Next had
+            // nowhere to go.
+            ) { PlayerState.startRadio(dial.track) }
         }
         // Their songs you've played most, most first: the reason they're here.
         is SpeedDial.Dial.Artist -> TileBody(

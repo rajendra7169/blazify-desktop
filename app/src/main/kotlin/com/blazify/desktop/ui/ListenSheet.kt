@@ -204,7 +204,7 @@ private fun Found(song: Recognise.Heard, onDismiss: () -> Unit) {
                 .firstOrNull()
             looking = false
             if (found != null) {
-                PlayerState.play(listOf(found), 0, "Heard just now")
+                PlayerState.startRadio(found)
                 onDismiss()
             }
         }
