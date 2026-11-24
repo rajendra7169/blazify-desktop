@@ -25,3 +25,6 @@ Screenshots/
 
 # Release artefacts, built not committed
 *.tar.gz
+
+# Python caches from the scripts/ tools
+__pycache__/
